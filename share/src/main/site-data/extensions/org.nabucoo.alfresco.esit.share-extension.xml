@@ -1,0 +1,16 @@
+<extension>
+    <modules>
+        <module>
+            <id>${project.artifactId} Extension</id>
+
+            <components>
+            
+            </components>
+
+
+            <customizations>
+
+            </customizations>
+        </module>
+    </modules>
+</extension>
