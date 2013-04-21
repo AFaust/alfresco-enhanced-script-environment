@@ -3,7 +3,7 @@
     xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
     <groupId>org.nabucco.alfresco</groupId>
-    <artifactId>org.nabucoo.alfresco.enhScriptEnv</artifactId>
+    <artifactId>org.nabucco.alfresco.enhScriptEnv</artifactId>
     <version>0.0.1.0-SNAPSHOT</version>
     <packaging>pom</packaging>
 
@@ -11,7 +11,6 @@
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 
         <alfresco.version>4.1.3</alfresco.version>
-        <alfresco.patch.version>${alfresco.version}.0.1-SNAPSHOT</alfresco.patch.version>
 
         <!-- Default distribution target if not overriden by profile -->
         <!-- <distribution.repo.release.id></distribution.repo.release.id> <distribution.repo.release.name></distribution.repo.release.name> <distribution.repo.release.url></distribution.repo.release.url> 

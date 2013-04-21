@@ -49,22 +49,18 @@ import org.springframework.beans.factory.InitializingBean;
 import org.springframework.util.FileCopyUtils;
 
 /**
- * @author <a href="mailto:axel.faust@prodyna.com">Axel Faust</a>, <a href="http://www.prodyna.com">PRODYNA AG</a>
+ * @author Axel Faust, <a href="http://www.prodyna.com">PRODYNA AG</a>
  */
 public class RhinoScriptProcessor extends BaseProcessor implements EnhancedScriptProcessor, InitializingBean
 {
-    private static final String NODE_REF_RESOURCE_IMPORT_PATTERN = "^<import(\\s*\\n*\\s*)*resource(\\s*\\n*\\s*)*=(\\s*\\n*\\s*)*\"(([^:]+)://([^/]+)/([a-f0-9]+(-[a-f0-9]+)+))\"(\\s*\\n*\\s*)*(/)?>";
+    private static final String NODE_REF_RESOURCE_IMPORT_PATTERN = "<import(\\s*\\n*\\s+)+resource(\\s*\\n*\\s*+)*=(\\s*\\n*\\s+)*\"(([^:]+)://([^/]+)/([a-f0-9]+(-[a-f0-9]+)+))\"(\\s*\\n*\\s+)*(/)?>";
     private static final String NODE_REF_RESOURCE_IMPORT_REPLACEMENT = "importScript(\"node\", \"$4\");";
 
-    private static final String XPATH_RESOURCE_IMPORT_PATTERN = "^<import(\\s*\\n*\\s*)*resource(\\s*\\n*\\s*)*=(\\s*\\n*\\s*)*\"(/[^\"]+)\"(\\s*\\n*\\s*)*(/)?>";
-    private static final String XPATH_RESOURCE_IMPORT_REPLACEMENT = "importScript(\"xpath\", \"$4\");";
+    private static final String LEGACY_NAME_PATH_RESOURCE_IMPORT_PATTERN = "<import(\\s*\\n*\\s+)+resource(\\s*\\n*\\s+)*=(\\s*\\n*\\s+)*\"(/[^\"]+)\"(\\s*\\n*\\s+)*(/)?>";
+    private static final String LEGACY_NAME_PATH_RESOURCE_IMPORT_REPLACEMENT = "importScript(\"legacyNamePath\", \"$4\");";
 
-    private static final String CLASSPATH_RESOURCE_IMPORT_PATTERN = "^<import(\\s*\\n*\\s*)*resource(\\s*\\n*\\s*)*=(\\s*\\n*\\s*)*\"classpath:([^\"]+)\"(\\s*\\n*\\s*)*(/)?>";
+    private static final String CLASSPATH_RESOURCE_IMPORT_PATTERN = "<import(\\s*\\n*\\s+)+resource(\\s*\\n*\\s+)*=(\\s*\\n*\\s+)*\"classpath:([^\"]+)\"(\\s*\\n*\\s+)*(/)?>";
     private static final String CLASSPATH_RESOURCE_IMPORT_REPLACEMENT = "importScript(\"classpath\", \"$4\");";
-
-    // this is actually not supported in the default RhinoScriptProcessor
-    private static final String RELATIVE_PATH_RESOURCE_IMPORT_PATTERN = "^<import(\\s*\\n*\\s*)*resource(\\s*\\n*\\s*)*=(\\s*\\n*\\s*)*\"([^\"]+)\"(\\s*\\n*\\s*)*(/)?>";
-    private static final String RELATIVE_PATH_RESOURCE_IMPORT_REPLACEMENT = "importScript(\"relative\", \"$4\");";
 
     protected static final WrapFactory DEFAULT_WRAP_FACTORY = new WrapFactory()
     {
@@ -346,12 +342,20 @@ public class RhinoScriptProcessor extends BaseProcessor implements EnhancedScrip
         this.shareSealedScopes = shareSealedScopes;
     }
 
-    public final void setScriptLocators(final Map<String, ScriptLocator> scriptLocators)
+    /**
+     * 
+     * {@inheritDoc}
+     */
+    @Override
+    public final void registerScriptLocator(final String name, final ScriptLocator scriptLocator)
     {
-        this.scriptLocators.clear();
-        if (scriptLocators != null)
+        ParameterCheck.mandatoryString("name", name);
+        ParameterCheck.mandatory("scriptLocator", scriptLocator);
+
+        final ScriptLocator replaced = this.scriptLocators.put(name, scriptLocator);
+        if (replaced != null)
         {
-            this.scriptLocators.putAll(scriptLocators);
+            LOGGER.warn("ScriptLocator {} overriden by {} with name {}", replaced, scriptLocator, name);
         }
     }
 
@@ -399,15 +403,16 @@ public class RhinoScriptProcessor extends BaseProcessor implements EnhancedScrip
         final String path = location.getPath();
 
         // check if the path is in external form containing a protocol identifier
+        // TODO: can we generalize external form file:// to a classpath-relative location?
         final String realPath;
-        if (path.matches("^([^:/ ]+:)+//.*$"))
+        if (!path.matches("^(classpath(\\*)?:)+.*$"))
         {
-            // TODO: can we generalize file:// paths to classpath:// for simplicity?
+            // take path as is, either already a file:// path or StoreRef-prefixed node path
             realPath = path;
         }
         else
         {
-            // we always want to have a fully-qualified protocol path
+            // we always want to have a fully-qualified file-protocol path (unless we can generalize all to classpath-relative locations)
             realPath = getClass().getClassLoader().getResource(path).toExternalForm();
         }
 
@@ -510,12 +515,10 @@ public class RhinoScriptProcessor extends BaseProcessor implements EnhancedScrip
         final String classpathResolvedScript = script.replaceAll(CLASSPATH_RESOURCE_IMPORT_PATTERN, CLASSPATH_RESOURCE_IMPORT_REPLACEMENT);
         final String nodeRefResolvedScript = classpathResolvedScript.replaceAll(NODE_REF_RESOURCE_IMPORT_PATTERN,
                 NODE_REF_RESOURCE_IMPORT_REPLACEMENT);
-        final String xpathResolvedScript = nodeRefResolvedScript.replaceAll(XPATH_RESOURCE_IMPORT_PATTERN,
-                XPATH_RESOURCE_IMPORT_REPLACEMENT);
-        final String relativePathResolvedScript = xpathResolvedScript.replaceAll(RELATIVE_PATH_RESOURCE_IMPORT_PATTERN,
-                RELATIVE_PATH_RESOURCE_IMPORT_REPLACEMENT);
+        final String legacyNamePathResolvedScript = nodeRefResolvedScript.replaceAll(LEGACY_NAME_PATH_RESOURCE_IMPORT_PATTERN,
+                LEGACY_NAME_PATH_RESOURCE_IMPORT_REPLACEMENT);
 
-        return relativePathResolvedScript;
+        return legacyNamePathResolvedScript;
     }
 
     /**
@@ -768,11 +771,8 @@ public class RhinoScriptProcessor extends BaseProcessor implements EnhancedScrip
 
         // process different import variants
         script = script.replaceAll(CLASSPATH_RESOURCE_IMPORT_PATTERN, CLASSPATH_RESOURCE_IMPORT_REPLACEMENT);
-        script = script.replaceAll(XPATH_RESOURCE_IMPORT_PATTERN, XPATH_RESOURCE_IMPORT_REPLACEMENT);
+        script = script.replaceAll(LEGACY_NAME_PATH_RESOURCE_IMPORT_PATTERN, LEGACY_NAME_PATH_RESOURCE_IMPORT_REPLACEMENT);
         script = script.replaceAll(NODE_REF_RESOURCE_IMPORT_PATTERN, NODE_REF_RESOURCE_IMPORT_REPLACEMENT);
-
-        // actually not supported by original RhinoProcessor
-        script = script.replaceAll(RELATIVE_PATH_RESOURCE_IMPORT_PATTERN, RELATIVE_PATH_RESOURCE_IMPORT_REPLACEMENT);
 
         System.out.println(script);
     }

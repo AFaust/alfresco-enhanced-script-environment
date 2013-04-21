@@ -7,7 +7,7 @@ import org.alfresco.service.cmr.repository.ScriptLocation;
 import org.alfresco.service.cmr.repository.ScriptProcessor;
 
 /**
- * @author <a href="mailto:axel.faust@prodyna.com">Axel Faust</a>, <a href="http://www.prodyna.com">PRODYNA AG</a>
+ * @author Axel Faust, <a href="http://www.prodyna.com">PRODYNA AG</a>
  */
 public interface EnhancedScriptProcessor extends ScriptProcessor
 {
@@ -32,4 +32,14 @@ public interface EnhancedScriptProcessor extends ScriptProcessor
      *         {@code null} if either no script is currently being executed or the script being executed is of a dynamic nature.
      */
     public ScriptLocation getContextScriptLocation();
+
+    /**
+     * Registers a specific script locator with the script processor.
+     * 
+     * @param name
+     *            the name of the locator - to be used in import calls within script files
+     * @param scriptLocator
+     *            the script locator
+     */
+    public void registerScriptLocator(String name, ScriptLocator scriptLocator);
 }

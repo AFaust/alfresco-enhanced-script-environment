@@ -6,4 +6,46 @@
     <!-- Note: All beans should be prefixed ${project.artifactId} in their ID in gerneral -->
     <!-- Exceptions: service beans (unique name) and beans with name conventions (e.g. web scripts) -->
 
+    <bean id="javaScriptProcessor" class="${basePackage}.script.RhinoScriptProcessor" init-method="register">
+        <property name="name" value="javascript" />
+        <property name="extension" value="js" />
+        <!-- compile javascript and cache compiled scripts -->
+        <property name="compile" value="true" />
+        <!-- allow sharing of sealed scopes for performance -->
+        <!-- disable to give each script it's own new scope which can be extended -->
+        <property name="shareSealedScopes" value="true" />
+        <property name="scriptService" ref="scriptService" />
+        <!-- Creates ScriptNodes which require the ServiceRegistry -->
+        <property name="serviceRegistry" ref="ServiceRegistry" />
+    </bean>
+    
+    <bean id="baseScriptLocator" abstract="true">
+        <property name="scriptProcessor" ref="javaScriptProcessor" />
+    </bean>
+    
+    <bean id="legacyNamePathScriptLocator" class="${basePackage}.script.LegacyNamePathScriptLocator" parent="baseScriptLocator">
+        <property name="name" value="legacyNamePath" />
+        <property name="serviceRegistry" ref="ServiceRegistry" />
+        <property name="namespaceService" ref="NamespaceService" />
+        <property name="nodeService" ref="NodeService" />
+        <property name="fileFolderService" ref="FileFolderService" />
+        <property name="searchService" ref="SearchService" />
+        <property name="contentService" ref="ContentService" />
+        <property name="storeRef" value="${spaces.store}" />
+        <property name="storePath" value="${spaces.company_home.childname}" />
+    </bean>
+    
+    <bean id="xPathScriptLocator" class="${basePackage}.script.XPathScriptLocator" parent="baseScriptLocator">
+        <property name="name" value="xpath" />
+        <property name="serviceRegistry" ref="ServiceRegistry" />
+        <property name="namespaceService" ref="NamespaceService" />
+        <property name="nodeService" ref="NodeService" />
+        <property name="searchService" ref="SearchService" />
+        <property name="contentService" ref="ContentService" />
+        <property name="defaultStoreRef" value="${spaces.store}" />
+    </bean>
+    
+    <bean id="classpathScriptLocator" class="${basePackage}.script.ClasspathScriptLocator" parent="baseScriptLocator">
+        <property name="name" value="classpath" />
+    </bean>
 </beans>
