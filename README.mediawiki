@@ -1,0 +1,13 @@
+=Enhanced Script Environment Add-On for Alfresco=
+
+==Getting Started==
+
+[[TODO]]
+
+==Usage==
+
+[[TODO]]
+
+==License==
+
+Eclipse Public License 1.0 - see LICENCE
