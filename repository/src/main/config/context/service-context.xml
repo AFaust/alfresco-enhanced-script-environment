@@ -6,7 +6,7 @@
     <!-- Note: All beans should be prefixed ${project.artifactId} in their ID in gerneral -->
     <!-- Exceptions: service beans (unique name) and beans with name conventions (e.g. web scripts) -->
 
-    <bean id="javaScriptProcessor" class="${basePackage}.script.RhinoScriptProcessor" init-method="register">
+    <bean id="javaScriptProcessor" class="${basePackage}.script.RhinoScriptProcessor">
         <property name="name" value="javascript" />
         <property name="extension" value="js" />
         <!-- compile javascript and cache compiled scripts -->

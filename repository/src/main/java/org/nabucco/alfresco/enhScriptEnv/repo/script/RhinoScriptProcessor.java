@@ -1,12 +1,31 @@
-/**
+/*
+ * Copyright 2013 PRODYNA AG
+ *
+ * Licensed under the Eclipse Public License (EPL), Version 1.0 (the "License"); you may not use
+ * this file except in compliance with the License. You may obtain a copy of the License at
+ *
+ * http://www.opensource.org/licenses/eclipse-1.0.php or
+ * http://www.nabucco.org/License.html
+ *
+ * Unless required by applicable law or agreed to in writing, software distributed under the
+ * License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND,
+ * either express or implied. See the License for the specific language governing permissions
+ * and limitations under the License.
+ */
+/*
+ * This file is a partial re-implementation of the Java class org.alfresco.repo.jscript.RhinoScriptProcessor, which itself is
  * 
+ * Copyright (C) 2005-2012 Alfresco Software Limited.
+ * 
+ * and licensed under LGPL 3 (http://www.gnu.org/licenses/).
+ * 
+ * The original source of this file can be found in the Alfresco public SVN http://svn.alfresco.com/repos/alfresco-open-mirror/alfresco
+ * The revision used as the basis for this partial re-implementation can be retrieved via http://svn.alfresco.com/repos/alfresco-open-mirror/alfresco/COMMUNITYTAGS/V4.2c/root/projects/repository/source/java/org/alfresco/repo/jscript/RhinoScriptProcessor.java
  */
 package org.nabucco.alfresco.enhScriptEnv.repo.script;
 
-import java.io.BufferedReader;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.io.InputStreamReader;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedList;
@@ -151,6 +170,8 @@ public class RhinoScriptProcessor extends BaseProcessor implements EnhancedScrip
         {
             Context.exit();
         }
+        
+        super.register();
     }
 
     /**
@@ -761,19 +782,5 @@ public class RhinoScriptProcessor extends BaseProcessor implements EnhancedScrip
         }
 
         return newModel;
-    }
-
-    public static void main(String... args) throws Exception
-    {
-        final BufferedReader reader = new BufferedReader(new InputStreamReader(System.in));
-        // get input for manual test
-        String script = reader.readLine();
-
-        // process different import variants
-        script = script.replaceAll(CLASSPATH_RESOURCE_IMPORT_PATTERN, CLASSPATH_RESOURCE_IMPORT_REPLACEMENT);
-        script = script.replaceAll(LEGACY_NAME_PATH_RESOURCE_IMPORT_PATTERN, LEGACY_NAME_PATH_RESOURCE_IMPORT_REPLACEMENT);
-        script = script.replaceAll(NODE_REF_RESOURCE_IMPORT_PATTERN, NODE_REF_RESOURCE_IMPORT_REPLACEMENT);
-
-        System.out.println(script);
     }
 }
