@@ -87,7 +87,7 @@ public class ImportScriptFunction extends AbstractFunction
 
                     if (location == null)
                     {
-                        LOGGER.info("Unable to resolve script location [{0}] via locator [{1}]", locationValue, locatorType);
+                        LOGGER.info("Unable to resolve script location [{}] via locator [{}]", locationValue, locatorType);
 
                         if (failOnMissingScript)
                         {
@@ -104,7 +104,7 @@ public class ImportScriptFunction extends AbstractFunction
                 }
                 else
                 {
-                    LOGGER.warn("Unknown script locator [{0}]", locatorType);
+                    LOGGER.warn("Unknown script locator [{}]", locatorType);
 
                     if (failOnMissingScript)
                     {

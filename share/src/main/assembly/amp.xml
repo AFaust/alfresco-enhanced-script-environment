@@ -15,6 +15,7 @@
             </includes>
             <excludes>
                 <exclude>**/dummy.txt</exclude>
+                <exclude>**/.gitignore</exclude>
             </excludes>
             <filtered>false</filtered>
         </fileSet>
@@ -24,6 +25,7 @@
             <excludes>
                 <exclude>**/*.ftl</exclude>
                 <exclude>**/dummy.txt</exclude>
+                <exclude>**/.gitignore</exclude>
             </excludes>
             <filtered>true</filtered>
         </fileSet>
@@ -32,6 +34,7 @@
             <outputDirectory>site-webscripts</outputDirectory>
             <excludes>
                 <exclude>**/dummy.txt</exclude>
+                <exclude>**/.gitignore</exclude>
             </excludes>
             <filtered>false</filtered>
         </fileSet>
@@ -40,6 +43,7 @@
             <outputDirectory>site-data</outputDirectory>
             <excludes>
                 <exclude>**/dummy.txt</exclude>
+                <exclude>**/.gitignore</exclude>
             </excludes>
             <filtered>true</filtered>
         </fileSet>
@@ -48,6 +52,7 @@
             <outputDirectory>templates</outputDirectory>
             <excludes>
                 <exclude>**/dummy.txt</exclude>
+                <exclude>**/.gitignore</exclude>
             </excludes>
             <filtered>false</filtered>
         </fileSet>
@@ -56,6 +61,7 @@
             <outputDirectory>messages</outputDirectory>
             <excludes>
                 <exclude>**/dummy.txt</exclude>
+                <exclude>**/.gitignore</exclude>
             </excludes>
             <filtered>true</filtered>
         </fileSet>
@@ -65,6 +71,7 @@
             <excludes>
                 <exclude>WEB-INF/**/*</exclude>
                 <exclude>**/dummy.txt</exclude>
+                <exclude>**/.gitignore</exclude>
             </excludes>
             <filtered>false</filtered>
         </fileSet>
@@ -73,6 +80,7 @@
             <outputDirectory>web</outputDirectory>
             <excludes>
                 <exclude>**/dummy.txt</exclude>
+                <exclude>**/.gitignore</exclude>
             </excludes>
             <filtered>false</filtered>
         </fileSet>
@@ -82,6 +90,9 @@
             <includes>
                 <include>*.properties</include>
             </includes>
+            <excludes>
+                <exclude>**/.gitignore</exclude>
+            </excludes>
             <filtered>true</filtered>
         </fileSet>
     </fileSets>
