@@ -19,6 +19,7 @@ import java.util.Map;
 import org.alfresco.scripts.ScriptException;
 import org.alfresco.service.cmr.repository.ScriptLocation;
 import org.mozilla.javascript.Context;
+import org.mozilla.javascript.IdFunctionCall;
 import org.mozilla.javascript.IdFunctionObject;
 import org.mozilla.javascript.ScriptRuntime;
 import org.mozilla.javascript.Scriptable;
@@ -32,10 +33,8 @@ import org.slf4j.LoggerFactory;
  * 
  * @author Axel Faust, <a href="http://www.prodyna.com">PRODYNA AG</a>
  */
-public class ImportScriptFunction extends AbstractFunction
+public class ImportScriptFunction implements IdFunctionCall
 {
-    private static final long serialVersionUID = 5343930372054757549L;
-
     private static final Logger LOGGER = LoggerFactory.getLogger(ImportScriptFunction.class);
 
     public static final int IMPORT_FUNC_ID = 0;
@@ -54,12 +53,6 @@ public class ImportScriptFunction extends AbstractFunction
         super();
         this.scriptProcessor = scriptProcessor;
         this.scriptLocators = scriptLocators;
-    }
-
-    @Override
-    public String getClassName()
-    {
-        return ImportScriptFunction.class.getName();
     }
 
     @Override

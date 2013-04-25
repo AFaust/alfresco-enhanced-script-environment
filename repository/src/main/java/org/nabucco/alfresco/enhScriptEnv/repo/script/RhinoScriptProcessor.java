@@ -152,7 +152,7 @@ public class RhinoScriptProcessor extends BaseProcessor implements EnhancedScrip
         try
         {
             cx.setWrapFactory(this.wrapFactory);
-            this.secureScope = initScope(cx, false, true);
+            this.secureScope = this.initScope(cx, false, true);
         }
         finally
         {
@@ -164,13 +164,13 @@ public class RhinoScriptProcessor extends BaseProcessor implements EnhancedScrip
         try
         {
             cx.setWrapFactory(this.wrapFactory);
-            this.nonSecureScope = initScope(cx, true, true);
+            this.nonSecureScope = this.initScope(cx, true, true);
         }
         finally
         {
             Context.exit();
         }
-        
+
         super.register();
     }
 
@@ -181,8 +181,8 @@ public class RhinoScriptProcessor extends BaseProcessor implements EnhancedScrip
     public Object execute(final ScriptLocation location, final Map<String, Object> model)
     {
         ParameterCheck.mandatory("location", location);
-        Script script = getCompiledScript(location);
-        updateLocationStackBeforeExceution();
+        final Script script = this.getCompiledScript(location);
+        this.updateLocationStackBeforeExceution();
         try
         {
             this.activeScriptLocationStack.get().add(location);
@@ -190,19 +190,19 @@ public class RhinoScriptProcessor extends BaseProcessor implements EnhancedScrip
             String debugScriptName = null;
             if (CALL_LOGGER.isDebugEnabled())
             {
-                String path = location.getPath();
-                int i = path.lastIndexOf('/');
-                debugScriptName = (i != -1) ? path.substring(i + 1) : path;
+                final String path = location.getPath();
+                final int i = path.lastIndexOf('/');
+                debugScriptName = i != -1 ? path.substring(i + 1) : path;
             }
-            return executeScriptImpl(script, model, location.isSecure(), debugScriptName);
+            return this.executeScriptImpl(script, model, location.isSecure(), debugScriptName);
         }
-        catch (Throwable err)
+        catch (final Throwable err)
         {
             throw new ScriptException("Failed to execute script '" + location.toString() + "': " + err.getMessage(), err);
         }
         finally
         {
-            updateLocationStackAfterReturning();
+            this.updateLocationStackAfterReturning();
         }
     }
 
@@ -213,7 +213,7 @@ public class RhinoScriptProcessor extends BaseProcessor implements EnhancedScrip
     public Object execute(final NodeRef nodeRef, final QName contentProp, final Map<String, Object> model)
     {
         final NodeScriptLocation scriptLocation = new NodeScriptLocation(this.services, nodeRef, contentProp);
-        return execute(scriptLocation, model);
+        return this.execute(scriptLocation, model);
     }
 
     /**
@@ -223,7 +223,7 @@ public class RhinoScriptProcessor extends BaseProcessor implements EnhancedScrip
     public Object execute(final String location, final Map<String, Object> model)
     {
         final ClasspathScriptLocation scriptLocation = new ClasspathScriptLocation(location);
-        return execute(scriptLocation, model);
+        return this.execute(scriptLocation, model);
     }
 
     /**
@@ -235,19 +235,20 @@ public class RhinoScriptProcessor extends BaseProcessor implements EnhancedScrip
         ParameterCheck.mandatoryString("source", source);
 
         // compile the script based on the node content
-        final Script script = getCompiledScript(source, "string://DynamicJS-" + String.valueOf(this.dynamicScriptCounter.getAndIncrement()));
-        updateLocationStackBeforeExceution();
+        final Script script = this.getCompiledScript(source,
+                "string://DynamicJS-" + String.valueOf(this.dynamicScriptCounter.getAndIncrement()));
+        this.updateLocationStackBeforeExceution();
         try
         {
-            return executeScriptImpl(script, model, true, "string script");
+            return this.executeScriptImpl(script, model, true, "string script");
         }
-        catch (Throwable err)
+        catch (final Throwable err)
         {
             throw new ScriptException("Failed to execute supplied script: " + err.getMessage(), err);
         }
         finally
         {
-            updateLocationStackAfterReturning();
+            this.updateLocationStackAfterReturning();
         }
     }
 
@@ -268,15 +269,15 @@ public class RhinoScriptProcessor extends BaseProcessor implements EnhancedScrip
     {
         ParameterCheck.mandatory("location", location);
 
-        final Script script = getCompiledScript(location);
-        updateLocationStackBeforeExceution();
+        final Script script = this.getCompiledScript(location);
+        this.updateLocationStackBeforeExceution();
 
         String debugScriptName = null;
         if (CALL_LOGGER.isDebugEnabled())
         {
-            String path = location.getPath();
-            int i = path.lastIndexOf('/');
-            debugScriptName = (i != -1) ? path.substring(i + 1) : path;
+            final String path = location.getPath();
+            final int i = path.lastIndexOf('/');
+            debugScriptName = i != -1 ? path.substring(i + 1) : path;
         }
 
         final long startTime = System.currentTimeMillis();
@@ -292,14 +293,14 @@ public class RhinoScriptProcessor extends BaseProcessor implements EnhancedScrip
             {
                 if (this.shareSealedScopes)
                 {
-                    Scriptable sharedScope = location.isSecure() ? this.nonSecureScope : this.secureScope;
+                    final Scriptable sharedScope = location.isSecure() ? this.nonSecureScope : this.secureScope;
                     realScope = cx.newObject(sharedScope);
                     realScope.setPrototype(sharedScope);
                     realScope.setParentScope(null);
                 }
                 else
                 {
-                    realScope = initScope(cx, location.isSecure(), false);
+                    realScope = this.initScope(cx, location.isSecure(), false);
                 }
             }
             else
@@ -308,7 +309,7 @@ public class RhinoScriptProcessor extends BaseProcessor implements EnhancedScrip
                 realScope = (Scriptable) scope;
             }
 
-            executeScriptInScopeImpl(script, realScope);
+            this.executeScriptInScopeImpl(script, realScope);
         }
         catch (final Throwable err)
         {
@@ -318,7 +319,7 @@ public class RhinoScriptProcessor extends BaseProcessor implements EnhancedScrip
         }
         finally
         {
-            updateLocationStackAfterReturning();
+            this.updateLocationStackAfterReturning();
             Context.exit();
 
             final long endTime = System.currentTimeMillis();
@@ -340,7 +341,7 @@ public class RhinoScriptProcessor extends BaseProcessor implements EnhancedScrip
      * @param wrapFactory
      *            the wrapFactory to set
      */
-    public final void setWrapFactory(WrapFactory wrapFactory)
+    public final void setWrapFactory(final WrapFactory wrapFactory)
     {
         this.wrapFactory = wrapFactory;
     }
@@ -349,7 +350,7 @@ public class RhinoScriptProcessor extends BaseProcessor implements EnhancedScrip
      * @param compile
      *            the compile to set
      */
-    public final void setCompile(boolean compile)
+    public final void setCompile(final boolean compile)
     {
         this.compile = compile;
     }
@@ -358,7 +359,7 @@ public class RhinoScriptProcessor extends BaseProcessor implements EnhancedScrip
      * @param shareSealedScopes
      *            the shareSealedScopes to set
      */
-    public final void setShareSealedScopes(boolean shareSealedScopes)
+    public final void setShareSealedScopes(final boolean shareSealedScopes)
     {
         this.shareSealedScopes = shareSealedScopes;
     }
@@ -382,7 +383,7 @@ public class RhinoScriptProcessor extends BaseProcessor implements EnhancedScrip
 
     protected void updateLocationStackBeforeExceution()
     {
-        List<ScriptLocation> activeStack = this.activeScriptLocationStack.get();
+        final List<ScriptLocation> activeStack = this.activeScriptLocationStack.get();
         if (activeStack != null)
         {
             List<List<ScriptLocation>> recursionStacks = this.recursionScriptLocationStacks.get();
@@ -400,10 +401,10 @@ public class RhinoScriptProcessor extends BaseProcessor implements EnhancedScrip
     protected void updateLocationStackAfterReturning()
     {
         this.activeScriptLocationStack.remove();
-        List<List<ScriptLocation>> recursionStacks = this.recursionScriptLocationStacks.get();
+        final List<List<ScriptLocation>> recursionStacks = this.recursionScriptLocationStacks.get();
         if (recursionStacks != null)
         {
-            List<ScriptLocation> previousStack = recursionStacks.remove(0);
+            final List<ScriptLocation> previousStack = recursionStacks.remove(0);
             if (recursionStacks.isEmpty())
             {
                 this.recursionScriptLocationStacks.remove();
@@ -414,11 +415,11 @@ public class RhinoScriptProcessor extends BaseProcessor implements EnhancedScrip
 
     protected List<ScriptLocation> getActiveScriptLocationStack()
     {
-        List<ScriptLocation> activeLocations = this.activeScriptLocationStack.get();
+        final List<ScriptLocation> activeLocations = this.activeScriptLocationStack.get();
         return activeLocations;
     }
 
-    protected Script getCompiledScript(ScriptLocation location)
+    protected Script getCompiledScript(final ScriptLocation location)
     {
         Script script = null;
         final String path = location.getPath();
@@ -434,7 +435,7 @@ public class RhinoScriptProcessor extends BaseProcessor implements EnhancedScrip
         else
         {
             // we always want to have a fully-qualified file-protocol path (unless we can generalize all to classpath-relative locations)
-            realPath = getClass().getClassLoader().getResource(path).toExternalForm();
+            realPath = this.getClass().getClassLoader().getResource(path).toExternalForm();
         }
 
         // test the cache for a pre-compiled script matching our path
@@ -453,7 +454,7 @@ public class RhinoScriptProcessor extends BaseProcessor implements EnhancedScrip
                 FileCopyUtils.copy(location.getInputStream(), os); // both streams are closed
                 final byte[] bytes = os.toByteArray();
                 final String source = new String(bytes, "UTF-8");
-                script = getCompiledScript(source, realPath);
+                script = this.getCompiledScript(source, realPath);
             }
             catch (final IOException err)
             {
@@ -489,7 +490,7 @@ public class RhinoScriptProcessor extends BaseProcessor implements EnhancedScrip
         try
         {
             final Script script;
-            final String resolvedSource = resolveScriptImports(source);
+            final String resolvedSource = this.resolveScriptImports(source);
             final Context cx = Context.enter();
             try
             {
@@ -566,7 +567,7 @@ public class RhinoScriptProcessor extends BaseProcessor implements EnhancedScrip
         CALL_LOGGER.debug("{} Start", debugScriptName);
 
         // Convert the model
-        final Map<String, Object> model = convertToRhinoModel(argModel);
+        final Map<String, Object> model = this.convertToRhinoModel(argModel);
 
         final Context cx = Context.enter();
         try
@@ -585,7 +586,7 @@ public class RhinoScriptProcessor extends BaseProcessor implements EnhancedScrip
             }
             else
             {
-                scope = initScope(cx, secure, false);
+                scope = this.initScope(cx, secure, false);
             }
 
             // insert supplied object model into root of the default scope
@@ -691,7 +692,7 @@ public class RhinoScriptProcessor extends BaseProcessor implements EnhancedScrip
      *            Should the scope be sealed, making it immutable? This should be <code>true</code> if a scope is to be reused.
      * @return the scope object
      */
-    protected Scriptable initScope(final Context cx, final boolean secure, boolean sealed)
+    protected Scriptable initScope(final Context cx, final boolean secure, final boolean sealed)
     {
         final Scriptable scope;
         if (secure)
@@ -717,12 +718,10 @@ public class RhinoScriptProcessor extends BaseProcessor implements EnhancedScrip
 
         // add our controlled script import function
         final ImportScriptFunction importFunc = new ImportScriptFunction(this, Collections.unmodifiableMap(this.scriptLocators));
-        importFunc.setParentScope(scope);
-        importFunc.setPrototype(ScriptableObject.getFunctionPrototype(scope));
 
         // TODO: change function arity to 2 - only locator type and locator hint/value should be mandatory
-        IdFunctionObject func = new IdFunctionObject(importFunc, ImportScriptFunction.IMPORT_FUNC_TAG, ImportScriptFunction.IMPORT_FUNC_ID,
-                ImportScriptFunction.IMPORT_FUNC_NAME, ImportScriptFunction.ARITY, scope);
+        final IdFunctionObject func = new IdFunctionObject(importFunc, ImportScriptFunction.IMPORT_FUNC_TAG,
+                ImportScriptFunction.IMPORT_FUNC_ID, ImportScriptFunction.IMPORT_FUNC_NAME, ImportScriptFunction.ARITY, scope);
         if (sealed)
         {
             func.sealObject();
