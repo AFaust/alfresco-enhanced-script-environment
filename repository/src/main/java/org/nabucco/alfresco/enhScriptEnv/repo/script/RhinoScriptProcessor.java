@@ -719,7 +719,6 @@ public class RhinoScriptProcessor extends BaseProcessor implements EnhancedScrip
         // add our controlled script import function
         final ImportScriptFunction importFunc = new ImportScriptFunction(this, Collections.unmodifiableMap(this.scriptLocators));
 
-        // TODO: change function arity to 2 - only locator type and locator hint/value should be mandatory
         final IdFunctionObject func = new IdFunctionObject(importFunc, ImportScriptFunction.IMPORT_FUNC_TAG,
                 ImportScriptFunction.IMPORT_FUNC_ID, ImportScriptFunction.IMPORT_FUNC_NAME, ImportScriptFunction.ARITY, scope);
         if (sealed)

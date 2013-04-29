@@ -21,8 +21,10 @@ import org.alfresco.service.cmr.repository.ScriptLocation;
 import org.mozilla.javascript.Context;
 import org.mozilla.javascript.IdFunctionCall;
 import org.mozilla.javascript.IdFunctionObject;
+import org.mozilla.javascript.ImporterTopLevel;
 import org.mozilla.javascript.ScriptRuntime;
 import org.mozilla.javascript.Scriptable;
+import org.mozilla.javascript.ScriptableObject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -40,7 +42,7 @@ public class ImportScriptFunction implements IdFunctionCall
     public static final int IMPORT_FUNC_ID = 0;
     public static final Object IMPORT_FUNC_TAG = new Object();
     public static final String IMPORT_FUNC_NAME = "importScript";
-    public static final int ARITY = 3;
+    public static final int ARITY = 2;
 
     private final EnhancedScriptProcessor scriptProcessor;
     private final Map<String, ScriptLocator> scriptLocators;
@@ -68,9 +70,13 @@ public class ImportScriptFunction implements IdFunctionCall
 
                 final String locatorType = ScriptRuntime.toString(args, 0);
                 final String locationValue = ScriptRuntime.toString(args, 1);
-                final boolean failOnMissingScript = ScriptRuntime.toBoolean(args, 2);
 
-                // TODO: introduce optional parameters, i.e. resolution parameters, explicit execution scope
+                // optional parameters
+                // defaults to false
+                final boolean failOnMissingScript = ScriptRuntime.toBoolean(args, 2);
+                // defaults to null
+                final Scriptable resolutionParams = ScriptRuntime.toObjectOrNull(cx, args.length > 3 ? args[3] : null);
+                final Scriptable executionScopeParam = ScriptRuntime.toObjectOrNull(cx, args.length > 4 ? args[4] : null);
 
                 final ScriptLocator scriptLocator = this.scriptLocators.get(locatorType);
                 if (scriptLocator != null)
@@ -91,7 +97,35 @@ public class ImportScriptFunction implements IdFunctionCall
                     }
                     else
                     {
-                        this.scriptProcessor.executeInScope(location, scope);
+                        final Scriptable executionScope;
+                        if (executionScopeParam != null)
+                        {
+                            if (location.isSecure())
+                            {
+                                executionScope = new ImporterTopLevel(cx, false);
+                            }
+                            else
+                            {
+                                executionScope = cx.initStandardObjects();
+                                // remove security issue related objects - this ensures the script may not access
+                                // insecure java.* libraries or import any other classes for direct access - only
+                                // the configured root host objects will be available to the script writer
+                                executionScope.delete("Packages");
+                                executionScope.delete("getClass");
+                                executionScope.delete("java");
+                            }
+
+                            executionScope.setParentScope(null);
+                            executionScope.setPrototype(executionScopeParam);
+                        }
+                        else
+                        {
+                            // TODO: What about insecure script called from secure one?
+                            // TODO: How to deny access to Packages/getClass/java without denying access to other scope elements?
+                            executionScope = scope;
+                        }
+
+                        this.scriptProcessor.executeInScope(location, executionScope);
                         result = true;
                     }
                 }
@@ -119,4 +153,58 @@ public class ImportScriptFunction implements IdFunctionCall
         return Boolean.valueOf(result);
     }
 
+    private static String toString(Object obj)
+    {
+        final String result;
+        if (obj instanceof Scriptable)
+        {
+            result = toString((Scriptable) obj);
+        }
+        else if (obj != null)
+        {
+            result = obj.toString();
+        }
+        else
+        {
+            result = "<null>";
+        }
+        return result;
+    }
+
+    private static String toString(Scriptable obj)
+    {
+        final String result;
+        if (obj != null)
+        {
+            final StringBuilder builder = new StringBuilder();
+            builder.append("{");
+
+            final Scriptable parentScope = obj.getParentScope();
+            builder.append("_parent: ");
+            builder.append(toString(parentScope));
+
+            final Object[] propertyIds = ScriptableObject.getPropertyIds(obj);
+            for (final Object propertyId : propertyIds)
+            {
+                builder.append(",").append(propertyId).append(": ");
+                if (propertyId instanceof String)
+                {
+                    builder.append(ScriptableObject.getProperty(obj, (String) propertyId));
+                }
+                else if (propertyId instanceof Number)
+                {
+                    builder.append(ScriptableObject.getProperty(obj, ((Number) propertyId).intValue()));
+                }
+            }
+
+            builder.append("}");
+            result = builder.toString();
+        }
+        else
+        {
+            result = "<null>";
+        }
+
+        return result;
+    }
 }
