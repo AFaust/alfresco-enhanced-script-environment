@@ -18,7 +18,7 @@ import org.alfresco.util.PropertyCheck;
 import org.springframework.beans.factory.InitializingBean;
 
 /**
- * @author <a href="mailto:axel.faust@prodyna.com">Axel Faust</a>, <a href="http://www.prodyna.com">PRODYNA AG</a>
+ * @author Axel Faust, <a href="http://www.prodyna.com">PRODYNA AG</a>
  */
 public abstract class AbstractScriptLocator implements ScriptLocator, InitializingBean
 {
