@@ -377,7 +377,7 @@ public class RhinoScriptProcessor extends BaseProcessor implements EnhancedScrip
         final ScriptLocator replaced = this.scriptLocators.put(name, scriptLocator);
         if (replaced != null)
         {
-            LOGGER.warn("ScriptLocator {} overriden by {} with name {}", replaced, scriptLocator, name);
+            LOGGER.warn("ScriptLocator {} overriden by {} with name {}", new Object[] { replaced, scriptLocator, name });
         }
     }
 

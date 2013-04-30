@@ -108,7 +108,8 @@ public class XPathScriptLocator extends AbstractScriptLocator
             result = null;
         }
 
-        LOGGER.debug("Resolved {} based on location value {} from reference location {}", result, locationValue, referenceLocation);
+        LOGGER.debug("Resolved {} based on location value {} from reference location {}", new Object[] { result, locationValue,
+                referenceLocation });
 
         return result;
     }

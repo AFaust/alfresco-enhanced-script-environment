@@ -22,7 +22,7 @@
     <dependencies>
 
         <dependency>
-            <groupId>org.alfresco.enterprise</groupId>
+            <groupId>${alfresco.groupId}</groupId>
             <artifactId>alfresco-share</artifactId>
             <version>${alfresco.version}</version>
             <scope>compile</scope>

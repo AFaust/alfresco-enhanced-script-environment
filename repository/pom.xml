@@ -21,7 +21,7 @@
     <dependencies>
 
         <dependency>
-            <groupId>org.alfresco.enterprise</groupId>
+            <groupId>${alfresco.groupId}</groupId>
             <artifactId>alfresco-remote-api</artifactId>
             <version>${alfresco.version}</version>
             <scope>compile</scope>
@@ -92,4 +92,13 @@
 
     </build>
 
+    <dependencyManagement>
+        <dependencies>
+            <dependency>
+                <groupId>org.slf4j</groupId>
+                <artifactId>slf4j-api</artifactId>
+                <version>1.5.11</version>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
 </project>

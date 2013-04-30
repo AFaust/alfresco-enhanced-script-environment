@@ -143,7 +143,8 @@ public class ClasspathScriptLocator extends AbstractScriptLocator
             result = null;
         }
 
-        LOGGER.debug("Resolved {} based on location value {} from reference location {}", result, locationValue, referenceLocation);
+        LOGGER.debug("Resolved {} based on location value {} from reference location {}", new Object[] { result, locationValue,
+                referenceLocation });
 
         return result;
     }
@@ -237,7 +238,8 @@ public class ClasspathScriptLocator extends AbstractScriptLocator
 
         pathBuilder.append(lastSlash != -1 ? locationValue.substring(lastSlash) : locationValue);
 
-        LOGGER.debug("Resolved classpath location {} by relative path {} from reference {}", pathBuilder, locationValue, referenceValue);
+        LOGGER.debug("Resolved classpath location {} by relative path {} from reference {}", new Object[] { pathBuilder, locationValue,
+                referenceValue });
     }
 
 }

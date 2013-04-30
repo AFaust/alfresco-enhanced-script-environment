@@ -10,7 +10,8 @@
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 
-        <alfresco.version>4.1.3</alfresco.version>
+        <alfresco.groupId>org.alfresco</alfresco.groupId>
+        <alfresco.version>4.2.c</alfresco.version>
 
         <!-- Default distribution target if not overriden by profile -->
         <!-- <distribution.repo.release.id></distribution.repo.release.id> <distribution.repo.release.name></distribution.repo.release.name> <distribution.repo.release.url></distribution.repo.release.url> 
