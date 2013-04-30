@@ -1,8 +1,71 @@
 =Enhanced Script Environment Add-On for Alfresco=
 
+==Module Features==
+
+The Enhanced Script Environment Add-On shall provide additional functionality for the server-side JavaScript environments of both the Alfresco Repository and Alfresco Share tier. These features aim to make it easier for script programmers to reuse existing code fragments, provide new extensibility hooks without the need for significant platform changes and implement valid, syntactically correct scripts that can be used in JavaScript-enabled IDEs and debuggers.
+
+The following is an incomplete list of currently planned features:
+
+* Replacement of pre-processor import handling with native JavaScript API function resulting in syntactically valid files that can be handled by JavaScript-enabled IDEs and debuggers 
+* Extensible framework for alternative methods of discovery of scripts to import
+** Import via classpath
+** Import via "extensible" classpath (i.e. supporting overrides in extension / web-extension)
+** Import via XPath
+** Import via NodeRef
+** Import via simple name path
+** Import via abstract names and script registries
+* Ability to execute imported scripts in an isolated or pre-defined context
+* Ability to parameterize method of discovery of scripts to import
+* Context-/Script-aware logging facility to allow selective configuration of script logging levels (instead of using the global ScriptLogger for all logging)
+* Providing access to mapped diagnostic context from script logging
+* Providing batch processing capabilities within scripts
+
+This list is open for suggestions from the Alfresco community
+
 ==Getting Started==
 
-[[TODO]]
+===Building===
+
+To build this extension, run Maven install on the top-level POM, i.e.
+
+ mvn install
+
+===Installing===
+
+To install this module into an Alfresco installation, use the Alfresco Module Management Tool (MMT).
+
+ java -jar install org.nabucco.alfresco.enhScriptEnv.repo-<version>.jar alfresco.war
+ java -jar install org.nabucco.alfresco.enhScriptEnv.share-<version>.jar share.war
+
+In order to have the module installed within a Maven build using the Alfresco Maven SDK or a custom WAR build with the maven-amp-plugin as an unarchiver, simply add the following dependencies in the respective POM for your alfresco.war / share.war build (please note: this requires you have run Maven install on the module beforehand):
+
+ <dependency>
+    <groupId>org.nabucco.alfresco</groupId>
+    <artifactId>org.nabucco.alfresco.enhScriptEnv.repo</artifactId>
+    <version>0.0.1.0-SNAPSHOT</version>
+    </type>amp</type>
+    <exclusions>
+        <exclusion>
+            <groupId>*</groupId>
+            <artifactId>*</artifactId>
+        </exclusion>
+    </exclusions>
+ </dependency>
+ 
+ <dependency>
+    <groupId>org.nabucco.alfresco</groupId>
+    <artifactId>org.nabucco.alfresco.enhScriptEnv.share</artifactId>
+    <version>0.0.1.0-SNAPSHOT</version>
+    </type>amp</type>
+    <exclusions>
+        <exclusion>
+            <groupId>*</groupId>
+            <artifactId>*</artifactId>
+        </exclusion>
+    </exclusions>
+ </dependency>
+
+Please note that the exclusions are necessary to prevent the WAR build from including the dependent JAR files in the WEB-INF/lib directory and thus potentially override existing files. This is necessary since I've chosen to depend on other JARs with compile-scope for the sake of transitive dependency management (instead of a provided-scope, which is the default in the Alfresco Maven SDK).
 
 ==Usage==
 
