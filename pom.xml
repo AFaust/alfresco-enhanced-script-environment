@@ -250,6 +250,7 @@
 
     </profiles>
     <modules>
+        <module>common</module>
         <module>repository</module>
         <module>share</module>
     </modules>

@@ -17,10 +17,10 @@ package org.nabucco.alfresco.enhScriptEnv.repo.script;
 import java.net.URL;
 import java.util.Map;
 
-import org.alfresco.error.AlfrescoRuntimeException;
 import org.alfresco.repo.jscript.ClasspathScriptLocation;
 import org.alfresco.repo.web.scripts.RepositoryScriptProcessor;
-import org.alfresco.service.cmr.repository.ScriptLocation;
+import org.nabucco.alfresco.enhScriptEnv.common.script.AbstractScriptLocator;
+import org.nabucco.alfresco.enhScriptEnv.common.script.ScriptImportException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -30,7 +30,7 @@ import org.slf4j.LoggerFactory;
  * 
  * @author Axel Faust, <a href="http://www.prodyna.com">PRODYNA AG</a>
  */
-public class ClasspathScriptLocator extends AbstractScriptLocator
+public class ClasspathScriptLocator extends AbstractScriptLocator<ScriptLocationAdapter>
 {
     private static final Logger LOGGER = LoggerFactory.getLogger(ClasspathScriptLocator.class);
 
@@ -38,9 +38,9 @@ public class ClasspathScriptLocator extends AbstractScriptLocator
      * {@inheritDoc}
      */
     @Override
-    public ScriptLocation resolveLocation(final ScriptLocation referenceLocation, final String locationValue)
+    public ScriptLocationAdapter resolveLocation(final ScriptLocationAdapter referenceLocation, final String locationValue)
     {
-        final ScriptLocation result;
+        final ScriptLocationAdapter result;
         LOGGER.debug("Resolving {} from reference location {}", locationValue, referenceLocation);
 
         if (locationValue != null)
@@ -58,7 +58,7 @@ public class ClasspathScriptLocator extends AbstractScriptLocator
                 }
                 else
                 {
-                    if (referenceLocation instanceof ClasspathScriptLocation)
+                    if (referenceLocation.getScriptLocation() instanceof ClasspathScriptLocation)
                     {
                         // we know this gives us the path relative to the classpath
 
@@ -71,7 +71,8 @@ public class ClasspathScriptLocator extends AbstractScriptLocator
                         absoluteClasspath = pathBuilder.toString();
 
                     }
-                    else if (referenceLocation.getClass().getDeclaringClass().isAssignableFrom(RepositoryScriptProcessor.class))
+                    else if (referenceLocation.getScriptLocation().getClass().getDeclaringClass()
+                            .isAssignableFrom(RepositoryScriptProcessor.class))
                     {
                         // awkward check for private RepositoryScriptLocation which encapsulates a ScriptContent instance
                         // we know this gives us the classpath*:-prefixed path IF a classpath-based ScriptContent is wrapped
@@ -129,7 +130,7 @@ public class ClasspathScriptLocator extends AbstractScriptLocator
 
                 if (scriptResource != null)
                 {
-                    result = new ClasspathScriptLocation(absoluteClasspath);
+                    result = new ScriptLocationAdapter(new ClasspathScriptLocation(absoluteClasspath));
                 }
                 else
                 {
@@ -154,7 +155,7 @@ public class ClasspathScriptLocator extends AbstractScriptLocator
      * {@inheritDoc}
      */
     @Override
-    public ScriptLocation resolveLocation(final ScriptLocation referenceLocation, final String locationValue,
+    public ScriptLocationAdapter resolveLocation(final ScriptLocationAdapter referenceLocation, final String locationValue,
             final Map<String, Object> resolutionParameters)
     {
         // we currently don't support any parameters, so just pass to default implementation
@@ -197,7 +198,7 @@ public class ClasspathScriptLocator extends AbstractScriptLocator
                             {
                                 LOGGER.warn("Resolving {} from reference {} caused ascension beyond root", locationValue, referenceValue);
                                 // nowhere to ascend to
-                                throw new AlfrescoRuntimeException(
+                                throw new ScriptImportException(
                                         "Unable to ascend out of classpath - context location: [{0}], script location: [{1}]",
                                         new Object[] { referenceValue, locationValue });
                             }
@@ -211,7 +212,7 @@ public class ClasspathScriptLocator extends AbstractScriptLocator
                     {
                         LOGGER.warn("Cannot ascend after descending in resolution of {} from reference {}", locationValue, referenceValue);
                         // no re-ascension
-                        throw new AlfrescoRuntimeException(
+                        throw new ScriptImportException(
                                 "Unable to ascend after already descending - context location: [{0}], script location: [{1}]",
                                 new Object[] { referenceValue, locationValue });
                     }

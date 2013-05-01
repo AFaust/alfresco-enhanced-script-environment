@@ -26,7 +26,6 @@ package org.nabucco.alfresco.enhScriptEnv.repo.script;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
@@ -52,6 +51,7 @@ import org.alfresco.service.cmr.dictionary.DictionaryService;
 import org.alfresco.service.cmr.repository.NodeRef;
 import org.alfresco.service.cmr.repository.NodeService;
 import org.alfresco.service.cmr.repository.ScriptLocation;
+import org.alfresco.service.cmr.repository.ScriptProcessor;
 import org.alfresco.service.namespace.QName;
 import org.alfresco.util.ParameterCheck;
 import org.mozilla.javascript.Context;
@@ -62,6 +62,8 @@ import org.mozilla.javascript.Scriptable;
 import org.mozilla.javascript.ScriptableObject;
 import org.mozilla.javascript.WrapFactory;
 import org.mozilla.javascript.WrappedException;
+import org.nabucco.alfresco.enhScriptEnv.common.script.EnhancedScriptProcessor;
+import org.nabucco.alfresco.enhScriptEnv.common.script.ImportScriptFunction;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.InitializingBean;
@@ -70,7 +72,8 @@ import org.springframework.util.FileCopyUtils;
 /**
  * @author Axel Faust, <a href="http://www.prodyna.com">PRODYNA AG</a>
  */
-public class RhinoScriptProcessor extends BaseProcessor implements EnhancedScriptProcessor, InitializingBean
+public class RhinoScriptProcessor extends BaseProcessor implements EnhancedScriptProcessor<ScriptLocationAdapter>, ScriptProcessor,
+        InitializingBean
 {
     private static final String NODE_REF_RESOURCE_IMPORT_PATTERN = "<import(\\s*\\n*\\s+)+resource(\\s*\\n*\\s*+)*=(\\s*\\n*\\s+)*\"(([^:]+)://([^/]+)/([a-f0-9]+(-[a-f0-9]+)+))\"(\\s*\\n*\\s+)*(/)?>";
     private static final String NODE_REF_RESOURCE_IMPORT_REPLACEMENT = "importScript(\"node\", \"$4\");";
@@ -111,8 +114,8 @@ public class RhinoScriptProcessor extends BaseProcessor implements EnhancedScrip
     private static final Logger LOGGER = LoggerFactory.getLogger(RhinoScriptProcessor.class);
     private static final Logger CALL_LOGGER = LoggerFactory.getLogger(RhinoScriptProcessor.class.getName() + ".calls");
 
-    protected final ThreadLocal<List<ScriptLocation>> activeScriptLocationStack = new ThreadLocal<List<ScriptLocation>>();
-    protected final ThreadLocal<List<List<ScriptLocation>>> recursionScriptLocationStacks = new ThreadLocal<List<List<ScriptLocation>>>();
+    protected final ThreadLocal<List<ScriptLocationAdapter>> activeScriptLocationStack = new ThreadLocal<List<ScriptLocationAdapter>>();
+    protected final ThreadLocal<List<List<ScriptLocationAdapter>>> recursionScriptLocationStacks = new ThreadLocal<List<List<ScriptLocationAdapter>>>();
 
     protected WrapFactory wrapFactory = DEFAULT_WRAP_FACTORY;
 
@@ -138,7 +141,7 @@ public class RhinoScriptProcessor extends BaseProcessor implements EnhancedScrip
 
     // TODO: size-limited, TTL restricted dynamic script cache based on scripts hash-value
 
-    protected final Map<String, ScriptLocator> scriptLocators = new HashMap<String, ScriptLocator>();
+    protected ImportScriptFunction<ScriptLocationAdapter> importFunction;
 
     /**
      * 
@@ -185,7 +188,7 @@ public class RhinoScriptProcessor extends BaseProcessor implements EnhancedScrip
         this.updateLocationStackBeforeExceution();
         try
         {
-            this.activeScriptLocationStack.get().add(location);
+            this.activeScriptLocationStack.get().add(new ScriptLocationAdapter(location));
 
             String debugScriptName = null;
             if (CALL_LOGGER.isDebugEnabled())
@@ -265,7 +268,7 @@ public class RhinoScriptProcessor extends BaseProcessor implements EnhancedScrip
      * {@inheritDoc}
      */
     @Override
-    public void executeInScope(final ScriptLocation location, final Object scope)
+    public void executeInScope(final ScriptLocationAdapter location, final Object scope)
     {
         ParameterCheck.mandatory("location", location);
 
@@ -331,7 +334,7 @@ public class RhinoScriptProcessor extends BaseProcessor implements EnhancedScrip
      * {@inheritDoc}
      */
     @Override
-    public ScriptLocation getContextScriptLocation()
+    public ScriptLocationAdapter getContextScriptLocation()
     {
         // TODO Auto-generated method stub
         return null;
@@ -365,46 +368,64 @@ public class RhinoScriptProcessor extends BaseProcessor implements EnhancedScrip
     }
 
     /**
-     * 
-     * {@inheritDoc}
+     * @param importFunction
+     *            the importFunction to set
      */
-    @Override
-    public final void registerScriptLocator(final String name, final ScriptLocator scriptLocator)
+    public final void setImportFunction(final ImportScriptFunction<ScriptLocationAdapter> importFunction)
     {
-        ParameterCheck.mandatoryString("name", name);
-        ParameterCheck.mandatory("scriptLocator", scriptLocator);
-
-        final ScriptLocator replaced = this.scriptLocators.put(name, scriptLocator);
-        if (replaced != null)
+        this.importFunction = importFunction;
+        this.importFunction.setScriptProcessor(this);
+        this.importFunction.setValueConverter(new org.nabucco.alfresco.enhScriptEnv.common.script.ValueConverter()
         {
-            LOGGER.warn("ScriptLocator {} overriden by {} with name {}", new Object[] { replaced, scriptLocator, name });
-        }
+
+            /**
+             * 
+             * {@inheritDoc}
+             */
+            @Override
+            public Object convertValueForJava(Object value)
+            {
+                return RhinoScriptProcessor.this.valueConverter.convertValueForJava(value);
+            }
+
+            /**
+             * 
+             * {@inheritDoc}
+             */
+            @Override
+            public Object convertValueForScript(Object value)
+            {
+                // TODO: generic support
+                return null;
+            }
+
+        });
     }
 
     protected void updateLocationStackBeforeExceution()
     {
-        final List<ScriptLocation> activeStack = this.activeScriptLocationStack.get();
+        final List<ScriptLocationAdapter> activeStack = this.activeScriptLocationStack.get();
         if (activeStack != null)
         {
-            List<List<ScriptLocation>> recursionStacks = this.recursionScriptLocationStacks.get();
+            List<List<ScriptLocationAdapter>> recursionStacks = this.recursionScriptLocationStacks.get();
             if (recursionStacks == null)
             {
-                recursionStacks = new LinkedList<List<ScriptLocation>>();
+                recursionStacks = new LinkedList<List<ScriptLocationAdapter>>();
                 this.recursionScriptLocationStacks.set(recursionStacks);
             }
 
             recursionStacks.add(0, activeStack);
         }
-        this.activeScriptLocationStack.set(new LinkedList<ScriptLocation>());
+        this.activeScriptLocationStack.set(new LinkedList<ScriptLocationAdapter>());
     }
 
     protected void updateLocationStackAfterReturning()
     {
         this.activeScriptLocationStack.remove();
-        final List<List<ScriptLocation>> recursionStacks = this.recursionScriptLocationStacks.get();
+        final List<List<ScriptLocationAdapter>> recursionStacks = this.recursionScriptLocationStacks.get();
         if (recursionStacks != null)
         {
-            final List<ScriptLocation> previousStack = recursionStacks.remove(0);
+            final List<ScriptLocationAdapter> previousStack = recursionStacks.remove(0);
             if (recursionStacks.isEmpty())
             {
                 this.recursionScriptLocationStacks.remove();
@@ -413,9 +434,9 @@ public class RhinoScriptProcessor extends BaseProcessor implements EnhancedScrip
         }
     }
 
-    protected List<ScriptLocation> getActiveScriptLocationStack()
+    protected List<ScriptLocationAdapter> getActiveScriptLocationStack()
     {
-        final List<ScriptLocation> activeLocations = this.activeScriptLocationStack.get();
+        final List<ScriptLocationAdapter> activeLocations = this.activeScriptLocationStack.get();
         return activeLocations;
     }
 
@@ -717,9 +738,7 @@ public class RhinoScriptProcessor extends BaseProcessor implements EnhancedScrip
         // TODO: change to a scope contribution strategy pattern
 
         // add our controlled script import function
-        final ImportScriptFunction importFunc = new ImportScriptFunction(this, Collections.unmodifiableMap(this.scriptLocators));
-
-        final IdFunctionObject func = new IdFunctionObject(importFunc, ImportScriptFunction.IMPORT_FUNC_TAG,
+        final IdFunctionObject func = new IdFunctionObject(this.importFunction, ImportScriptFunction.IMPORT_FUNC_TAG,
                 ImportScriptFunction.IMPORT_FUNC_ID, ImportScriptFunction.IMPORT_FUNC_NAME, ImportScriptFunction.ARITY, scope);
         if (sealed)
         {

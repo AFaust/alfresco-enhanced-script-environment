@@ -17,12 +17,17 @@
         <property name="scriptService" ref="scriptService" />
         <!-- Creates ScriptNodes which require the ServiceRegistry -->
         <property name="serviceRegistry" ref="ServiceRegistry" />
+        <property name="importFunction" ref="scriptImportFunction" />
     </bean>
-    
+
+    <bean id="scriptImportFunction" class="org.nabucco.alfresco.enhScriptEnv.common.script.ImportScriptFunction">
+        <!-- necessary references injected by script processor -->
+    </bean>
+
     <bean id="baseScriptLocator" abstract="true">
-        <property name="scriptProcessor" ref="javaScriptProcessor" />
+        <property name="scriptLocatorRegistry" ref="scriptImportFunction" />
     </bean>
-    
+
     <bean id="legacyNamePathScriptLocator" class="${basePackage}.script.LegacyNamePathScriptLocator" parent="baseScriptLocator">
         <property name="name" value="legacyNamePath" />
         <property name="serviceRegistry" ref="ServiceRegistry" />
@@ -34,7 +39,7 @@
         <property name="storeRef" value="${spaces.store}" />
         <property name="storePath" value="${spaces.company_home.childname}" />
     </bean>
-    
+
     <bean id="xPathScriptLocator" class="${basePackage}.script.XPathScriptLocator" parent="baseScriptLocator">
         <property name="name" value="xpath" />
         <property name="serviceRegistry" ref="ServiceRegistry" />
@@ -44,7 +49,7 @@
         <property name="contentService" ref="ContentService" />
         <property name="defaultStoreRef" value="${spaces.store}" />
     </bean>
-    
+
     <bean id="classpathScriptLocator" class="${basePackage}.script.ClasspathScriptLocator" parent="baseScriptLocator">
         <property name="name" value="classpath" />
     </bean>

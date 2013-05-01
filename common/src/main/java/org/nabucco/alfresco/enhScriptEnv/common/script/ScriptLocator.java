@@ -12,17 +12,15 @@
  * either express or implied. See the License for the specific language governing permissions
  * and limitations under the License.
  */
-package org.nabucco.alfresco.enhScriptEnv.repo.script;
+package org.nabucco.alfresco.enhScriptEnv.common.script;
 
 import java.util.Map;
-
-import org.alfresco.service.cmr.repository.ScriptLocation;
 
 /**
  * @author Axel Faust, <a href="http://www.prodyna.com">PRODYNA AG</a>
  * 
  */
-public interface ScriptLocator
+public interface ScriptLocator<Script>
 {
 
     /**
@@ -39,7 +37,7 @@ public interface ScriptLocator
      * @return the resolved script location or {@code null} if it could not be resolved
      * 
      */
-    ScriptLocation resolveLocation(ScriptLocation referenceLocation, String locationValue);
+    Script resolveLocation(Script referenceLocation, String locationValue);
 
     /**
      * Resolves a string-based script location to a wrapper instance of the {@link ScriptLocation} interface usable by the repository's
@@ -57,5 +55,5 @@ public interface ScriptLocator
      * @return the resolved script location or {@code null} if it could not be resolved
      * 
      */
-    ScriptLocation resolveLocation(ScriptLocation referenceLocation, String locationValue, Map<String, Object> resolutionParameters);
+    Script resolveLocation(Script referenceLocation, String locationValue, Map<String, Object> resolutionParameters);
 }

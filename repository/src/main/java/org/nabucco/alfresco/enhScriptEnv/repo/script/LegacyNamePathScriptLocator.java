@@ -28,17 +28,18 @@ import org.alfresco.service.cmr.model.FileNotFoundException;
 import org.alfresco.service.cmr.repository.ContentService;
 import org.alfresco.service.cmr.repository.NodeRef;
 import org.alfresco.service.cmr.repository.NodeService;
-import org.alfresco.service.cmr.repository.ScriptLocation;
 import org.alfresco.service.cmr.repository.StoreRef;
 import org.alfresco.service.cmr.search.SearchService;
 import org.alfresco.service.namespace.NamespaceService;
+import org.nabucco.alfresco.enhScriptEnv.common.script.AbstractScriptLocator;
+import org.nabucco.alfresco.enhScriptEnv.common.script.ScriptImportException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
  * @author Axel Faust, <a href="http://www.prodyna.com">PRODYNA AG</a>
  */
-public class LegacyNamePathScriptLocator extends AbstractScriptLocator
+public class LegacyNamePathScriptLocator extends AbstractScriptLocator<ScriptLocationAdapter>
 {
     private static final Logger LOGGER = LoggerFactory.getLogger(LegacyNamePathScriptLocator.class);
 
@@ -56,9 +57,9 @@ public class LegacyNamePathScriptLocator extends AbstractScriptLocator
      * {@inheritDoc}
      */
     @Override
-    public ScriptLocation resolveLocation(final ScriptLocation referenceLocation, final String locationValue)
+    public ScriptLocationAdapter resolveLocation(final ScriptLocationAdapter referenceLocation, final String locationValue)
     {
-        final ScriptLocation result;
+        final ScriptLocationAdapter result;
         if (locationValue.startsWith("/"))
         {
             final NodeRef rootNodeRef = this.nodeService.getRootNode(this.storeRef);
@@ -84,11 +85,11 @@ public class LegacyNamePathScriptLocator extends AbstractScriptLocator
             {
                 final FileInfo fileInfo = this.fileFolderService.resolveNamePath(nodes.get(0), elements);
                 final NodeRef scriptRef = fileInfo.getNodeRef();
-                result = new NodeScriptLocation(this.serviceRegistry, scriptRef, ContentModel.PROP_CONTENT);
+                result = new ScriptLocationAdapter(new NodeScriptLocation(this.serviceRegistry, scriptRef, ContentModel.PROP_CONTENT));
             }
             catch (final FileNotFoundException err)
             {
-                throw new AlfrescoRuntimeException("Unable to load included script repository resource: " + locationValue);
+                throw new ScriptImportException("Unable to load included script repository resource - file not found: {0}", locationValue);
             }
         }
         else
@@ -103,7 +104,8 @@ public class LegacyNamePathScriptLocator extends AbstractScriptLocator
      * {@inheritDoc}
      */
     @Override
-    public ScriptLocation resolveLocation(ScriptLocation referenceLocation, String locationValue, Map<String, Object> resolutionParameters)
+    public ScriptLocationAdapter resolveLocation(final ScriptLocationAdapter referenceLocation, final String locationValue,
+            final Map<String, Object> resolutionParameters)
     {
         // we currently don't support any parameters, so just pass to default implementation
         if (resolutionParameters != null)

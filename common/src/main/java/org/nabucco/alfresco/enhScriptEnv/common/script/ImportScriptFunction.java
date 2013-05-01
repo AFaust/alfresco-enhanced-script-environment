@@ -12,13 +12,11 @@
  * either express or implied. See the License for the specific language governing permissions
  * and limitations under the License.
  */
-package org.nabucco.alfresco.enhScriptEnv.repo.script;
+package org.nabucco.alfresco.enhScriptEnv.common.script;
 
+import java.util.HashMap;
 import java.util.Map;
 
-import org.alfresco.repo.jscript.ValueConverter;
-import org.alfresco.scripts.ScriptException;
-import org.alfresco.service.cmr.repository.ScriptLocation;
 import org.mozilla.javascript.Context;
 import org.mozilla.javascript.IdFunctionCall;
 import org.mozilla.javascript.IdFunctionObject;
@@ -35,7 +33,7 @@ import org.slf4j.LoggerFactory;
  * 
  * @author Axel Faust, <a href="http://www.prodyna.com">PRODYNA AG</a>
  */
-public class ImportScriptFunction implements IdFunctionCall
+public class ImportScriptFunction<Script extends SecurableScript> implements IdFunctionCall, ScriptLocatorRegistry<Script>
 {
     private static final Logger LOGGER = LoggerFactory.getLogger(ImportScriptFunction.class);
 
@@ -44,21 +42,10 @@ public class ImportScriptFunction implements IdFunctionCall
     public static final String IMPORT_FUNC_NAME = "importScript";
     public static final int ARITY = 2;
 
-    protected final EnhancedScriptProcessor scriptProcessor;
-    protected final Map<String, ScriptLocator> scriptLocators;
+    protected EnhancedScriptProcessor<Script> scriptProcessor;
+    protected final Map<String, ScriptLocator<Script>> scriptLocators = new HashMap<String, ScriptLocator<Script>>();
 
-    /** Base Value Converter */
-    protected final ValueConverter valueConverter = new ValueConverter();
-
-    /**
-     * @param scriptLocators
-     */
-    public ImportScriptFunction(final EnhancedScriptProcessor scriptProcessor, final Map<String, ScriptLocator> scriptLocators)
-    {
-        super();
-        this.scriptProcessor = scriptProcessor;
-        this.scriptLocators = scriptLocators;
-    }
+    protected ValueConverter valueConverter;
 
     @Override
     public Object execIdCall(final IdFunctionObject f, final Context cx, final Scriptable scope, final Scriptable thisObj,
@@ -69,7 +56,7 @@ public class ImportScriptFunction implements IdFunctionCall
         {
             if (f.methodId() == IMPORT_FUNC_ID)
             {
-                final ScriptLocation referenceLocation = this.scriptProcessor.getContextScriptLocation();
+                final Script referenceLocation = this.scriptProcessor.getContextScriptLocation();
 
                 final String locatorType = ScriptRuntime.toString(args, 0);
                 final String locationValue = ScriptRuntime.toString(args, 1);
@@ -82,10 +69,10 @@ public class ImportScriptFunction implements IdFunctionCall
                 final Object resolotionParamsJavaObj = this.valueConverter.convertValueForJava(resolutionParams);
                 final Scriptable executionScopeParam = ScriptRuntime.toObjectOrNull(cx, args.length > 4 ? args[4] : null);
 
-                final ScriptLocator scriptLocator = this.scriptLocators.get(locatorType);
+                final ScriptLocator<Script> scriptLocator = this.scriptLocators.get(locatorType);
                 if (scriptLocator != null)
                 {
-                    final ScriptLocation location;
+                    final Script location;
                     if (resolutionParams == null)
                     {
                         location = scriptLocator.resolveLocation(referenceLocation, locationValue);
@@ -112,7 +99,7 @@ public class ImportScriptFunction implements IdFunctionCall
                         if (failOnMissingScript)
                         {
                             // TODO: proper msgId
-                            throw new ScriptException("Unable to resolve script location [{0}] via locator [{1}]", new Object[] {
+                            throw new ScriptImportException("Unable to resolve script location [{0}] via locator [{1}]", new Object[] {
                                     locationValue, locatorType });
                         }
                     }
@@ -157,7 +144,7 @@ public class ImportScriptFunction implements IdFunctionCall
                     if (failOnMissingScript)
                     {
                         // TODO: proper msgId
-                        throw new ScriptException("Unknown script locator [{0}]", new Object[] { locatorType });
+                        throw new ScriptImportException("Unknown script locator [{0}]", new Object[] { locatorType });
                     }
                 }
             }
@@ -173,4 +160,40 @@ public class ImportScriptFunction implements IdFunctionCall
 
         return Boolean.valueOf(result);
     }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public void registerScriptLocator(final String name, final ScriptLocator<Script> scriptLocator)
+    {
+        final ScriptLocator<Script> replaced = this.scriptLocators.put(name, scriptLocator);
+        if (replaced != null)
+        {
+            LOGGER.warn("ScriptLocator {} overriden by {} with name {}", new Object[] { replaced, scriptLocator, name });
+        }
+    }
+
+    /**
+     * Sets the scriptProcessor to given scriptProcessor.
+     * 
+     * @param scriptProcessor
+     *            the scriptProcessor to set
+     */
+    public final void setScriptProcessor(final EnhancedScriptProcessor<Script> scriptProcessor)
+    {
+        this.scriptProcessor = scriptProcessor;
+    }
+
+    /**
+     * Sets the valueConverter to given valueConverter.
+     * 
+     * @param valueConverter
+     *            the valueConverter to set
+     */
+    public final void setValueConverter(final ValueConverter valueConverter)
+    {
+        this.valueConverter = valueConverter;
+    }
+
 }

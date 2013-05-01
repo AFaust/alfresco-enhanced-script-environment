@@ -12,19 +12,18 @@
  * either express or implied. See the License for the specific language governing permissions
  * and limitations under the License.
  */
-package org.nabucco.alfresco.enhScriptEnv.repo.script;
+package org.nabucco.alfresco.enhScriptEnv.common.script;
 
-import org.alfresco.util.PropertyCheck;
 import org.springframework.beans.factory.InitializingBean;
 
 /**
  * @author Axel Faust, <a href="http://www.prodyna.com">PRODYNA AG</a>
  */
-public abstract class AbstractScriptLocator implements ScriptLocator, InitializingBean
+public abstract class AbstractScriptLocator<Script extends SecurableScript> implements ScriptLocator<Script>, InitializingBean
 {
 
     protected String name;
-    protected EnhancedScriptProcessor scriptProcessor;
+    protected ScriptLocatorRegistry<Script> scriptLocatorRegistry;
 
     /**
      * {@inheritDoc}
@@ -32,8 +31,11 @@ public abstract class AbstractScriptLocator implements ScriptLocator, Initializi
     @Override
     public void afterPropertiesSet()
     {
-        PropertyCheck.mandatory(this, "scriptProcessor", this.scriptProcessor);
-        this.scriptProcessor.registerScriptLocator(this.name, this);
+        if (this.scriptLocatorRegistry == null)
+        {
+            throw new IllegalArgumentException("Script locator registry is not initialized");
+        }
+        this.scriptLocatorRegistry.registerScriptLocator(this.name, this);
     }
 
     /**
@@ -46,12 +48,14 @@ public abstract class AbstractScriptLocator implements ScriptLocator, Initializi
     }
 
     /**
-     * @param scriptProcessor
-     *            the scriptProcessor to set
+     * Sets the scriptLocatorRegistry to given scriptLocatorRegistry.
+     * 
+     * @param scriptLocatorRegistry
+     *            the scriptLocatorRegistry to set
      */
-    public final void setScriptProcessor(final EnhancedScriptProcessor scriptProcessor)
+    public final void setScriptLocatorRegistry(final ScriptLocatorRegistry<Script> scriptLocatorRegistry)
     {
-        this.scriptProcessor = scriptProcessor;
+        this.scriptLocatorRegistry = scriptLocatorRegistry;
     }
 
 }

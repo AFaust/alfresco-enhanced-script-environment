@@ -23,11 +23,11 @@ import org.alfresco.service.cmr.repository.ContentReader;
 import org.alfresco.service.cmr.repository.ContentService;
 import org.alfresco.service.cmr.repository.NodeRef;
 import org.alfresco.service.cmr.repository.NodeService;
-import org.alfresco.service.cmr.repository.ScriptLocation;
 import org.alfresco.service.cmr.repository.StoreRef;
 import org.alfresco.service.cmr.search.SearchService;
 import org.alfresco.service.namespace.NamespaceService;
 import org.alfresco.service.namespace.QName;
+import org.nabucco.alfresco.enhScriptEnv.common.script.AbstractScriptLocator;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -37,7 +37,7 @@ import org.slf4j.LoggerFactory;
  * 
  * @author Axel Faust, <a href="http://www.prodyna.com">PRODYNA AG</a>
  */
-public class XPathScriptLocator extends AbstractScriptLocator
+public class XPathScriptLocator extends AbstractScriptLocator<ScriptLocationAdapter>
 {
     private static final Logger LOGGER = LoggerFactory.getLogger(XPathScriptLocator.class);
 
@@ -53,18 +53,18 @@ public class XPathScriptLocator extends AbstractScriptLocator
      * {@inheritDoc}
      */
     @Override
-    public ScriptLocation resolveLocation(final ScriptLocation referenceLocation, final String locationValue)
+    public ScriptLocationAdapter resolveLocation(final ScriptLocationAdapter referenceLocation, final String locationValue)
     {
-        final ScriptLocation result;
+        final ScriptLocationAdapter result;
         LOGGER.debug("Resolving {} from reference location {}", locationValue, referenceLocation);
 
         final List<NodeRef> nodes;
         QName contentProp = ContentModel.PROP_CONTENT;
         if (locationValue != null)
         {
-            if (referenceLocation instanceof NodeScriptLocation)
+            if (referenceLocation.getScriptLocation() instanceof NodeScriptLocation)
             {
-                final NodeScriptLocation referenceNodeLocation = (NodeScriptLocation) referenceLocation;
+                final NodeScriptLocation referenceNodeLocation = (NodeScriptLocation) referenceLocation.getScriptLocation();
                 final NodeRef referenceNode = referenceNodeLocation.getNode();
                 contentProp = referenceNodeLocation.getContentProp();
 
@@ -92,14 +92,14 @@ public class XPathScriptLocator extends AbstractScriptLocator
             final ContentReader contentReader = this.contentService.getReader(scriptNode, contentProp);
             if (contentReader != null && contentReader.exists())
             {
-                result = new NodeScriptLocation(this.serviceRegistry, scriptNode, contentProp);
+                result = new ScriptLocationAdapter(new NodeScriptLocation(this.serviceRegistry, scriptNode, contentProp));
             }
             else
             {
                 // fall back to default content property
                 // TODO: maybe search content properties for a JavaScript one
                 // TODO: maybe enhance API to allow importing script to specify the property
-                result = new NodeScriptLocation(this.serviceRegistry, scriptNode, ContentModel.PROP_CONTENT);
+                result = new ScriptLocationAdapter(new NodeScriptLocation(this.serviceRegistry, scriptNode, ContentModel.PROP_CONTENT));
             }
 
         }
@@ -119,7 +119,7 @@ public class XPathScriptLocator extends AbstractScriptLocator
      * {@inheritDoc}
      */
     @Override
-    public ScriptLocation resolveLocation(final ScriptLocation referenceLocation, final String locationValue,
+    public ScriptLocationAdapter resolveLocation(final ScriptLocationAdapter referenceLocation, final String locationValue,
             final Map<String, Object> resolutionParameters)
     {
         // we currently don't support any parameters, so just pass to default implementation
