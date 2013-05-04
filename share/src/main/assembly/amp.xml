@@ -102,4 +102,31 @@
             <outputDirectory>lib</outputDirectory>
         </file>
     </files>
+    <dependencySets>
+        <dependencySet>
+            <outputDirectory>lib</outputDirectory>
+            <includes>
+                <include>org.nabucco.alfresco:org.nabucco.alfresco.enhScriptEnv.common:*</include>
+            </includes>
+            <useProjectArtifact>false</useProjectArtifact>
+            <scope>compile</scope>
+        </dependencySet>
+        <!-- Included because Share by default does not include it (same version as used in Repository) -->
+        <dependencySet>
+            <outputDirectory>lib</outputDirectory>
+            <includes>
+                <include>org.slf4j:*</include>
+            </includes>
+            <useProjectArtifact>false</useProjectArtifact>
+            <scope>compile</scope>
+        </dependencySet>
+        <dependencySet>
+            <outputDirectory>lib</outputDirectory>
+            <includes>
+                <include>org.slf4j:*</include>
+            </includes>
+            <useProjectArtifact>false</useProjectArtifact>
+            <scope>runtime</scope>
+        </dependencySet>
+    </dependencySets>
 </assembly>

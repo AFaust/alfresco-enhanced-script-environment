@@ -1,0 +1,81 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<beans xmlns="http://www.springframework.org/schema/beans" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="
+           http://www.springframework.org/schema/beans
+           http://www.springframework.org/schema/beans/spring-beans-3.0.xsd">
+    <!-- Note: All beans should be prefixed ${project.artifactId} in their ID in gerneral -->
+    <!-- Exceptions: service beans (unique name) and beans with name conventions (e.g. web scripts) -->
+
+    <!-- Needs to be overriden (even if it is bad practice) to allow an alternative implementation of a script processor when using autowiring -->
+    <bean id="webframework.service.autowire" class="${basePackage}.surf.TypeUnspecificAutowireService" parent="webframework.service.autowire.abstract">
+        <property name="actualWebscriptsScriptProcessor" ref="webframework.webscripts.scriptprocessor.alternative.javascript" />
+        <property name="actualTemplatesScriptProcessor" ref="webframework.templates.scriptprocessor.alternative.javascript" />
+    </bean>
+
+    <!-- alternative script processors for Web Scripts / Templates -->
+
+    <bean id="webframework.webscripts.scriptprocessor.alternative.javascript" class="org.nabucco.alfresco.enhScriptEnv.common.webscripts.processor.EnhancedJSScriptProcessor">
+        <property name="scriptProcessorRegistry" ref="webframework.webscripts.registry.scriptprocessor" />
+        <property name="importFunction" ref="webframework.webscripts.scriptprocessor.alternative.javascript.importFunction" />
+        <property name="standardScriptLoader" ref="webframework.webscripts.scriptprocessor.alternative.javascript.storeScriptLocator" />
+    </bean>
+
+    <bean id="webframework.templates.scriptprocessor.alternative.javascript" class="org.nabucco.alfresco.enhScriptEnv.common.webscripts.processor.EnhancedJSScriptProcessor">
+        <property name="scriptProcessorRegistry" ref="webframework.templates.registry.scriptprocessor" />
+        <property name="importFunction" ref="webframework.templates.scriptprocessor.alternative.javascript.importFunction" />
+        <property name="standardScriptLoader" ref="webframework.templates.scriptprocessor.alternative.javascript.storeScriptLocator" />
+    </bean>
+
+    <bean id="baseScriptExtension" abstract="true" init-method="register">
+        <property name="processors">
+            <list>
+                <ref bean="webframework.webscripts.scriptprocessor.javascript" />
+                <ref bean="webframework.templates.scriptprocessor.javascript" />
+                <ref bean="webframework.webscripts.scriptprocessor.alternative.javascript" />
+                <ref bean="webframework.templates.scriptprocessor.alternative.javascript" />
+            </list>
+        </property>
+    </bean>
+
+    <!-- Web Script processor extensions -->
+
+    <bean id="webframework.webscripts.scriptprocessor.alternative.javascript.importFunction" class="org.nabucco.alfresco.enhScriptEnv.common.script.ImportScriptFunction">
+        <!-- necessary references injected by script processor -->
+    </bean>
+
+    <bean id="webframework.webscripts.scriptprocessor.alternative.javascript.scriptLocator.base" abstract="true">
+        <property name="scriptLocatorRegistry" ref="webframework.webscripts.scriptprocessor.alternative.javascript.importFunction" />
+    </bean>
+
+    <bean id="webframework.webscripts.scriptprocessor.alternative.javascript.storeScriptLocator" class="org.nabucco.alfresco.enhScriptEnv.common.webscripts.processor.StoreScriptLocator"
+        parent="webframework.webscripts.scriptprocessor.alternative.javascript.scriptLocator.base">
+        <property name="searchPath" ref="webframework.webscripts.searchpath" />
+        <property name="name" value="storePath" />
+    </bean>
+
+    <bean id="webframework.webscripts.scriptprocessor.alternative.javascript.classpathScriptLocator" class="org.nabucco.alfresco.enhScriptEnv.common.webscripts.processor.ClasspathScriptLocator"
+        parent="webframework.webscripts.scriptprocessor.alternative.javascript.scriptLocator.base">
+        <property name="name" value="classpath" />
+    </bean>
+
+    <!-- Template processor extensions -->
+
+    <bean id="webframework.templates.scriptprocessor.alternative.javascript.importFunction" class="org.nabucco.alfresco.enhScriptEnv.common.script.ImportScriptFunction">
+        <!-- necessary references injected by script processor -->
+    </bean>
+
+    <bean id="webframework.templates.scriptprocessor.alternative.javascript.scriptLocator.base" abstract="true">
+        <property name="scriptLocatorRegistry" ref="webframework.templates.scriptprocessor.alternative.javascript.importFunction" />
+    </bean>
+
+    <bean id="webframework.templates.scriptprocessor.alternative.javascript.storeScriptLocator" class="org.nabucco.alfresco.enhScriptEnv.common.webscripts.processor.StoreScriptLocator"
+        parent="webframework.templates.scriptprocessor.alternative.javascript.scriptLocator.base">
+        <property name="searchPath" ref="webframework.templates.searchpath" />
+        <property name="name" value="storePath" />
+    </bean>
+
+    <bean id="webframework.templates.scriptprocessor.alternative.javascript.classpathScriptLocator" class="org.nabucco.alfresco.enhScriptEnv.common.webscripts.processor.ClasspathScriptLocator"
+        parent="webframework.templates.scriptprocessor.alternative.javascript.scriptLocator.base">
+        <property name="name" value="classpath" />
+    </bean>
+</beans>
