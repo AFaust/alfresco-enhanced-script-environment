@@ -29,13 +29,4 @@ public interface ValueConverter
      * @return the converted value
      */
     Object convertValueForJava(Object value);
-
-    /**
-     * Converts a Java value object for use in the script environment.
-     * 
-     * @param value
-     *            the value to convert
-     * @return the converted value
-     */
-    Object convertValueForScript(Object value);
 }
