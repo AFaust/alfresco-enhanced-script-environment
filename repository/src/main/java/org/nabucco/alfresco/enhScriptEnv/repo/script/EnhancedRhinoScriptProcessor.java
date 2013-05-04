@@ -12,16 +12,6 @@
  * either express or implied. See the License for the specific language governing permissions
  * and limitations under the License.
  */
-/*
- * This file is a partial re-implementation of the Java class org.alfresco.repo.jscript.RhinoScriptProcessor, which itself is
- * 
- * Copyright (C) 2005-2012 Alfresco Software Limited.
- * 
- * and licensed under LGPL 3 (http://www.gnu.org/licenses/).
- * 
- * The original source of this file can be found in the Alfresco public SVN http://svn.alfresco.com/repos/alfresco-open-mirror/alfresco
- * The revision used as the basis for this partial re-implementation can be retrieved via http://svn.alfresco.com/repos/alfresco-open-mirror/alfresco/COMMUNITYTAGS/V4.2c/root/projects/repository/source/java/org/alfresco/repo/jscript/RhinoScriptProcessor.java
- */
 package org.nabucco.alfresco.enhScriptEnv.repo.script;
 
 import java.io.ByteArrayOutputStream;
@@ -40,6 +30,7 @@ import org.alfresco.processor.ProcessorExtension;
 import org.alfresco.repo.jscript.CategoryNode;
 import org.alfresco.repo.jscript.ClasspathScriptLocation;
 import org.alfresco.repo.jscript.NativeMap;
+import org.alfresco.repo.jscript.RhinoScriptProcessor;
 import org.alfresco.repo.jscript.Scopeable;
 import org.alfresco.repo.jscript.ScriptNode;
 import org.alfresco.repo.jscript.ScriptableHashMap;
@@ -54,6 +45,7 @@ import org.alfresco.service.cmr.repository.ScriptLocation;
 import org.alfresco.service.cmr.repository.ScriptProcessor;
 import org.alfresco.service.namespace.QName;
 import org.alfresco.util.ParameterCheck;
+import org.alfresco.util.PropertyCheck;
 import org.mozilla.javascript.Context;
 import org.mozilla.javascript.IdFunctionObject;
 import org.mozilla.javascript.ImporterTopLevel;
@@ -72,17 +64,17 @@ import org.springframework.util.FileCopyUtils;
 /**
  * @author Axel Faust, <a href="http://www.prodyna.com">PRODYNA AG</a>
  */
-public class RhinoScriptProcessor extends BaseProcessor implements EnhancedScriptProcessor<ScriptLocationAdapter>, ScriptProcessor,
+public class EnhancedRhinoScriptProcessor extends BaseProcessor implements EnhancedScriptProcessor<ScriptLocationAdapter>, ScriptProcessor,
         InitializingBean
 {
     private static final String NODE_REF_RESOURCE_IMPORT_PATTERN = "<import(\\s*\\n*\\s+)+resource(\\s*\\n*\\s*+)*=(\\s*\\n*\\s+)*\"(([^:]+)://([^/]+)/([a-f0-9]+(-[a-f0-9]+)+))\"(\\s*\\n*\\s+)*(/)?>";
-    private static final String NODE_REF_RESOURCE_IMPORT_REPLACEMENT = "importScript(\"node\", \"$4\");";
+    private static final String NODE_REF_RESOURCE_IMPORT_REPLACEMENT = "importScript(\"node\", \"$4\", true);";
 
     private static final String LEGACY_NAME_PATH_RESOURCE_IMPORT_PATTERN = "<import(\\s*\\n*\\s+)+resource(\\s*\\n*\\s+)*=(\\s*\\n*\\s+)*\"(/[^\"]+)\"(\\s*\\n*\\s+)*(/)?>";
-    private static final String LEGACY_NAME_PATH_RESOURCE_IMPORT_REPLACEMENT = "importScript(\"legacyNamePath\", \"$4\");";
+    private static final String LEGACY_NAME_PATH_RESOURCE_IMPORT_REPLACEMENT = "importScript(\"legacyNamePath\", \"$4\", true);";
 
-    private static final String CLASSPATH_RESOURCE_IMPORT_PATTERN = "<import(\\s*\\n*\\s+)+resource(\\s*\\n*\\s+)*=(\\s*\\n*\\s+)*\"classpath:([^\"]+)\"(\\s*\\n*\\s+)*(/)?>";
-    private static final String CLASSPATH_RESOURCE_IMPORT_REPLACEMENT = "importScript(\"classpath\", \"$4\");";
+    private static final String CLASSPATH_RESOURCE_IMPORT_PATTERN = "<import(\\s*\\n*\\s+)+resource(\\s*\\n*\\s+)*=(\\s*\\n*\\s+)*\"classpath:(/)?([^\"]+)\"(\\s*\\n*\\s+)*(/)?>";
+    private static final String CLASSPATH_RESOURCE_IMPORT_REPLACEMENT = "importScript(\"classpath\", \"/$5\", true);";
 
     protected static final WrapFactory DEFAULT_WRAP_FACTORY = new WrapFactory()
     {
@@ -111,30 +103,23 @@ public class RhinoScriptProcessor extends BaseProcessor implements EnhancedScrip
         }
     };
 
-    private static final Logger LOGGER = LoggerFactory.getLogger(RhinoScriptProcessor.class);
-    private static final Logger CALL_LOGGER = LoggerFactory.getLogger(RhinoScriptProcessor.class.getName() + ".calls");
+    private static final Logger LOGGER = LoggerFactory.getLogger(EnhancedRhinoScriptProcessor.class);
+    private static final Logger LEGACY_CALL_LOGGER = LoggerFactory.getLogger(RhinoScriptProcessor.class.getName() + ".calls");
 
-    protected final ThreadLocal<List<ScriptLocationAdapter>> activeScriptLocationStack = new ThreadLocal<List<ScriptLocationAdapter>>();
-    protected final ThreadLocal<List<List<ScriptLocationAdapter>>> recursionScriptLocationStacks = new ThreadLocal<List<List<ScriptLocationAdapter>>>();
+    protected final ThreadLocal<List<ScriptLocationAdapter>> activeScriptLocationChain = new ThreadLocal<List<ScriptLocationAdapter>>();
+    protected final ThreadLocal<List<List<ScriptLocationAdapter>>> recursionScriptLocationChains = new ThreadLocal<List<List<ScriptLocationAdapter>>>();
 
     protected WrapFactory wrapFactory = DEFAULT_WRAP_FACTORY;
 
-    /** Pre initialized secure scope object. */
-    protected Scriptable secureScope;
+    protected boolean shareScopes = true;
 
-    /** Pre initialized non secure scope object. */
-    protected Scriptable nonSecureScope;
+    protected Scriptable restrictedShareableScope;
+    protected Scriptable unrestrictedShareableScope;
 
-    /** Base Value Converter */
+    protected boolean compileScripts = true;
+
     protected final ValueConverter valueConverter = new ValueConverter();
 
-    /** Flag to enable or disable runtime script compilation */
-    protected boolean compile = true;
-
-    /** Flag to enable the sharing of sealed root scopes between scripts executions */
-    protected boolean shareSealedScopes = true;
-
-    /** Cache of runtime compiled script instances */
     protected final Map<String, Script> scriptCache = new ConcurrentHashMap<String, Script>(256);
 
     protected final AtomicLong dynamicScriptCounter = new AtomicLong();
@@ -150,24 +135,24 @@ public class RhinoScriptProcessor extends BaseProcessor implements EnhancedScrip
     @Override
     public void afterPropertiesSet()
     {
-        // Initialize the secure scope
+        PropertyCheck.mandatory(this, "importFunction", this.importFunction);
+
         Context cx = Context.enter();
         try
         {
             cx.setWrapFactory(this.wrapFactory);
-            this.secureScope = this.initScope(cx, false, true);
+            this.restrictedShareableScope = this.setupScope(cx, false, true);
         }
         finally
         {
             Context.exit();
         }
 
-        // Initialize the non-secure scope
         cx = Context.enter();
         try
         {
             cx.setWrapFactory(this.wrapFactory);
-            this.nonSecureScope = this.initScope(cx, true, true);
+            this.unrestrictedShareableScope = this.setupScope(cx, true, true);
         }
         finally
         {
@@ -185,27 +170,22 @@ public class RhinoScriptProcessor extends BaseProcessor implements EnhancedScrip
     {
         ParameterCheck.mandatory("location", location);
         final Script script = this.getCompiledScript(location);
-        this.updateLocationStackBeforeExceution();
+        final String debugScriptName;
+        {
+            final String path = location.getPath();
+            final int i = path.lastIndexOf('/');
+            debugScriptName = i != -1 ? path.substring(i + 1) : path;
+        }
+
+        this.updateLocationChainsBeforeExceution();
+        this.activeScriptLocationChain.get().add(new ScriptLocationAdapter(location));
         try
         {
-            this.activeScriptLocationStack.get().add(new ScriptLocationAdapter(location));
-
-            String debugScriptName = null;
-            if (CALL_LOGGER.isDebugEnabled())
-            {
-                final String path = location.getPath();
-                final int i = path.lastIndexOf('/');
-                debugScriptName = i != -1 ? path.substring(i + 1) : path;
-            }
             return this.executeScriptImpl(script, model, location.isSecure(), debugScriptName);
-        }
-        catch (final Throwable err)
-        {
-            throw new ScriptException("Failed to execute script '" + location.toString() + "': " + err.getMessage(), err);
         }
         finally
         {
-            this.updateLocationStackAfterReturning();
+            this.updateLocationChainsAfterReturning();
         }
     }
 
@@ -240,7 +220,9 @@ public class RhinoScriptProcessor extends BaseProcessor implements EnhancedScrip
         // compile the script based on the node content
         final Script script = this.getCompiledScript(source,
                 "string://DynamicJS-" + String.valueOf(this.dynamicScriptCounter.getAndIncrement()));
-        this.updateLocationStackBeforeExceution();
+
+        this.updateLocationChainsBeforeExceution();
+        // Note: We are not adding a location object to the chain as initial element - a dynamic JS string has not location
         try
         {
             return this.executeScriptImpl(script, model, true, "string script");
@@ -251,7 +233,7 @@ public class RhinoScriptProcessor extends BaseProcessor implements EnhancedScrip
         }
         finally
         {
-            this.updateLocationStackAfterReturning();
+            this.updateLocationChainsAfterReturning();
         }
     }
 
@@ -273,60 +255,71 @@ public class RhinoScriptProcessor extends BaseProcessor implements EnhancedScrip
         ParameterCheck.mandatory("location", location);
 
         final Script script = this.getCompiledScript(location);
-        this.updateLocationStackBeforeExceution();
+        final String debugScriptName;
 
-        String debugScriptName = null;
-        if (CALL_LOGGER.isDebugEnabled())
         {
             final String path = location.getPath();
             final int i = path.lastIndexOf('/');
             debugScriptName = i != -1 ? path.substring(i + 1) : path;
         }
 
-        final long startTime = System.currentTimeMillis();
-        CALL_LOGGER.debug("{} Start", debugScriptName);
+        LOGGER.info("{} Start", debugScriptName);
+        LEGACY_CALL_LOGGER.debug("{} Start", debugScriptName);
 
+        // TODO: Can we always be sure we're continuing the previous chain?
+        final List<ScriptLocationAdapter> currentChain = this.activeScriptLocationChain.get();
+        if (currentChain != null)
+        {
+            // preliminary safeguard against incorrect invocation - see TODO notice
+            currentChain.add(location);
+        }
+
+        final long startTime = System.currentTimeMillis();
         final Context cx = Context.enter();
         try
         {
-            this.activeScriptLocationStack.get().add(location);
 
             final Scriptable realScope;
             if (scope == null || !(scope instanceof Scriptable))
             {
-                if (this.shareSealedScopes)
+                if (this.shareScopes)
                 {
-                    final Scriptable sharedScope = location.isSecure() ? this.nonSecureScope : this.secureScope;
+                    final Scriptable sharedScope = location.isSecure() ? this.unrestrictedShareableScope : this.restrictedShareableScope;
                     realScope = cx.newObject(sharedScope);
                     realScope.setPrototype(sharedScope);
                     realScope.setParentScope(null);
                 }
                 else
                 {
-                    realScope = this.initScope(cx, location.isSecure(), false);
+                    realScope = this.setupScope(cx, location.isSecure(), false);
                 }
             }
             else
             {
-                // TODO: how to handle scope isolation depending on caller?
                 realScope = (Scriptable) scope;
             }
 
             this.executeScriptInScopeImpl(script, realScope);
         }
-        catch (final Throwable err)
+        catch (final Exception ex)
         {
             // TODO: error handling / bubbling to caller? how to handle Rhino exceptions if caller is not a script?
-            CALL_LOGGER.debug("{} Exception: {}", debugScriptName, err);
-            throw new ScriptException("Failed to execute script '" + location.toString() + "': " + err.getMessage(), err);
+            LOGGER.info("{} Exception: {}", debugScriptName, ex);
+            LEGACY_CALL_LOGGER.debug("{} Exception: {}", debugScriptName, ex);
+            throw new ScriptException("Failed to execute script '" + location.toString() + "': " + ex.getMessage(), ex);
         }
         finally
         {
-            this.updateLocationStackAfterReturning();
             Context.exit();
+            if (currentChain != null)
+            {
+                // preliminary safeguard against incorrect invocation - see TODO notice
+                currentChain.remove(currentChain.size() - 1);
+            }
 
             final long endTime = System.currentTimeMillis();
-            CALL_LOGGER.debug("{} End {} msg", debugScriptName, Long.valueOf(endTime - startTime));
+            LOGGER.info("{} End {} ms", debugScriptName, Long.valueOf(endTime - startTime));
+            LEGACY_CALL_LOGGER.debug("{} End {} ms", debugScriptName, Long.valueOf(endTime - startTime));
         }
     }
 
@@ -336,8 +329,17 @@ public class RhinoScriptProcessor extends BaseProcessor implements EnhancedScrip
     @Override
     public ScriptLocationAdapter getContextScriptLocation()
     {
-        // TODO Auto-generated method stub
-        return null;
+        final List<ScriptLocationAdapter> currentChain = getActiveScriptLocationChain();
+        final ScriptLocationAdapter result;
+        if (currentChain != null && !currentChain.isEmpty())
+        {
+            result = currentChain.get(currentChain.size() - 1);
+        }
+        else
+        {
+            result = null;
+        }
+        return result;
     }
 
     /**
@@ -350,21 +352,21 @@ public class RhinoScriptProcessor extends BaseProcessor implements EnhancedScrip
     }
 
     /**
-     * @param compile
-     *            the compile to set
+     * @param shareScopes
+     *            the shareScopes to set
      */
-    public final void setCompile(final boolean compile)
+    public final void setShareScopes(boolean shareScopes)
     {
-        this.compile = compile;
+        this.shareScopes = shareScopes;
     }
 
     /**
-     * @param shareSealedScopes
-     *            the shareSealedScopes to set
+     * @param compileScripts
+     *            the compileScripts to set
      */
-    public final void setShareSealedScopes(final boolean shareSealedScopes)
+    public final void setCompileScripts(boolean compileScripts)
     {
-        this.shareSealedScopes = shareSealedScopes;
+        this.compileScripts = compileScripts;
     }
 
     /**
@@ -385,58 +387,47 @@ public class RhinoScriptProcessor extends BaseProcessor implements EnhancedScrip
             @Override
             public Object convertValueForJava(Object value)
             {
-                return RhinoScriptProcessor.this.valueConverter.convertValueForJava(value);
-            }
-
-            /**
-             * 
-             * {@inheritDoc}
-             */
-            @Override
-            public Object convertValueForScript(Object value)
-            {
-                // TODO: generic support
-                return null;
+                return EnhancedRhinoScriptProcessor.this.valueConverter.convertValueForJava(value);
             }
 
         });
     }
 
-    protected void updateLocationStackBeforeExceution()
+    protected void updateLocationChainsBeforeExceution()
     {
-        final List<ScriptLocationAdapter> activeStack = this.activeScriptLocationStack.get();
-        if (activeStack != null)
+        final List<ScriptLocationAdapter> activeChain = this.activeScriptLocationChain.get();
+        if (activeChain != null)
         {
-            List<List<ScriptLocationAdapter>> recursionStacks = this.recursionScriptLocationStacks.get();
-            if (recursionStacks == null)
+            List<List<ScriptLocationAdapter>> recursionChains = this.recursionScriptLocationChains.get();
+            if (recursionChains == null)
             {
-                recursionStacks = new LinkedList<List<ScriptLocationAdapter>>();
-                this.recursionScriptLocationStacks.set(recursionStacks);
+                recursionChains = new LinkedList<List<ScriptLocationAdapter>>();
+                this.recursionScriptLocationChains.set(recursionChains);
             }
 
-            recursionStacks.add(0, activeStack);
+            recursionChains.add(0, activeChain);
         }
-        this.activeScriptLocationStack.set(new LinkedList<ScriptLocationAdapter>());
+        this.activeScriptLocationChain.set(new LinkedList<ScriptLocationAdapter>());
     }
 
-    protected void updateLocationStackAfterReturning()
+    protected void updateLocationChainsAfterReturning()
     {
-        this.activeScriptLocationStack.remove();
-        final List<List<ScriptLocationAdapter>> recursionStacks = this.recursionScriptLocationStacks.get();
-        if (recursionStacks != null)
+        this.activeScriptLocationChain.remove();
+        final List<List<ScriptLocationAdapter>> recursionChains = this.recursionScriptLocationChains.get();
+        if (recursionChains != null)
         {
-            final List<ScriptLocationAdapter> previousStack = recursionStacks.remove(0);
-            if (recursionStacks.isEmpty())
+            final List<ScriptLocationAdapter> previousChain = recursionChains.remove(0);
+            if (recursionChains.isEmpty())
             {
-                this.recursionScriptLocationStacks.remove();
+                this.recursionScriptLocationChains.remove();
             }
-            this.activeScriptLocationStack.set(previousStack);
+            this.activeScriptLocationChain.set(previousChain);
         }
     }
 
-    protected List<ScriptLocationAdapter> getActiveScriptLocationStack()
+    protected List<ScriptLocationAdapter> getActiveScriptLocationChain()
     {
-        final List<ScriptLocationAdapter> activeLocations = this.activeScriptLocationStack.get();
+        final List<ScriptLocationAdapter> activeLocations = this.activeScriptLocationChain.get();
         return activeLocations;
     }
 
@@ -445,22 +436,22 @@ public class RhinoScriptProcessor extends BaseProcessor implements EnhancedScrip
         Script script = null;
         final String path = location.getPath();
 
-        // check if the path is in external form containing a protocol identifier
-        // TODO: can we generalize external form file:// to a classpath-relative location?
+        // check if the path is in classpath form
+        // TODO: can we generalize external form file:// to a classpath-relative location? (best-effort)
         final String realPath;
         if (!path.matches("^(classpath(\\*)?:)+.*$"))
         {
-            // take path as is, either already a file:// path or StoreRef-prefixed node path
+            // take path as is - can be anything depending on how content is loaded
             realPath = path;
         }
         else
         {
             // we always want to have a fully-qualified file-protocol path (unless we can generalize all to classpath-relative locations)
-            realPath = this.getClass().getClassLoader().getResource(path).toExternalForm();
+            realPath = this.getClass().getClassLoader().getResource(path.substring(path.indexOf(':') + 1)).toExternalForm();
         }
 
         // test the cache for a pre-compiled script matching our path
-        if (this.compile && location.isCachable())
+        if (this.compileScripts && location.isCachable())
         {
             script = this.scriptCache.get(path);
         }
@@ -483,13 +474,7 @@ public class RhinoScriptProcessor extends BaseProcessor implements EnhancedScrip
                 throw new ScriptException("Failed to compile supplied script: " + err.getMessage(), err);
             }
 
-            // We do not worry about more than one user thread compiling the same script.
-            // If more than one request thread compiles the same script and adds it to the
-            // cache that does not matter - the results will be the same. Therefore we
-            // rely on the ConcurrentHashMap impl to deal both with ensuring the safety of the
-            // underlying structure with asynchronous get/put operations and for fast
-            // multi-threaded access to the common cache.
-            if (this.compile && location.isCachable())
+            if (this.compileScripts && location.isCachable())
             {
                 this.scriptCache.put(path, script);
             }
@@ -523,14 +508,11 @@ public class RhinoScriptProcessor extends BaseProcessor implements EnhancedScrip
             }
             return script;
         }
-        catch (final Throwable err)
+        catch (final Exception ex)
         {
-            LOGGER.error("Failed to compile supplied script", err);
-            if (err instanceof Exception)
-            {
-                throw new ScriptException("Failed to compile supplied script: " + err.getMessage(), err);
-            }
-            throw new AlfrescoRuntimeException("Technical Error", err);
+            // we don't know the sorts of exceptions that can come from Rhino, so handle any and all exceptions
+            LOGGER.error("Failed to compile supplied script", ex);
+            throw new ScriptException("Failed to compile supplied script: " + ex.getMessage(), ex);
         }
     }
 
@@ -542,10 +524,9 @@ public class RhinoScriptProcessor extends BaseProcessor implements EnhancedScrip
      * <import resource="classpath:alfresco/includeme.js">
      * <import resource="workspace://SpacesStore/6f73de1b-d3b4-11db-80cb-112e6c2ea048">
      * <import resource="/Company Home/Data Dictionary/Scripts/includeme.js">
-     * <import resource="relative/path/to/includeme.js">
      * </pre>
      * 
-     * Either a classpath resource, NodeRef, XPath or relative cm:name path based script can be imported.
+     * Either a classpath resource, NodeRef or cm:name path based script can be imported.
      * 
      * @param script
      *            The script content to resolve imports in
@@ -564,28 +545,12 @@ public class RhinoScriptProcessor extends BaseProcessor implements EnhancedScrip
         return legacyNamePathResolvedScript;
     }
 
-    /**
-     * Execute the supplied script content. Adds the default data model and custom configured root objects into the root scope for access by
-     * the script.
-     * 
-     * @param script
-     *            The script to execute.
-     * @param model
-     *            Data model containing objects to be added to the root scope.
-     * @param secure
-     *            True if the script is considered secure and may access java.* libs directly
-     * @param debugScriptName
-     *            To identify the script in debug messages.
-     * 
-     * @return result of the script execution, can be null.
-     * 
-     * @throws AlfrescoRuntimeException
-     */
-    protected Object executeScriptImpl(final Script script, final Map<String, Object> argModel, final boolean secure,
+    protected Object executeScriptImpl(final Script script, final Map<String, Object> argModel, final boolean secureScript,
             final String debugScriptName) throws AlfrescoRuntimeException
     {
         final long startTime = System.currentTimeMillis();
-        CALL_LOGGER.debug("{} Start", debugScriptName);
+        LOGGER.info("{} Start", debugScriptName);
+        LEGACY_CALL_LOGGER.debug("{} Start", debugScriptName);
 
         // Convert the model
         final Map<String, Object> model = this.convertToRhinoModel(argModel);
@@ -593,21 +558,19 @@ public class RhinoScriptProcessor extends BaseProcessor implements EnhancedScrip
         final Context cx = Context.enter();
         try
         {
-            // Create a thread-specific scope from one of the shared scopes.
-            // See http://www.mozilla.org/rhino/scopes.html
             cx.setWrapFactory(this.wrapFactory);
 
             final Scriptable scope;
-            if (this.shareSealedScopes)
+            if (this.shareScopes)
             {
-                final Scriptable sharedScope = secure ? this.nonSecureScope : this.secureScope;
+                final Scriptable sharedScope = secureScript ? this.unrestrictedShareableScope : this.restrictedShareableScope;
                 scope = cx.newObject(sharedScope);
                 scope.setPrototype(sharedScope);
                 scope.setParentScope(null);
             }
             else
             {
-                scope = this.initScope(cx, secure, false);
+                scope = this.setupScope(cx, secureScript, false);
             }
 
             // insert supplied object model into root of the default scope
@@ -637,7 +600,8 @@ public class RhinoScriptProcessor extends BaseProcessor implements EnhancedScrip
         }
         catch (final WrappedException w)
         {
-            CALL_LOGGER.debug("{} Exception: {}", debugScriptName, w);
+            LOGGER.info("{} Exception: {}", debugScriptName, w);
+            LEGACY_CALL_LOGGER.debug("{} Exception: {}", debugScriptName, w);
 
             final Throwable err = w.getWrappedException();
             if (err instanceof Exception)
@@ -647,23 +611,21 @@ public class RhinoScriptProcessor extends BaseProcessor implements EnhancedScrip
             }
             throw new AlfrescoRuntimeException("Technical Error", err);
         }
-        catch (final Throwable err)
+        catch (final Exception ex)
         {
-            CALL_LOGGER.debug("{} Exception: {}", debugScriptName, err);
+            LOGGER.info("{} Exception: {}", debugScriptName, ex);
+            LEGACY_CALL_LOGGER.debug("{} Exception: {}", debugScriptName, ex);
 
-            if (err instanceof Exception)
-            {
-                // TODO
-                throw new ScriptException("", err);
-            }
-            throw new AlfrescoRuntimeException("Technical Error", err);
+            // TODO
+            throw new ScriptException("", ex);
         }
         finally
         {
             Context.exit();
 
             final long endTime = System.currentTimeMillis();
-            CALL_LOGGER.debug("{} End {} msg", debugScriptName, Long.valueOf(endTime - startTime));
+            LOGGER.info("{} End {} ms", debugScriptName, Long.valueOf(endTime - startTime));
+            LEGACY_CALL_LOGGER.debug("{} End {} ms", debugScriptName, Long.valueOf(endTime - startTime));
         }
     }
 
@@ -672,6 +634,10 @@ public class RhinoScriptProcessor extends BaseProcessor implements EnhancedScrip
         final Context cx = Context.enter();
         try
         {
+            if (this.compileScripts)
+            {
+                cx.setOptimizationLevel(9);
+            }
             // make sure scripts always have the relevant processor extensions available
             for (final ProcessorExtension ex : this.processorExtensions.values())
             {
@@ -699,37 +665,18 @@ public class RhinoScriptProcessor extends BaseProcessor implements EnhancedScrip
         }
     }
 
-    /**
-     * Initializes a scope for script execution. The easiest way to embed Rhino is just to create a new scope this way whenever you need
-     * one. However, initStandardObjects() is an expensive method to call and it allocates a fair amount of memory.
-     * 
-     * @param cx
-     *            the thread execution context
-     * @param secure
-     *            Do we consider the script secure? When <code>false</code> this ensures the script may not access insecure java.* libraries
-     *            or import any other classes for direct access - only the configured root host objects will be available to the script
-     *            writer.
-     * @param sealed
-     *            Should the scope be sealed, making it immutable? This should be <code>true</code> if a scope is to be reused.
-     * @return the scope object
-     */
-    protected Scriptable initScope(final Context cx, final boolean secure, final boolean sealed)
+    protected Scriptable setupScope(final Context executionContext, final boolean trustworthyScript, final boolean mutableScope)
     {
         final Scriptable scope;
-        if (secure)
+        if (trustworthyScript)
         {
-            // Initialize the non-secure scope
-            // allow access to all libraries and objects, including the importer
-            // @see http://www.mozilla.org/rhino/ScriptingJava.html
-            scope = new ImporterTopLevel(cx, sealed);
+            // allow access to all libraries and objects
+            scope = new ImporterTopLevel(executionContext, !mutableScope);
         }
         else
         {
-            // Initialize the secure scope
-            scope = cx.initStandardObjects(null, sealed);
-            // remove security issue related objects - this ensures the script may not access
-            // insecure java.* libraries or import any other classes for direct access - only
-            // the configured root host objects will be available to the script writer
+            scope = executionContext.initStandardObjects(null, !mutableScope);
+            // Remove reflection / Java-interactivity capabilities
             scope.delete("Packages");
             scope.delete("getClass");
             scope.delete("java");
@@ -740,7 +687,7 @@ public class RhinoScriptProcessor extends BaseProcessor implements EnhancedScrip
         // add our controlled script import function
         final IdFunctionObject func = new IdFunctionObject(this.importFunction, ImportScriptFunction.IMPORT_FUNC_TAG,
                 ImportScriptFunction.IMPORT_FUNC_ID, ImportScriptFunction.IMPORT_FUNC_NAME, ImportScriptFunction.ARITY, scope);
-        if (sealed)
+        if (!mutableScope)
         {
             func.sealObject();
         }
@@ -749,14 +696,6 @@ public class RhinoScriptProcessor extends BaseProcessor implements EnhancedScrip
         return scope;
     }
 
-    /**
-     * Converts the passed model into a Rhino model
-     * 
-     * @param model
-     *            the model
-     * 
-     * @return Map<String, Object> the converted model
-     */
     protected Map<String, Object> convertToRhinoModel(final Map<String, Object> model)
     {
         final Map<String, Object> newModel;

@@ -15,14 +15,10 @@
 package org.nabucco.alfresco.enhScriptEnv.repo.script;
 
 import java.net.URL;
-import java.util.Map;
 
 import org.alfresco.repo.jscript.ClasspathScriptLocation;
 import org.alfresco.repo.web.scripts.RepositoryScriptProcessor;
-import org.nabucco.alfresco.enhScriptEnv.common.script.AbstractScriptLocator;
-import org.nabucco.alfresco.enhScriptEnv.common.script.ScriptImportException;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.nabucco.alfresco.enhScriptEnv.common.script.AbstractRelativeResolvingScriptLocator;
 
 /**
  * A script locator able to import scripts from the classpath of the web application. This implementation is able to resolve relative script
@@ -30,124 +26,37 @@ import org.slf4j.LoggerFactory;
  * 
  * @author Axel Faust, <a href="http://www.prodyna.com">PRODYNA AG</a>
  */
-public class ClasspathScriptLocator extends AbstractScriptLocator<ScriptLocationAdapter>
+public class ClasspathScriptLocator extends AbstractRelativeResolvingScriptLocator<ScriptLocationAdapter>
 {
-    private static final Logger LOGGER = LoggerFactory.getLogger(ClasspathScriptLocator.class);
-
     /**
+     * 
      * {@inheritDoc}
      */
     @Override
-    public ScriptLocationAdapter resolveLocation(final ScriptLocationAdapter referenceLocation, final String locationValue)
+    protected String getReferencePath(final ScriptLocationAdapter referenceLocation)
     {
-        final ScriptLocationAdapter result;
-        LOGGER.debug("Resolving {} from reference location {}", locationValue, referenceLocation);
-
-        if (locationValue != null)
+        final String referencePath;
+        if (referenceLocation.getScriptLocation() instanceof ClasspathScriptLocation)
         {
+            // we know this gives us the path relative to the classpath
 
-            String absoluteClasspath;
-            if (referenceLocation != null)
-            {
-                // potentially relative
+            // TODO: would be nice for a proper getter (which seems to have been removed recently)
+            referencePath = referenceLocation.toString();
+        }
+        else if (referenceLocation.getScriptLocation().getClass().getDeclaringClass().isAssignableFrom(RepositoryScriptProcessor.class))
+        {
+            // awkward check for private RepositoryScriptLocation which encapsulates a ScriptContent instance
+            // we know this gives us the classpath*:-prefixed path IF a classpath-based ScriptContent is wrapped
+            // (ClasspathScriptLocation)
 
-                if (locationValue.startsWith("/"))
-                {
-                    // definitely absolute
-                    absoluteClasspath = locationValue;
-                }
-                else
-                {
-                    if (referenceLocation.getScriptLocation() instanceof ClasspathScriptLocation)
-                    {
-                        // we know this gives us the path relative to the classpath
-
-                        // TODO: would be nice for a proper getter (which seems to have been removed recently)
-                        final String referencePath = referenceLocation.toString();
-                        final StringBuilder pathBuilder = new StringBuilder(referencePath.substring(0, referencePath.lastIndexOf("/")));
-
-                        resolveRelativeLocation(locationValue, referencePath, pathBuilder);
-
-                        absoluteClasspath = pathBuilder.toString();
-
-                    }
-                    else if (referenceLocation.getScriptLocation().getClass().getDeclaringClass()
-                            .isAssignableFrom(RepositoryScriptProcessor.class))
-                    {
-                        // awkward check for private RepositoryScriptLocation which encapsulates a ScriptContent instance
-                        // we know this gives us the classpath*:-prefixed path IF a classpath-based ScriptContent is wrapped
-                        // (ClasspathScriptLocation)
-
-                        // TODO: would be nice for a proper getter
-                        final String referencePath = referenceLocation.toString();
-                        if (referencePath.startsWith("classpath*:"))
-                        {
-                            final StringBuilder pathBuilder = new StringBuilder(referencePath.substring(referencePath.indexOf(':') + 1,
-                                    referencePath.lastIndexOf('/')));
-                            resolveRelativeLocation(locationValue, referencePath, pathBuilder);
-
-                            absoluteClasspath = pathBuilder.toString();
-                        }
-                        else
-                        {
-                            LOGGER.info(
-                                    "Unable to resolve relative location {} from non-classpath-based ScriptContent-wrapping reference location {}",
-                                    locationValue, referenceLocation);
-                            // we do not currently support relative resolution for other locations
-                            // treat as absolute
-                            absoluteClasspath = locationValue;
-                        }
-                    }
-                    else
-                    {
-                        LOGGER.info("Unable to resolve relative location {} from unknown reference location type of {}", locationValue,
-                                referenceLocation);
-                        // we do not currently support relative resolution for other locations
-                        // treat as absolute
-                        absoluteClasspath = locationValue;
-                    }
-                }
-
-            }
-            else
-            {
-                absoluteClasspath = locationValue;
-            }
-
-            if (absoluteClasspath == null)
-            {
-                result = null;
-            }
-            else
-            {
-                URL scriptResource = getClass().getClassLoader().getResource(absoluteClasspath);
-                if (scriptResource == null && absoluteClasspath.startsWith("/"))
-                {
-                    // Some classloaders prefer alfresco/foo to /alfresco/foo, try that
-                    absoluteClasspath = absoluteClasspath.substring(1);
-                    scriptResource = getClass().getClassLoader().getResource(absoluteClasspath);
-                }
-
-                if (scriptResource != null)
-                {
-                    result = new ScriptLocationAdapter(new ClasspathScriptLocation(absoluteClasspath));
-                }
-                else
-                {
-                    result = null;
-                }
-            }
-
+            // TODO: would be nice for a proper getter
+            referencePath = referenceLocation.toString();
         }
         else
         {
-            result = null;
+            referencePath = null;
         }
-
-        LOGGER.debug("Resolved {} based on location value {} from reference location {}", new Object[] { result, locationValue,
-                referenceLocation });
-
-        return result;
+        return referencePath;
     }
 
     /**
@@ -155,92 +64,27 @@ public class ClasspathScriptLocator extends AbstractScriptLocator<ScriptLocation
      * {@inheritDoc}
      */
     @Override
-    public ScriptLocationAdapter resolveLocation(final ScriptLocationAdapter referenceLocation, final String locationValue,
-            final Map<String, Object> resolutionParameters)
+    protected ScriptLocationAdapter loadScript(final String absolutePath)
     {
-        // we currently don't support any parameters, so just pass to default implementation
-        if (resolutionParameters != null)
+        String absoluteClasspath = absolutePath.startsWith("/") ? absolutePath : "/" + absolutePath;
+        final ScriptLocationAdapter result;
+        URL scriptResource = getClass().getClassLoader().getResource(absoluteClasspath);
+        if (scriptResource == null && absoluteClasspath.startsWith("/"))
         {
-            LOGGER.info(
-                    "Implementation does not support resolution parameters - resolution of path {} from reference location {1} will continue with default implementation",
-                    locationValue, referenceLocation);
-        }
-        return resolveLocation(referenceLocation, locationValue);
-    }
-
-    @SuppressWarnings("static-method")
-    protected void resolveRelativeLocation(final String locationValue, final String referenceValue, final StringBuilder pathBuilder)
-    {
-        LOGGER.debug("Resolving relativ classpath location {} from reference {}", locationValue, referenceValue);
-        int lastSlash = -1;
-        int nextSlash = locationValue.indexOf("/", 0);
-        boolean descending = false;
-        while (nextSlash != -1)
-        {
-            final String fragment = locationValue.substring(lastSlash + 1, nextSlash);
-
-            if (fragment.length() != 0)
-            {
-
-                if (fragment.equalsIgnoreCase(".."))
-                {
-                    if (!descending)
-                    {
-                        // ascend
-                        final int deleteFrom = pathBuilder.lastIndexOf("/");
-                        if (deleteFrom == -1)
-                        {
-                            if (pathBuilder.length() > 0)
-                            {
-                                pathBuilder.delete(0, pathBuilder.length());
-                            }
-                            else
-                            {
-                                LOGGER.warn("Resolving {} from reference {} caused ascension beyond root", locationValue, referenceValue);
-                                // nowhere to ascend to
-                                throw new ScriptImportException(
-                                        "Unable to ascend out of classpath - context location: [{0}], script location: [{1}]",
-                                        new Object[] { referenceValue, locationValue });
-                            }
-                        }
-                        else
-                        {
-                            pathBuilder.delete(deleteFrom, pathBuilder.length());
-                        }
-                    }
-                    else
-                    {
-                        LOGGER.warn("Cannot ascend after descending in resolution of {} from reference {}", locationValue, referenceValue);
-                        // no re-ascension
-                        throw new ScriptImportException(
-                                "Unable to ascend after already descending - context location: [{0}], script location: [{1}]",
-                                new Object[] { referenceValue, locationValue });
-                    }
-                }
-                else if (fragment.equalsIgnoreCase("."))
-                {
-                    descending = true;
-                }
-                else
-                {
-                    descending = true;
-                    pathBuilder.append("/").append(fragment);
-                }
-            }
-
-            lastSlash = nextSlash;
+            // Some classloaders prefer alfresco/foo to /alfresco/foo, try that
+            absoluteClasspath = absoluteClasspath.substring(1);
+            scriptResource = getClass().getClassLoader().getResource(absoluteClasspath);
         }
 
-        if (nextSlash == -1 && lastSlash == -1)
+        if (scriptResource != null)
         {
-            // no slash found at all
-            pathBuilder.append("/");
+            result = new ScriptLocationAdapter(new ClasspathScriptLocation(absoluteClasspath));
         }
-
-        pathBuilder.append(lastSlash != -1 ? locationValue.substring(lastSlash) : locationValue);
-
-        LOGGER.debug("Resolved classpath location {} by relative path {} from reference {}", new Object[] { pathBuilder, locationValue,
-                referenceValue });
+        else
+        {
+            result = null;
+        }
+        return result;
     }
 
 }
