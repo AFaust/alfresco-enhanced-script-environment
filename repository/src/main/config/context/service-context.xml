@@ -11,15 +11,17 @@
         <property name="extension" value="js" />
         <property name="compileScripts" value="true" />
         <property name="shareScopes" value="true" />
-        
+
         <property name="scriptService" ref="scriptService" />
-        
+
         <property name="serviceRegistry" ref="ServiceRegistry" />
-        <property name="importFunction" ref="scriptImportFunction" />
     </bean>
 
     <bean id="scriptImportFunction" class="org.nabucco.alfresco.enhScriptEnv.common.script.ImportScriptFunction">
-        <!-- necessary references injected by script processor -->
+        <property name="scriptProcessor" ref="javaScriptProcessor" />
+        <property name="valueConverter">
+            <bean class="${basePackage}.script.RepositoryValueConverterAdapter" />
+        </property>
     </bean>
 
     <bean id="baseScriptLocator" abstract="true">

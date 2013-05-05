@@ -16,13 +16,11 @@
 
     <bean id="webframework.webscripts.scriptprocessor.alternative.javascript" class="org.nabucco.alfresco.enhScriptEnv.common.webscripts.processor.EnhancedJSScriptProcessor">
         <property name="scriptProcessorRegistry" ref="webframework.webscripts.registry.scriptprocessor" />
-        <property name="importFunction" ref="webframework.webscripts.scriptprocessor.alternative.javascript.importFunction" />
         <property name="standardScriptLoader" ref="webframework.webscripts.scriptprocessor.alternative.javascript.storeScriptLocator" />
     </bean>
 
     <bean id="webframework.templates.scriptprocessor.alternative.javascript" class="org.nabucco.alfresco.enhScriptEnv.common.webscripts.processor.EnhancedJSScriptProcessor">
         <property name="scriptProcessorRegistry" ref="webframework.templates.registry.scriptprocessor" />
-        <property name="importFunction" ref="webframework.templates.scriptprocessor.alternative.javascript.importFunction" />
         <property name="standardScriptLoader" ref="webframework.templates.scriptprocessor.alternative.javascript.storeScriptLocator" />
     </bean>
 
@@ -40,7 +38,10 @@
     <!-- Web Script processor extensions -->
 
     <bean id="webframework.webscripts.scriptprocessor.alternative.javascript.importFunction" class="org.nabucco.alfresco.enhScriptEnv.common.script.ImportScriptFunction">
-        <!-- necessary references injected by script processor -->
+        <property name="scriptProcessor" ref="webframework.webscripts.scriptprocessor.alternative.javascript" />
+        <property name="valueConverter">
+            <bean class="org.nabucco.alfresco.enhScriptEnv.common.webscripts.processor.SimpleSurfValueConverter" />
+        </property>
     </bean>
 
     <bean id="webframework.webscripts.scriptprocessor.alternative.javascript.scriptLocator.base" abstract="true">
@@ -61,7 +62,10 @@
     <!-- Template processor extensions -->
 
     <bean id="webframework.templates.scriptprocessor.alternative.javascript.importFunction" class="org.nabucco.alfresco.enhScriptEnv.common.script.ImportScriptFunction">
-        <!-- necessary references injected by script processor -->
+        <property name="scriptProcessor" ref="webframework.templates.scriptprocessor.alternative.javascript" />
+        <property name="valueConverter">
+            <bean class="org.nabucco.alfresco.enhScriptEnv.common.webscripts.processor.SimpleSurfValueConverter" />
+        </property>
     </bean>
 
     <bean id="webframework.templates.scriptprocessor.alternative.javascript.scriptLocator.base" abstract="true">

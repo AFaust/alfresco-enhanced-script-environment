@@ -14,11 +14,10 @@
  */
 package org.nabucco.alfresco.enhScriptEnv.common.script;
 
-
 /**
  * @author Axel Faust, <a href="http://www.prodyna.com">PRODYNA AG</a>
  */
-public interface EnhancedScriptProcessor<Script>
+public interface EnhancedScriptProcessor<Script extends SecurableScript>
 {
 
     /**
@@ -31,7 +30,7 @@ public interface EnhancedScriptProcessor<Script>
      *            the scope the script is to be executed in
      * 
      */
-    public void executeInScope(Script location, Object scope);
+    void executeInScope(Script location, Object scope);
 
     /**
      * Retrieves the script location for the current script execution context. This result of this method heavily depends on the state of
@@ -40,5 +39,13 @@ public interface EnhancedScriptProcessor<Script>
      * @return the script location object for the script currently being executed resulting in the invocation of the caller. This may be
      *         {@code null} if either no script is currently being executed or the script being executed is of a dynamic nature.
      */
-    public Script getContextScriptLocation();
+    Script getContextScriptLocation();
+
+    /**
+     * Registers a scope contributor to be invoked whenever a new scripting scope is initialized for contribution of additional values /
+     * functionality to that scope.
+     * 
+     * @param contributor the contributor to register
+     */
+    void registerScopeContributor(ScopeContributor contributor);
 }

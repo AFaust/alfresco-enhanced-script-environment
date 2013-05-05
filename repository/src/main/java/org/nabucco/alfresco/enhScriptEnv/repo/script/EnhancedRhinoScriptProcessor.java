@@ -16,12 +16,18 @@ package org.nabucco.alfresco.enhScriptEnv.repo.script;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.net.URL;
+import java.util.Collection;
 import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Iterator;
+import java.util.LinkedHashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.locks.ReadWriteLock;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 import org.alfresco.error.AlfrescoRuntimeException;
 import org.alfresco.model.ContentModel;
@@ -44,10 +50,9 @@ import org.alfresco.service.cmr.repository.NodeService;
 import org.alfresco.service.cmr.repository.ScriptLocation;
 import org.alfresco.service.cmr.repository.ScriptProcessor;
 import org.alfresco.service.namespace.QName;
+import org.alfresco.util.MD5;
 import org.alfresco.util.ParameterCheck;
-import org.alfresco.util.PropertyCheck;
 import org.mozilla.javascript.Context;
-import org.mozilla.javascript.IdFunctionObject;
 import org.mozilla.javascript.ImporterTopLevel;
 import org.mozilla.javascript.Script;
 import org.mozilla.javascript.Scriptable;
@@ -55,7 +60,7 @@ import org.mozilla.javascript.ScriptableObject;
 import org.mozilla.javascript.WrapFactory;
 import org.mozilla.javascript.WrappedException;
 import org.nabucco.alfresco.enhScriptEnv.common.script.EnhancedScriptProcessor;
-import org.nabucco.alfresco.enhScriptEnv.common.script.ImportScriptFunction;
+import org.nabucco.alfresco.enhScriptEnv.common.script.ScopeContributor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.InitializingBean;
@@ -67,7 +72,7 @@ import org.springframework.util.FileCopyUtils;
 public class EnhancedRhinoScriptProcessor extends BaseProcessor implements EnhancedScriptProcessor<ScriptLocationAdapter>, ScriptProcessor,
         InitializingBean
 {
-    private static final String NODE_REF_RESOURCE_IMPORT_PATTERN = "<import(\\s*\\n*\\s+)+resource(\\s*\\n*\\s*+)*=(\\s*\\n*\\s+)*\"(([^:]+)://([^/]+)/([a-f0-9]+(-[a-f0-9]+)+))\"(\\s*\\n*\\s+)*(/)?>";
+    private static final String NODE_REF_RESOURCE_IMPORT_PATTERN = "<import(\\s*\\n*\\s+)+resource(\\s*\\n*\\s*+)*=(\\s*\\n*\\s+)*\"(([^:]+)://([^/]+)/([^\"]+))\"(\\s*\\n*\\s+)*(/)?>";
     private static final String NODE_REF_RESOURCE_IMPORT_REPLACEMENT = "importScript(\"node\", \"$4\", true);";
 
     private static final String LEGACY_NAME_PATH_RESOURCE_IMPORT_PATTERN = "<import(\\s*\\n*\\s+)+resource(\\s*\\n*\\s+)*=(\\s*\\n*\\s+)*\"(/[^\"]+)\"(\\s*\\n*\\s+)*(/)?>";
@@ -106,6 +111,8 @@ public class EnhancedRhinoScriptProcessor extends BaseProcessor implements Enhan
     private static final Logger LOGGER = LoggerFactory.getLogger(EnhancedRhinoScriptProcessor.class);
     private static final Logger LEGACY_CALL_LOGGER = LoggerFactory.getLogger(RhinoScriptProcessor.class.getName() + ".calls");
 
+    private static final int DEFAULT_MAX_SCRIPT_CACHE_SIZE = 200;
+
     protected final ThreadLocal<List<ScriptLocationAdapter>> activeScriptLocationChain = new ThreadLocal<List<ScriptLocationAdapter>>();
     protected final ThreadLocal<List<List<ScriptLocationAdapter>>> recursionScriptLocationChains = new ThreadLocal<List<List<ScriptLocationAdapter>>>();
 
@@ -120,13 +127,17 @@ public class EnhancedRhinoScriptProcessor extends BaseProcessor implements Enhan
 
     protected final ValueConverter valueConverter = new ValueConverter();
 
-    protected final Map<String, Script> scriptCache = new ConcurrentHashMap<String, Script>(256);
+    protected final LinkedHashMap<String, Script> scriptCache = new LinkedHashMap<String, Script>(256);
+    protected final ReadWriteLock scriptCacheLock = new ReentrantReadWriteLock(true);
 
     protected final AtomicLong dynamicScriptCounter = new AtomicLong();
 
-    // TODO: size-limited, TTL restricted dynamic script cache based on scripts hash-value
+    protected final LinkedHashMap<String, Script> dynamicScriptByHashCache = new LinkedHashMap<String, Script>();
+    protected final ReadWriteLock dynamicScriptCacheLock = new ReentrantReadWriteLock(true);
 
-    protected ImportScriptFunction<ScriptLocationAdapter> importFunction;
+    protected int maxScriptCacheSize = DEFAULT_MAX_SCRIPT_CACHE_SIZE;
+
+    protected final Collection<ScopeContributor> registeredContributors = new HashSet<ScopeContributor>();
 
     /**
      * 
@@ -135,8 +146,6 @@ public class EnhancedRhinoScriptProcessor extends BaseProcessor implements Enhan
     @Override
     public void afterPropertiesSet()
     {
-        PropertyCheck.mandatory(this, "importFunction", this.importFunction);
-
         Context cx = Context.enter();
         try
         {
@@ -218,8 +227,21 @@ public class EnhancedRhinoScriptProcessor extends BaseProcessor implements Enhan
         ParameterCheck.mandatoryString("source", source);
 
         // compile the script based on the node content
-        final Script script = this.getCompiledScript(source,
-                "string://DynamicJS-" + String.valueOf(this.dynamicScriptCounter.getAndIncrement()));
+        Script script = null;
+        final MD5 md5 = new MD5();
+        final String digest = md5.digest(source.getBytes());
+
+        script = this.lookupScriptCache(this.dynamicScriptByHashCache, this.dynamicScriptCacheLock, digest);
+
+        if (script == null)
+        {
+            script = this.getCompiledScript(source, "string://DynamicJS-" + String.valueOf(this.dynamicScriptCounter.getAndIncrement()));
+
+            if (this.compileScripts)
+            {
+                this.updateScriptCache(this.dynamicScriptByHashCache, this.dynamicScriptCacheLock, digest, script);
+            }
+        }
 
         this.updateLocationChainsBeforeExceution();
         // Note: We are not adding a location object to the chain as initial element - a dynamic JS string has not location
@@ -343,6 +365,24 @@ public class EnhancedRhinoScriptProcessor extends BaseProcessor implements Enhan
     }
 
     /**
+     * 
+     * {@inheritDoc}
+     */
+    @Override
+    public void registerScopeContributor(final ScopeContributor contributor)
+    {
+        if (contributor != null)
+        {
+            // can use synchronized here since scope creation / registration should not occur that often in a relevant production scenario
+            // (when immutable scopes are shared)
+            synchronized (this.registeredContributors)
+            {
+                this.registeredContributors.add(contributor);
+            }
+        }
+    }
+
+    /**
      * @param wrapFactory
      *            the wrapFactory to set
      */
@@ -367,30 +407,6 @@ public class EnhancedRhinoScriptProcessor extends BaseProcessor implements Enhan
     public final void setCompileScripts(boolean compileScripts)
     {
         this.compileScripts = compileScripts;
-    }
-
-    /**
-     * @param importFunction
-     *            the importFunction to set
-     */
-    public final void setImportFunction(final ImportScriptFunction<ScriptLocationAdapter> importFunction)
-    {
-        this.importFunction = importFunction;
-        this.importFunction.setScriptProcessor(this);
-        this.importFunction.setValueConverter(new org.nabucco.alfresco.enhScriptEnv.common.script.ValueConverter()
-        {
-
-            /**
-             * 
-             * {@inheritDoc}
-             */
-            @Override
-            public Object convertValueForJava(Object value)
-            {
-                return EnhancedRhinoScriptProcessor.this.valueConverter.convertValueForJava(value);
-            }
-
-        });
     }
 
     protected void updateLocationChainsBeforeExceution()
@@ -447,13 +463,28 @@ public class EnhancedRhinoScriptProcessor extends BaseProcessor implements Enhan
         else
         {
             // we always want to have a fully-qualified file-protocol path (unless we can generalize all to classpath-relative locations)
-            realPath = this.getClass().getClassLoader().getResource(path.substring(path.indexOf(':') + 1)).toExternalForm();
+            final String resourcePath = path.substring(path.indexOf(':') + 1);
+            URL resource = this.getClass().getClassLoader().getResource(resourcePath);
+            if (resource == null && resourcePath.startsWith("/"))
+            {
+                resource = this.getClass().getClassLoader().getResource(resourcePath.substring(1));
+            }
+
+            if (resource != null)
+            {
+                realPath = resource.toExternalForm();
+            }
+            else
+            {
+                // should not occur in normal circumstances, but since ScriptLocation can be anything...
+                realPath = path;
+            }
         }
 
         // test the cache for a pre-compiled script matching our path
         if (this.compileScripts && location.isCachable())
         {
-            script = this.scriptCache.get(path);
+            script = this.lookupScriptCache(this.scriptCache, this.scriptCacheLock, path);
         }
 
         if (script == null)
@@ -476,7 +507,7 @@ public class EnhancedRhinoScriptProcessor extends BaseProcessor implements Enhan
 
             if (this.compileScripts && location.isCachable())
             {
-                this.scriptCache.put(path, script);
+                this.updateScriptCache(this.scriptCache, this.scriptCacheLock, path, script);
             }
 
             LOGGER.debug("Compiled script for {}", path);
@@ -545,6 +576,45 @@ public class EnhancedRhinoScriptProcessor extends BaseProcessor implements Enhan
         return legacyNamePathResolvedScript;
     }
 
+    protected Script lookupScriptCache(final LinkedHashMap<String, Script> cache, final ReadWriteLock lock, final String key)
+    {
+        Script script;
+        lock.readLock().lock();
+        try
+        {
+            script = cache.get(key);
+        }
+        finally
+        {
+            lock.readLock().unlock();
+        }
+        return script;
+    }
+
+    protected void updateScriptCache(final LinkedHashMap<String, Script> cache, final ReadWriteLock lock, final String key,
+            final Script script)
+    {
+        lock.writeLock().lock();
+        try
+        {
+            cache.put(key, script);
+
+            if (cache.size() > this.maxScriptCacheSize)
+            {
+                final Iterator<String> keyIterator = cache.keySet().iterator();
+                while (cache.size() > this.maxScriptCacheSize)
+                {
+                    final String keyToRemove = keyIterator.next();
+                    cache.remove(keyToRemove);
+                }
+            }
+        }
+        finally
+        {
+            lock.writeLock().unlock();
+        }
+    }
+
     protected Object executeScriptImpl(final Script script, final Map<String, Object> argModel, final boolean secureScript,
             final String debugScriptName) throws AlfrescoRuntimeException
     {
@@ -604,12 +674,8 @@ public class EnhancedRhinoScriptProcessor extends BaseProcessor implements Enhan
             LEGACY_CALL_LOGGER.debug("{} Exception: {}", debugScriptName, w);
 
             final Throwable err = w.getWrappedException();
-            if (err instanceof Exception)
-            {
-                // TODO
-                throw new ScriptException("", err);
-            }
-            throw new AlfrescoRuntimeException("Technical Error", err);
+            // TODO
+            throw new ScriptException("", err);
         }
         catch (final Exception ex)
         {
@@ -682,16 +748,13 @@ public class EnhancedRhinoScriptProcessor extends BaseProcessor implements Enhan
             scope.delete("java");
         }
 
-        // TODO: change to a scope contribution strategy pattern
-
-        // add our controlled script import function
-        final IdFunctionObject func = new IdFunctionObject(this.importFunction, ImportScriptFunction.IMPORT_FUNC_TAG,
-                ImportScriptFunction.IMPORT_FUNC_ID, ImportScriptFunction.IMPORT_FUNC_NAME, ImportScriptFunction.ARITY, scope);
-        if (!mutableScope)
+        synchronized (this.registeredContributors)
         {
-            func.sealObject();
+            for (final ScopeContributor contributor : this.registeredContributors)
+            {
+                contributor.contributeToScope(scope, trustworthyScript, mutableScope);
+            }
         }
-        func.exportAsScopeProperty();
 
         return scope;
     }

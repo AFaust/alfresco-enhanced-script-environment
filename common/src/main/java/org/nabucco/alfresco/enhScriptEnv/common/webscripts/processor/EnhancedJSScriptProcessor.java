@@ -17,6 +17,8 @@ package org.nabucco.alfresco.enhScriptEnv.common.webscripts.processor;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.text.MessageFormat;
+import java.util.Collection;
+import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
@@ -26,7 +28,6 @@ import org.alfresco.error.AlfrescoRuntimeException;
 import org.alfresco.util.ParameterCheck;
 import org.alfresco.util.PropertyCheck;
 import org.mozilla.javascript.Context;
-import org.mozilla.javascript.IdFunctionObject;
 import org.mozilla.javascript.ImporterTopLevel;
 import org.mozilla.javascript.Script;
 import org.mozilla.javascript.Scriptable;
@@ -34,7 +35,7 @@ import org.mozilla.javascript.ScriptableObject;
 import org.mozilla.javascript.WrapFactory;
 import org.mozilla.javascript.WrappedException;
 import org.nabucco.alfresco.enhScriptEnv.common.script.EnhancedScriptProcessor;
-import org.nabucco.alfresco.enhScriptEnv.common.script.ImportScriptFunction;
+import org.nabucco.alfresco.enhScriptEnv.common.script.ScopeContributor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.InitializingBean;
@@ -77,9 +78,10 @@ public class EnhancedJSScriptProcessor extends BaseRegisterableScriptProcessor i
     protected boolean compileScripts = true;
 
     protected ScriptLoader standardScriptLoader;
-    protected ImportScriptFunction<ScriptContentAdapter> importFunction;
 
     protected final Map<String, Script> scriptCache = new ConcurrentHashMap<String, Script>(256);
+
+    protected final Collection<ScopeContributor> registeredContributors = new HashSet<ScopeContributor>();
 
     /**
      * {@inheritDoc}
@@ -88,7 +90,6 @@ public class EnhancedJSScriptProcessor extends BaseRegisterableScriptProcessor i
     public void afterPropertiesSet()
     {
         PropertyCheck.mandatory(this, "standardScriptLoader", this.standardScriptLoader);
-        PropertyCheck.mandatory(this, "importFunction", this.importFunction);
     }
 
     /**
@@ -322,6 +323,24 @@ public class EnhancedJSScriptProcessor extends BaseRegisterableScriptProcessor i
     {
         this.scriptCache.clear();
     }
+    
+    /**
+     * 
+     * {@inheritDoc}
+     */
+    @Override
+    public void registerScopeContributor(final ScopeContributor contributor)
+    {
+        if (contributor != null)
+        {
+            // can use synchronized here since scope creation / registration should not occur that often in a relevant production scenario
+            // (when immutable scopes are shared)
+            synchronized (this.registeredContributors)
+            {
+                this.registeredContributors.add(contributor);
+            }
+        }
+    }
 
     protected Script getCompiledScript(final ScriptContent content)
     {
@@ -434,16 +453,13 @@ public class EnhancedJSScriptProcessor extends BaseRegisterableScriptProcessor i
             scope.delete("java");
         }
 
-        // TODO: scope contribution pattern
-
-        // add our controlled script import function
-        final IdFunctionObject func = new IdFunctionObject(this.importFunction, ImportScriptFunction.IMPORT_FUNC_TAG,
-                ImportScriptFunction.IMPORT_FUNC_ID, ImportScriptFunction.IMPORT_FUNC_NAME, ImportScriptFunction.ARITY, scope);
-        if (!mutableScope)
+        synchronized (this.registeredContributors)
         {
-            func.sealObject();
+            for (final ScopeContributor contributor : this.registeredContributors)
+            {
+                contributor.contributeToScope(scope, trustworthyScript, mutableScope);
+            }
         }
-        func.exportAsScopeProperty();
 
         return scope;
     }
@@ -601,29 +617,5 @@ public class EnhancedJSScriptProcessor extends BaseRegisterableScriptProcessor i
     public final void setStandardScriptLoader(final ScriptLoader standardScriptLoader)
     {
         this.standardScriptLoader = standardScriptLoader;
-    }
-
-    /**
-     * @param importFunction
-     *            the importFunction to set
-     */
-    public final void setImportFunction(final ImportScriptFunction<ScriptContentAdapter> importFunction)
-    {
-        this.importFunction = importFunction;
-        this.importFunction.setScriptProcessor(this);
-        this.importFunction.setValueConverter(new org.nabucco.alfresco.enhScriptEnv.common.script.ValueConverter()
-        {
-
-            /**
-             * 
-             * {@inheritDoc}
-             */
-            @Override
-            public Object convertValueForJava(Object value)
-            {
-                return ScriptValueConverter.unwrapValue(value);
-            }
-
-        });
     }
 }

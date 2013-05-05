@@ -17,6 +17,7 @@ package org.nabucco.alfresco.enhScriptEnv.common.script;
 import java.util.HashMap;
 import java.util.Map;
 
+import org.alfresco.util.PropertyCheck;
 import org.mozilla.javascript.Context;
 import org.mozilla.javascript.IdFunctionCall;
 import org.mozilla.javascript.IdFunctionObject;
@@ -25,6 +26,7 @@ import org.mozilla.javascript.ScriptRuntime;
 import org.mozilla.javascript.Scriptable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.InitializingBean;
 
 /**
  * Import function to allow inclusion of other scripts in arbitrary contexts of a script in execution. This function utilizes the central
@@ -33,7 +35,8 @@ import org.slf4j.LoggerFactory;
  * 
  * @author Axel Faust, <a href="http://www.prodyna.com">PRODYNA AG</a>
  */
-public class ImportScriptFunction<Script extends SecurableScript> implements IdFunctionCall, ScriptLocatorRegistry<Script>
+public class ImportScriptFunction<Script extends SecurableScript> implements IdFunctionCall, ScriptLocatorRegistry<Script>,
+        ScopeContributor, InitializingBean
 {
     private static final Logger LOGGER = LoggerFactory.getLogger(ImportScriptFunction.class);
 
@@ -42,11 +45,27 @@ public class ImportScriptFunction<Script extends SecurableScript> implements IdF
     public static final String IMPORT_FUNC_NAME = "importScript";
     public static final int ARITY = 2;
 
-    protected EnhancedScriptProcessor<Script> scriptProcessor;
     protected final Map<String, ScriptLocator<Script>> scriptLocators = new HashMap<String, ScriptLocator<Script>>();
 
+    protected EnhancedScriptProcessor<Script> scriptProcessor;
     protected ValueConverter valueConverter;
 
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public void afterPropertiesSet() throws Exception
+    {
+        PropertyCheck.mandatory(this, "scriptProcessor", this.scriptProcessor);
+        PropertyCheck.mandatory(this, "valueConverter", this.valueConverter);
+
+        this.scriptProcessor.registerScopeContributor(this);
+    }
+
+    /**
+     * 
+     * {@inheritDoc}
+     */
     @Override
     public Object execIdCall(final IdFunctionObject f, final Context cx, final Scriptable scope, final Scriptable thisObj,
             final Object[] args)
@@ -172,6 +191,21 @@ public class ImportScriptFunction<Script extends SecurableScript> implements IdF
         {
             LOGGER.warn("ScriptLocator {} overriden by {} with name {}", new Object[] { replaced, scriptLocator, name });
         }
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public void contributeToScope(final Scriptable scope, final boolean trustworthyScript, final boolean mutableScope)
+    {
+        final IdFunctionObject func = new IdFunctionObject(this, IMPORT_FUNC_TAG, IMPORT_FUNC_ID, IMPORT_FUNC_NAME,
+                ImportScriptFunction.ARITY, scope);
+        if (!mutableScope)
+        {
+            func.sealObject();
+        }
+        func.exportAsScopeProperty();
     }
 
     /**
