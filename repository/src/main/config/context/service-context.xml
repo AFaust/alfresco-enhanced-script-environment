@@ -17,15 +17,21 @@
         <property name="serviceRegistry" ref="ServiceRegistry" />
     </bean>
 
-    <bean id="scriptImportFunction" class="org.nabucco.alfresco.enhScriptEnv.common.script.ImportScriptFunction">
+    <bean id="javaScriptProcessor.scriptImportFunction" class="org.nabucco.alfresco.enhScriptEnv.common.script.ImportScriptFunction">
         <property name="scriptProcessor" ref="javaScriptProcessor" />
         <property name="valueConverter">
             <bean class="${basePackage}.script.RepositoryValueConverterAdapter" />
         </property>
     </bean>
+    
+    <bean id="javaScriptProcessor.scriptLogger" class="org.nabucco.alfresco.enhScriptEnv.common.script.LogFunction">
+        <property name="scriptProcessor" ref="javaScriptProcessor" />
+        <property name="legacyLoggerName" value="org.alfresco.repo.jscript.ScriptLogger" />
+        <property name="defaultLoggerPrefix" value="org.alfresco.repo.jscript.executions" />
+    </bean>
 
     <bean id="baseScriptLocator" abstract="true">
-        <property name="scriptLocatorRegistry" ref="scriptImportFunction" />
+        <property name="scriptLocatorRegistry" ref="javaScriptProcessor.scriptImportFunction" />
     </bean>
 
     <bean id="legacyNamePathScriptLocator" class="${basePackage}.script.LegacyNamePathScriptLocator" parent="baseScriptLocator">

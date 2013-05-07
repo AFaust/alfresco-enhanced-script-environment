@@ -16,21 +16,34 @@ package org.nabucco.alfresco.enhScriptEnv.common.webscripts.processor;
 
 import java.io.InputStream;
 import java.io.Reader;
+import java.util.Arrays;
+import java.util.Collection;
 
-import org.nabucco.alfresco.enhScriptEnv.common.script.SecurableScript;
+import org.nabucco.alfresco.enhScriptEnv.common.script.ReferenceScript;
+import org.nabucco.alfresco.enhScriptEnv.common.script.ReferenceScript.CommonReferencePath;
+import org.nabucco.alfresco.enhScriptEnv.common.script.ReferenceScript.ReferencePathType;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.extensions.webscripts.ClassPathStore;
+import org.springframework.extensions.webscripts.RemoteStore;
 import org.springframework.extensions.webscripts.ScriptContent;
+import org.springframework.extensions.webscripts.ScriptLoader;
 
 /**
  * @author Axel Faust, <a href="http://www.prodyna.com">PRODYNA AG</a>
  */
-public class ScriptContentAdapter implements ScriptContent, SecurableScript
+public class ScriptContentAdapter implements ScriptContent, ReferenceScript
 {
 
-    private final ScriptContent scriptContent;
+    private static final Logger LOGGER = LoggerFactory.getLogger(ScriptContentAdapter.class);
 
-    public ScriptContentAdapter(final ScriptContent scriptContent)
+    protected final ScriptContent scriptContent;
+    protected final ScriptLoader scriptLoader;
+
+    public ScriptContentAdapter(final ScriptContent scriptContent, final ScriptLoader scriptLoader)
     {
         this.scriptContent = scriptContent;
+        this.scriptLoader = scriptLoader;
     }
 
     /**
@@ -88,11 +101,142 @@ public class ScriptContentAdapter implements ScriptContent, SecurableScript
     }
 
     /**
-     * @return the scriptContent
+     * 
+     * {@inheritDoc}
      */
-    public final ScriptContent getScriptContent()
+    @Override
+    public String getReferencePath(final ReferencePathType typeOfPath)
     {
-        return this.scriptContent;
+        final String result;
+        if (typeOfPath instanceof CommonReferencePath)
+        {
+            result = determineCommonReferencePaths(typeOfPath);
+        }
+        else if (typeOfPath instanceof SurfReferencePath)
+        {
+            result = determineSurfReferencePaths(typeOfPath);
+        }
+        else
+        {
+            LOGGER.debug("Unsupported reference path type {}", typeOfPath);
+            result = null;
+        }
+
+        LOGGER.debug("Resolved reference path {} for script content {}", result, this.scriptContent);
+        return result;
     }
 
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public Collection<ReferencePathType> getSupportedReferencePathTypes()
+    {
+        return Arrays.<ReferencePathType> asList(CommonReferencePath.FILE, CommonReferencePath.CLASSPATH, SurfReferencePath.STORE);
+    }
+
+    protected String determineCommonReferencePaths(final ReferencePathType typeOfPath)
+    {
+        final String result;
+        switch ((CommonReferencePath) typeOfPath)
+        {
+        case FILE:
+            final String path = this.getPath();
+            if (path.startsWith("file:"))
+            {
+                result = path;
+            }
+            else
+            {
+                result = null;
+            }
+            break;
+        case CLASSPATH:
+            final String pathDescription = this.getPathDescription();
+            if (pathDescription.startsWith("classpath:") || pathDescription.startsWith("classpath*:"))
+            {
+                result = pathDescription.substring(pathDescription.indexOf(':') + 1);
+            }
+            else
+            {
+                result = null;
+            }
+            break;
+
+        default:
+            LOGGER.warn("Unsupported (new?) reference path type {}", typeOfPath);
+            result = null;
+            break;
+        }
+        return result;
+    }
+
+    protected String determineSurfReferencePaths(final ReferencePathType typeOfPath)
+    {
+        final String result;
+        switch ((SurfReferencePath) typeOfPath)
+        {
+        case STORE:
+            result = determineStorePath();
+            break;
+
+        default:
+            LOGGER.warn("Unsupported (new?) reference path type {}", typeOfPath);
+            result = null;
+            break;
+        }
+        return result;
+    }
+
+    protected String determineStorePath()
+    {
+        final String referencePath;
+        final Class<?> declaringClassOfContent = this.scriptContent.getClass().getDeclaringClass();
+        if (declaringClassOfContent != null
+                && (declaringClassOfContent.isAssignableFrom(RemoteStore.class) || declaringClassOfContent
+                        .isAssignableFrom(ClassPathStore.class)))
+        {
+            // awkward check for private RemoteScriptContent or ClassPathScriptLocation
+            final String path = this.getPath();
+            final String pathDescription = this.getPathDescription();
+            // resolution is guaranteed (how else would this script have been located in the first place?)
+            referencePath = determineStorePath(path, pathDescription);
+        }
+        else
+        {
+            referencePath = null;
+        }
+        return referencePath;
+    }
+
+    protected String determineStorePath(final String fullPath, final String comparisonDescription)
+    {
+        String result = null;
+
+        final String[] pathFragments = fullPath.split("/");
+        final StringBuilder pathBuilder = new StringBuilder();
+        for (int idx = pathFragments.length - 1; idx >= 0; idx--)
+        {
+            if (pathBuilder.length() != 0)
+            {
+                pathBuilder.insert(0, '/');
+            }
+            pathBuilder.insert(0, pathFragments[idx]);
+
+            // brute-force load & verify script with path constructed from the tail
+            final ScriptContent scriptContent = this.scriptLoader.getScript(pathBuilder.toString());
+            if (scriptContent != null)
+            {
+                final String pathDescription = scriptContent.getPathDescription();
+                if (comparisonDescription.equals(pathDescription))
+                {
+                    // this is the current script
+                    result = pathBuilder.toString();
+                    break;
+                }
+            }
+        }
+
+        return result;
+    }
 }

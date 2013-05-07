@@ -12,20 +12,14 @@
  * either express or implied. See the License for the specific language governing permissions
  * and limitations under the License.
  */
-package org.nabucco.alfresco.enhScriptEnv.common.script;
+package org.nabucco.alfresco.enhScriptEnv.common.webscripts.processor;
+
+import org.nabucco.alfresco.enhScriptEnv.common.script.ReferenceScript.ReferencePathType;
 
 /**
- * 
  * @author Axel Faust, <a href="http://www.prodyna.com">PRODYNA AG</a>
  */
-public interface SecurableScript
+public enum SurfReferencePath implements ReferencePathType
 {
-
-    /**
-     * Determines wether a script can be considered secure in that its content / logic is managed by the system and not mutable by end
-     * users. A secure script may be granted additional privileges to access the runtime over non-secure scripts.
-     * 
-     * @return {@code true} if the script can be considered to be a secure script (not user-managed), {@code false} otherwise
-     */
-    boolean isSecure();
+    STORE;
 }

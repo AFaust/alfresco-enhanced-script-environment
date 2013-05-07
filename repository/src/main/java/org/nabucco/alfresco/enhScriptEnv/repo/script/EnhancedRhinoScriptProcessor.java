@@ -64,13 +64,15 @@ import org.nabucco.alfresco.enhScriptEnv.common.script.ScopeContributor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.InitializingBean;
+import org.springframework.context.ApplicationListener;
+import org.springframework.context.event.ContextRefreshedEvent;
 import org.springframework.util.FileCopyUtils;
 
 /**
  * @author Axel Faust, <a href="http://www.prodyna.com">PRODYNA AG</a>
  */
 public class EnhancedRhinoScriptProcessor extends BaseProcessor implements EnhancedScriptProcessor<ScriptLocationAdapter>, ScriptProcessor,
-        InitializingBean
+        InitializingBean, ApplicationListener<ContextRefreshedEvent>
 {
     private static final String NODE_REF_RESOURCE_IMPORT_PATTERN = "<import(\\s*\\n*\\s+)+resource(\\s*\\n*\\s*+)*=(\\s*\\n*\\s+)*\"(([^:]+)://([^/]+)/([^\"]+))\"(\\s*\\n*\\s+)*(/)?>";
     private static final String NODE_REF_RESOURCE_IMPORT_REPLACEMENT = "importScript(\"node\", \"$4\", true);";
@@ -146,6 +148,17 @@ public class EnhancedRhinoScriptProcessor extends BaseProcessor implements Enhan
     @Override
     public void afterPropertiesSet()
     {
+
+        super.register();
+    }
+
+    /**
+     * 
+     * {@inheritDoc}
+     */
+    @Override
+    public void onApplicationEvent(ContextRefreshedEvent event)
+    {
         Context cx = Context.enter();
         try
         {
@@ -167,8 +180,6 @@ public class EnhancedRhinoScriptProcessor extends BaseProcessor implements Enhan
         {
             Context.exit();
         }
-
-        super.register();
     }
 
     /**
@@ -531,6 +542,10 @@ public class EnhancedRhinoScriptProcessor extends BaseProcessor implements Enhan
             final Context cx = Context.enter();
             try
             {
+                if (this.compileScripts)
+                {
+                    cx.setOptimizationLevel(9);
+                }
                 script = cx.compileString(resolvedSource, path, 1, null);
             }
             finally

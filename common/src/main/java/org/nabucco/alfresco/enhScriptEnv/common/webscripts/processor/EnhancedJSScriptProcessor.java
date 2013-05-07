@@ -39,6 +39,7 @@ import org.nabucco.alfresco.enhScriptEnv.common.script.ScopeContributor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.InitializingBean;
+import org.springframework.context.ApplicationListener;
 import org.springframework.extensions.surf.core.processor.ProcessorExtension;
 import org.springframework.extensions.webscripts.ScriptContent;
 import org.springframework.extensions.webscripts.ScriptLoader;
@@ -293,7 +294,7 @@ public class EnhancedJSScriptProcessor extends BaseRegisterableScriptProcessor i
         }
 
         this.updateContentChainsBeforeExceution();
-        this.activeScriptContentChain.get().add(new ScriptContentAdapter(content));
+        this.activeScriptContentChain.get().add(new ScriptContentAdapter(content, this.standardScriptLoader));
         try
         {
             return this.executeScriptImpl(script, model, content.isSecure(), debugScriptName);
@@ -323,7 +324,7 @@ public class EnhancedJSScriptProcessor extends BaseRegisterableScriptProcessor i
     {
         this.scriptCache.clear();
     }
-    
+
     /**
      * 
      * {@inheritDoc}
@@ -410,6 +411,10 @@ public class EnhancedJSScriptProcessor extends BaseRegisterableScriptProcessor i
             final Context cx = Context.enter();
             try
             {
+                if (this.compileScripts)
+                {
+                    cx.setOptimizationLevel(9);
+                }
                 script = cx.compileString(resolvedSource, path, 1, null);
             }
             finally

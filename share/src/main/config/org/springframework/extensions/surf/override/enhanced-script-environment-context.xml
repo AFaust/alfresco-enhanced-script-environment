@@ -36,6 +36,11 @@
     </bean>
 
     <!-- Web Script processor extensions -->
+    <bean id="webframework.webscripts.scriptprocessor.alternative.javascript.scriptLogger" class="org.nabucco.alfresco.enhScriptEnv.common.script.LogFunction">
+        <property name="scriptProcessor" ref="webframework.webscripts.scriptprocessor.alternative.javascript" />
+        <property name="legacyLoggerName" value="org.springframework.extensions.webscripts.ScriptLogger" />
+        <property name="defaultLoggerPrefix" value="org.springframework.extensions.webscripts.executions" />
+    </bean>
 
     <bean id="webframework.webscripts.scriptprocessor.alternative.javascript.importFunction" class="org.nabucco.alfresco.enhScriptEnv.common.script.ImportScriptFunction">
         <property name="scriptProcessor" ref="webframework.webscripts.scriptprocessor.alternative.javascript" />
@@ -57,9 +62,16 @@
     <bean id="webframework.webscripts.scriptprocessor.alternative.javascript.classpathScriptLocator" class="org.nabucco.alfresco.enhScriptEnv.common.webscripts.processor.ClasspathScriptLocator"
         parent="webframework.webscripts.scriptprocessor.alternative.javascript.scriptLocator.base">
         <property name="name" value="classpath" />
+        <property name="scriptLoader" ref="webframework.webscripts.scriptprocessor.alternative.javascript.storeScriptLocator" />
     </bean>
 
     <!-- Template processor extensions -->
+
+    <bean id="webframework.templates.scriptprocessor.alternative.javascript.scriptLogger" class="org.nabucco.alfresco.enhScriptEnv.common.script.LogFunction">
+        <property name="scriptProcessor" ref="webframework.templates.scriptprocessor.alternative.javascript" />
+        <property name="legacyLoggerName" value="org.springframework.extensions.webscripts.ScriptLogger" />
+        <property name="defaultLoggerPrefix" value="org.springframework.extensions.templates.executions" />
+    </bean>
 
     <bean id="webframework.templates.scriptprocessor.alternative.javascript.importFunction" class="org.nabucco.alfresco.enhScriptEnv.common.script.ImportScriptFunction">
         <property name="scriptProcessor" ref="webframework.templates.scriptprocessor.alternative.javascript" />
@@ -81,5 +93,6 @@
     <bean id="webframework.templates.scriptprocessor.alternative.javascript.classpathScriptLocator" class="org.nabucco.alfresco.enhScriptEnv.common.webscripts.processor.ClasspathScriptLocator"
         parent="webframework.templates.scriptprocessor.alternative.javascript.scriptLocator.base">
         <property name="name" value="classpath" />
+        <property name="scriptLoader" ref="webframework.templates.scriptprocessor.alternative.javascript.storeScriptLocator" />
     </bean>
 </beans>

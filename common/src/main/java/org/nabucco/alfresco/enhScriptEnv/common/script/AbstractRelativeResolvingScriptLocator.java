@@ -25,7 +25,7 @@ import org.slf4j.LoggerFactory;
  * 
  * @author Axel Faust, <a href="http://www.prodyna.com">PRODYNA AG</a>
  */
-public abstract class AbstractRelativeResolvingScriptLocator<Script extends SecurableScript> extends AbstractScriptLocator<Script>
+public abstract class AbstractRelativeResolvingScriptLocator<Script extends ReferenceScript> extends AbstractScriptLocator<Script>
 {
     private static final Logger LOGGER = LoggerFactory.getLogger(AbstractRelativeResolvingScriptLocator.class);
 

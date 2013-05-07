@@ -17,7 +17,7 @@ package org.nabucco.alfresco.enhScriptEnv.common.script;
 /**
  * @author Axel Faust, <a href="http://www.prodyna.com">PRODYNA AG</a>
  */
-public interface EnhancedScriptProcessor<Script extends SecurableScript>
+public interface EnhancedScriptProcessor<Script extends ReferenceScript>
 {
 
     /**

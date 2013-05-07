@@ -22,7 +22,7 @@ import org.springframework.beans.factory.InitializingBean;
 /**
  * @author Axel Faust, <a href="http://www.prodyna.com">PRODYNA AG</a>
  */
-public abstract class AbstractScriptLocator<Script extends SecurableScript> implements ScriptLocator<Script>, InitializingBean
+public abstract class AbstractScriptLocator<Script extends ReferenceScript> implements ScriptLocator<Script>, InitializingBean
 {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(AbstractScriptLocator.class);

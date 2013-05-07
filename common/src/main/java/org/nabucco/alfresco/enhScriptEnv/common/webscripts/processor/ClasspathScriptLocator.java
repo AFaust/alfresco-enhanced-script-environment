@@ -16,8 +16,10 @@ package org.nabucco.alfresco.enhScriptEnv.common.webscripts.processor;
 
 import java.net.URL;
 
+import org.alfresco.util.PropertyCheck;
 import org.nabucco.alfresco.enhScriptEnv.common.script.AbstractRelativeResolvingScriptLocator;
-import org.springframework.extensions.webscripts.ClassPathStore;
+import org.nabucco.alfresco.enhScriptEnv.common.script.ReferenceScript.CommonReferencePath;
+import org.springframework.extensions.webscripts.ScriptLoader;
 
 /**
  * A script locator able to import scripts from the classpath of the web application. This implementation is able to resolve relative script
@@ -27,6 +29,18 @@ import org.springframework.extensions.webscripts.ClassPathStore;
  */
 public class ClasspathScriptLocator extends AbstractRelativeResolvingScriptLocator<ScriptContentAdapter>
 {
+    protected ScriptLoader scriptLoader;
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public void afterPropertiesSet()
+    {
+        PropertyCheck.mandatory(this, "scriptLoader", this.scriptLoader);
+        super.afterPropertiesSet();
+    }
+
     /**
      * 
      * {@inheritDoc}
@@ -34,16 +48,7 @@ public class ClasspathScriptLocator extends AbstractRelativeResolvingScriptLocat
     @Override
     protected String getReferencePath(final ScriptContentAdapter referenceLocation)
     {
-        final String referencePath;
-        if (referenceLocation.getScriptContent().getClass().getDeclaringClass().isAssignableFrom(ClassPathStore.class))
-        {
-            // awkward check for private ClassPathScriptLocation
-            referencePath = referenceLocation.getPathDescription();
-        }
-        else
-        {
-            referencePath = null;
-        }
+        final String referencePath = referenceLocation.getReferencePath(CommonReferencePath.CLASSPATH);
         return referencePath;
     }
 
@@ -66,13 +71,22 @@ public class ClasspathScriptLocator extends AbstractRelativeResolvingScriptLocat
 
         if (scriptResource != null)
         {
-            result = new ScriptContentAdapter(new ClasspathScriptContent(absoluteClasspath));
+            result = new ScriptContentAdapter(new ClasspathScriptContent(absoluteClasspath), this.scriptLoader);
         }
         else
         {
             result = null;
         }
         return result;
+    }
+
+    /**
+     * @param scriptLoader
+     *            the scriptLoader to set
+     */
+    public final void setScriptLoader(ScriptLoader scriptLoader)
+    {
+        this.scriptLoader = scriptLoader;
     }
 
 }

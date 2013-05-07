@@ -17,12 +17,12 @@ package org.nabucco.alfresco.enhScriptEnv.repo.script;
 import java.net.URL;
 
 import org.alfresco.repo.jscript.ClasspathScriptLocation;
-import org.alfresco.repo.web.scripts.RepositoryScriptProcessor;
 import org.nabucco.alfresco.enhScriptEnv.common.script.AbstractRelativeResolvingScriptLocator;
+import org.nabucco.alfresco.enhScriptEnv.common.script.ReferenceScript.CommonReferencePath;
 
 /**
  * A script locator able to import scripts from the classpath of the web application. This implementation is able to resolve relative script
- * locations when supplied with a execution context.
+ * locations when supplied with an execution context.
  * 
  * @author Axel Faust, <a href="http://www.prodyna.com">PRODYNA AG</a>
  */
@@ -35,27 +35,7 @@ public class ClasspathScriptLocator extends AbstractRelativeResolvingScriptLocat
     @Override
     protected String getReferencePath(final ScriptLocationAdapter referenceLocation)
     {
-        final String referencePath;
-        if (referenceLocation.getScriptLocation() instanceof ClasspathScriptLocation)
-        {
-            // we know this gives us the path relative to the classpath
-
-            // TODO: would be nice for a proper getter (which seems to have been removed recently)
-            referencePath = referenceLocation.toString();
-        }
-        else if (referenceLocation.getScriptLocation().getClass().getDeclaringClass().isAssignableFrom(RepositoryScriptProcessor.class))
-        {
-            // awkward check for private RepositoryScriptLocation which encapsulates a ScriptContent instance
-            // we know this gives us the classpath*:-prefixed path IF a classpath-based ScriptContent is wrapped
-            // (ClasspathScriptLocation)
-
-            // TODO: would be nice for a proper getter
-            referencePath = referenceLocation.toString();
-        }
-        else
-        {
-            referencePath = null;
-        }
+        final String referencePath = referenceLocation.getReferencePath(CommonReferencePath.CLASSPATH);
         return referencePath;
     }
 
