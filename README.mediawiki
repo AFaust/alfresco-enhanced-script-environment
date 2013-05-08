@@ -74,7 +74,7 @@ Please note that the exclusions are necessary to prevent the WAR build from incl
 ===Import API===
 
 The enhanced script environment module adds a clean, native script import API to the JavaScript runtime of both the Repository and Share / Surf tier, obsoleting the previous preprocessor-style &lt;import&gt;-tags. The new API also allows for developers to provide extensions that locate scripts to import based on arbitrary conditions, including resolution parameters provided by the importing script itself.
-All existing <import>-tags are automatically converted to the corresponding API invocations before execution of a script. The module obsoletes and abolishes all kinds of script merging before execution.
+All existing &lt;import&gt;-tags are automatically converted to the corresponding API invocations before execution of a script. The module obsoletes and abolishes all kinds of script merging before execution.
 
 The import API consists of the following functions / function variants:
 
