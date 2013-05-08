@@ -81,7 +81,7 @@ The import API consists of the following functions / function variants:
  importScript(string locatorType, string location)
  importScript(string locatorType, string location, boolean failIfMissing)
  importScript(string locatorType, string location, boolean failIfMissing, object resolutionParameters, object scope)
- 
+
 The parameters server the following purpose:
 
 * string locatorType (mandatory) - The identifier of the type of locator to use in resolving the script location
@@ -111,7 +111,7 @@ The following API invocations are full equivalents (and replacements) of the cor
  importScript("classpath", "/alfresco/templates/webscripts/org/alfresco/respository/blogs/blogpost.lib.js");
  // relative call from blog-post.put.json.js webscript controller (if loaded from the classpath)
  importScript("classpath", "../blogpost.lib.js");
-
+ 
  <import resource="/Company Home/Data Dictionary/Scripts/includeme.js"> // (only in Repository tier)
  // absolute call:
  importScript("legacyNamePath", "/Company Home/Data Dictionary/Scripts/includeme.js");
