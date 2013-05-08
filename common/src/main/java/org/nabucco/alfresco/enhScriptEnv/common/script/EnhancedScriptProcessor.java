@@ -14,6 +14,8 @@
  */
 package org.nabucco.alfresco.enhScriptEnv.common.script;
 
+import java.util.List;
+
 /**
  * @author Axel Faust, <a href="http://www.prodyna.com">PRODYNA AG</a>
  */
@@ -42,10 +44,22 @@ public interface EnhancedScriptProcessor<Script extends ReferenceScript>
     Script getContextScriptLocation();
 
     /**
+     * Retrieves the chain of scripts for the current script execution context. This method will not return all the scripts that the current
+     * callers thread is currently nested in - instead it will return those scripts that through an unbroken chain of importScript API calls
+     * have invoked each other.
+     * 
+     * @return the chain scripts leading to the call on the script currently being executed in the order they have been called, i.e. with
+     *         first script at an index position of zero. This may be {@code null} if either no script is currently being executed or an
+     *         empty collection if the script being executed is of a dynamic nature.
+     */
+    List<Script> getScriptCallChain();
+
+    /**
      * Registers a scope contributor to be invoked whenever a new scripting scope is initialized for contribution of additional values /
      * functionality to that scope.
      * 
-     * @param contributor the contributor to register
+     * @param contributor
+     *            the contributor to register
      */
     void registerScopeContributor(ScopeContributor contributor);
 }

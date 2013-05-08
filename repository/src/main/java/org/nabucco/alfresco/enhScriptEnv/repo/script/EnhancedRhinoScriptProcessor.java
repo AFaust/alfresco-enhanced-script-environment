@@ -17,6 +17,7 @@ package org.nabucco.alfresco.enhScriptEnv.repo.script;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.net.URL;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -61,6 +62,7 @@ import org.mozilla.javascript.WrapFactory;
 import org.mozilla.javascript.WrappedException;
 import org.nabucco.alfresco.enhScriptEnv.common.script.EnhancedScriptProcessor;
 import org.nabucco.alfresco.enhScriptEnv.common.script.ScopeContributor;
+import org.nabucco.alfresco.enhScriptEnv.common.webscripts.processor.ScriptContentAdapter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.InitializingBean;
@@ -367,6 +369,26 @@ public class EnhancedRhinoScriptProcessor extends BaseProcessor implements Enhan
         if (currentChain != null && !currentChain.isEmpty())
         {
             result = currentChain.get(currentChain.size() - 1);
+        }
+        else
+        {
+            result = null;
+        }
+        return result;
+    }
+
+    /**
+     * 
+     * {@inheritDoc}
+     */
+    @Override
+    public List<ScriptLocationAdapter> getScriptCallChain()
+    {
+        final List<ScriptLocationAdapter> currentChain = getActiveScriptLocationChain();
+        final List<ScriptLocationAdapter> result;
+        if (currentChain != null)
+        {
+            result = new ArrayList<ScriptLocationAdapter>(currentChain);
         }
         else
         {

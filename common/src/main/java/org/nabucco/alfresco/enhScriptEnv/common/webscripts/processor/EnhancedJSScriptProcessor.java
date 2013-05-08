@@ -17,6 +17,7 @@ package org.nabucco.alfresco.enhScriptEnv.common.webscripts.processor;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.text.MessageFormat;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.LinkedList;
@@ -39,7 +40,6 @@ import org.nabucco.alfresco.enhScriptEnv.common.script.ScopeContributor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.InitializingBean;
-import org.springframework.context.ApplicationListener;
 import org.springframework.extensions.surf.core.processor.ProcessorExtension;
 import org.springframework.extensions.webscripts.ScriptContent;
 import org.springframework.extensions.webscripts.ScriptLoader;
@@ -200,6 +200,26 @@ public class EnhancedJSScriptProcessor extends BaseRegisterableScriptProcessor i
         if (currentChain != null && !currentChain.isEmpty())
         {
             result = currentChain.get(currentChain.size() - 1);
+        }
+        else
+        {
+            result = null;
+        }
+        return result;
+    }
+
+    /**
+     * 
+     * {@inheritDoc}
+     */
+    @Override
+    public List<ScriptContentAdapter> getScriptCallChain()
+    {
+        final List<ScriptContentAdapter> currentChain = this.activeScriptContentChain.get();
+        final List<ScriptContentAdapter> result;
+        if (currentChain != null)
+        {
+            result = new ArrayList<ScriptContentAdapter>(currentChain);
         }
         else
         {
