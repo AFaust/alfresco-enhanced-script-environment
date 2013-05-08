@@ -81,19 +81,23 @@ public class LegacyNamePathScriptLocator extends AbstractScriptLocator<ScriptLoc
                 elements.add(tokenizer.nextToken());
             }
 
+            ScriptLocationAdapter resolvedScript = null;
             try
             {
                 final FileInfo fileInfo = this.fileFolderService.resolveNamePath(nodes.get(0), elements);
                 final NodeRef scriptRef = fileInfo.getNodeRef();
-                result = new ScriptLocationAdapter(new NodeScriptLocation(this.serviceRegistry, scriptRef, ContentModel.PROP_CONTENT));
+                resolvedScript = new ScriptLocationAdapter(new NodeScriptLocation(this.serviceRegistry, scriptRef,
+                        ContentModel.PROP_CONTENT));
             }
             catch (final FileNotFoundException err)
             {
-                throw new ScriptImportException("Unable to load included script repository resource - file not found: {0}", locationValue);
+                // NO-OP - an acceptable constellation - the importer will deal with unresolvable scripts
             }
+            result = resolvedScript;
         }
         else
         {
+            // TODO: relative resolution from node script locations
             result = null;
         }
 
