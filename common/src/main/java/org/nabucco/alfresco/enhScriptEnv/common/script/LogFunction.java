@@ -341,8 +341,9 @@ public class LogFunction implements IdFunctionCall, InitializingBean, ScopeContr
         exportFunction(SET_INHERIT_LOGGER_CTX_FUNC_ID, SET_INHERIT_LOGGER_CTX_FUNC_NAME, 1, loggerObj);
 
         loggerObj.sealObject();
-        ScriptableObject.defineProperty(scope, LOGGER_OBJ_NAME, loggerObj, ScriptableObject.DONTENUM | ScriptableObject.PERMANENT
-                | ScriptableObject.READONLY);
+
+        // export as read-only and undeleteable property of the scope
+        ScriptableObject.defineProperty(scope, LOGGER_OBJ_NAME, loggerObj, ScriptableObject.PERMANENT | ScriptableObject.READONLY);
     }
 
     /**
@@ -376,8 +377,9 @@ public class LogFunction implements IdFunctionCall, InitializingBean, ScopeContr
     {
         final IdFunctionObject func = new IdFunctionObject(this, LOG_FUNC_TAG, methodId, name, arity, scope);
         func.sealObject();
-        ScriptableObject.defineProperty(scope, name, func, ScriptableObject.DONTENUM | ScriptableObject.PERMANENT
-                | ScriptableObject.READONLY);
+
+        // export as read-only and undeleteable property of the scope
+        ScriptableObject.defineProperty(scope, name, func, ScriptableObject.PERMANENT | ScriptableObject.READONLY);
     }
 
     protected Collection<Logger> getLoggers(final Context context, final Scriptable scope, final boolean createIfNull)
@@ -398,7 +400,12 @@ public class LogFunction implements IdFunctionCall, InitializingBean, ScopeContr
         final Collection<Logger> loggers;
         if (loggerData == null || loggerData.getLoggers() == null)
         {
-            loggers = new HashSet<Logger>(getParentLoggers(context, scope, referenceScript));
+            loggers = new HashSet<Logger>();
+            if (referenceScript != null)
+            {
+                // null referenceScript means dynamic script string, which always is the first script in a call chain
+                loggers.addAll(getParentLoggers(context, scope, referenceScript));
+            }
 
             if (loggerData != null && loggerData.getExplicitLogger() != null)
             {
@@ -483,8 +490,14 @@ public class LogFunction implements IdFunctionCall, InitializingBean, ScopeContr
                 : scopeParentPair.get().getFirst();
 
         final LoggerData parentLoggerData = getLoggerData(parentScope, parentScript, false);
-        final boolean result = (parentLoggerData != null && parentLoggerData.getExplicitLogger() != null)
-                || isParentLoggerExplicit(context, parentScope, parentScript);
+
+        // check immediate parent
+        final boolean nextParentLoggerIsExplicit = parentLoggerData != null && parentLoggerData.getExplicitLogger() != null
+                && parentLoggerData.isInheritLoggerContext();
+        // recursive check (unless inheritance is off or script is null - meaning a dynamic script string as first element of call chain)
+        final boolean ancestorLoggerIsExplicit = (parentLoggerData == null || parentLoggerData.isInheritLoggerContext()) && script != null
+                && isParentLoggerExplicit(context, parentScope, parentScript);
+        final boolean result = nextParentLoggerIsExplicit || ancestorLoggerIsExplicit;
         return result;
     }
 

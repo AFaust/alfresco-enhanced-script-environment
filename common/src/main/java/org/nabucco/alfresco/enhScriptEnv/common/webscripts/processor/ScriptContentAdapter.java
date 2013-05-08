@@ -101,6 +101,15 @@ public class ScriptContentAdapter implements ScriptContent, ReferenceScript
     }
 
     /**
+     * {@inheritDoc}
+     */
+    @Override
+    public String toString()
+    {
+        return this.scriptContent.toString();
+    }
+
+    /**
      * 
      * {@inheritDoc}
      */

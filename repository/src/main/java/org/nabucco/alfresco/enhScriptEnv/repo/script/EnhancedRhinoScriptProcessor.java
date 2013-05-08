@@ -62,7 +62,6 @@ import org.mozilla.javascript.WrapFactory;
 import org.mozilla.javascript.WrappedException;
 import org.nabucco.alfresco.enhScriptEnv.common.script.EnhancedScriptProcessor;
 import org.nabucco.alfresco.enhScriptEnv.common.script.ScopeContributor;
-import org.nabucco.alfresco.enhScriptEnv.common.webscripts.processor.ScriptContentAdapter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.InitializingBean;
@@ -356,6 +355,39 @@ public class EnhancedRhinoScriptProcessor extends BaseProcessor implements Enhan
             LOGGER.info("{} End {} ms", debugScriptName, Long.valueOf(endTime - startTime));
             LEGACY_CALL_LOGGER.debug("{} End {} ms", debugScriptName, Long.valueOf(endTime - startTime));
         }
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public Object initializeScope(final ScriptLocationAdapter location)
+    {
+        ParameterCheck.mandatory("location", location);
+
+        final Scriptable scope;
+        final Context cx = Context.enter();
+        try
+        {
+            final boolean secureScript = location.isSecure();
+            if (this.shareScopes)
+            {
+                final Scriptable sharedScope = secureScript ? this.unrestrictedShareableScope : this.restrictedShareableScope;
+                scope = cx.newObject(sharedScope);
+                scope.setPrototype(sharedScope);
+                scope.setParentScope(null);
+            }
+            else
+            {
+                scope = this.setupScope(cx, secureScript, false);
+            }
+        }
+        finally
+        {
+            Context.exit();
+        }
+
+        return scope;
     }
 
     /**

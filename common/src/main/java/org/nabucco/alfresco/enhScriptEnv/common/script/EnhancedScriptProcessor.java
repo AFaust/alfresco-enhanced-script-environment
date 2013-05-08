@@ -55,6 +55,15 @@ public interface EnhancedScriptProcessor<Script extends ReferenceScript>
     List<Script> getScriptCallChain();
 
     /**
+     * Initializes a new execution scope for the provided script
+     * 
+     * @param location
+     *            the script to initialize a execution context for
+     * @return the new execution context
+     */
+    Object initializeScope(Script location);
+
+    /**
      * Registers a scope contributor to be invoked whenever a new scripting scope is initialized for contribution of additional values /
      * functionality to that scope.
      * 

@@ -99,6 +99,15 @@ public class ScriptLocationAdapter implements ScriptLocation, ReferenceScript
     }
 
     /**
+     * {@inheritDoc}
+     */
+    @Override
+    public String toString()
+    {
+        return this.scriptLocation.toString();
+    }
+
+    /**
      * 
      * {@inheritDoc}
      */

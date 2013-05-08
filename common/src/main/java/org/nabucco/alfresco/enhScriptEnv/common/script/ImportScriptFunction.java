@@ -21,7 +21,6 @@ import org.alfresco.util.PropertyCheck;
 import org.mozilla.javascript.Context;
 import org.mozilla.javascript.IdFunctionCall;
 import org.mozilla.javascript.IdFunctionObject;
-import org.mozilla.javascript.ImporterTopLevel;
 import org.mozilla.javascript.ScriptRuntime;
 import org.mozilla.javascript.Scriptable;
 import org.mozilla.javascript.ScriptableObject;
@@ -156,10 +155,9 @@ public class ImportScriptFunction<Script extends ReferenceScript> implements IdF
     {
         final IdFunctionObject func = new IdFunctionObject(this, IMPORT_FUNC_TAG, IMPORT_FUNC_ID, IMPORT_FUNC_NAME, ARITY, scope);
         func.sealObject();
-        
-        // export as read-only, undeleteable and unlistable property of the scope
-        ScriptableObject.defineProperty(scope, IMPORT_FUNC_NAME, func, ScriptableObject.DONTENUM | ScriptableObject.PERMANENT
-                | ScriptableObject.READONLY);
+
+        // export as read-only and undeleteable property of the scope
+        ScriptableObject.defineProperty(scope, IMPORT_FUNC_NAME, func, ScriptableObject.PERMANENT | ScriptableObject.READONLY);
     }
 
     /**
@@ -189,23 +187,21 @@ public class ImportScriptFunction<Script extends ReferenceScript> implements IdF
         final Scriptable executionScope;
         if (executionScopeParam != null)
         {
-            if (location.isSecure())
+            executionScope = executionScopeParam;
+            final Scriptable baseScope;
+            final Object executionScopeObj = this.scriptProcessor.initializeScope(location);
+            if (executionScopeObj instanceof Scriptable)
             {
-                executionScope = new ImporterTopLevel(cx, false);
+                baseScope = (Scriptable) executionScopeObj;
             }
             else
             {
-                executionScope = cx.initStandardObjects();
-                // remove security issue related objects - this ensures the script may not access
-                // insecure java.* libraries or import any other classes for direct access - only
-                // the configured root host objects will be available to the script writer
-                executionScope.delete("Packages");
-                executionScope.delete("getClass");
-                executionScope.delete("java");
+                throw new ScriptImportException("The script processor provided an incomatible scope for the script {}", location);
             }
 
-            executionScope.setParentScope(null);
-            executionScope.setPrototype(executionScopeParam);
+            // TODO: protect against complex objects being passed as a context - fail when scope already has prototype?
+            executionScopeParam.setParentScope(null);
+            executionScopeParam.setPrototype(baseScope);
         }
         else
         {

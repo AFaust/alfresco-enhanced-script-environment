@@ -189,6 +189,39 @@ public class EnhancedJSScriptProcessor extends BaseRegisterableScriptProcessor i
     }
 
     /**
+     * {@inheritDoc}
+     */
+    @Override
+    public Object initializeScope(final ScriptContentAdapter location)
+    {
+        ParameterCheck.mandatory("location", location);
+
+        final Scriptable scope;
+        final Context cx = Context.enter();
+        try
+        {
+            final boolean secureScript = location.isSecure();
+            if (this.shareScopes)
+            {
+                final Scriptable sharedScope = secureScript ? this.unrestrictedShareableScope : this.restrictedShareableScope;
+                scope = cx.newObject(sharedScope);
+                scope.setPrototype(sharedScope);
+                scope.setParentScope(null);
+            }
+            else
+            {
+                scope = this.setupScope(cx, secureScript, false);
+            }
+        }
+        finally
+        {
+            Context.exit();
+        }
+
+        return scope;
+    }
+
+    /**
      * 
      * {@inheritDoc}
      */
