@@ -71,7 +71,86 @@ Please note that the exclusions are necessary to prevent the WAR build from incl
 
 ==Usage==
 
-[[TODO]]
+===Import API===
+
+The enhanced script environment module adds a clean, native script import API to the JavaScript runtime of both the Repository and Share / Surf tier, obsoleting the previous preprocessor-style <import>-tags. The new API also allows for developers to provide extensions that locate scripts to import based on arbitrary conditions, including resolution parameters provided by the importing script itself.
+All existing <import>-tags are automatically converted to the corresponding API invocations before execution of a script. The module obsoletes and abolishes all kinds of script merging before execution.
+
+The import API consists of the following functions / function variants:
+
+ importScript(string locatorType, string location)
+ importScript(string locatorType, string location, boolean failIfMissing)
+ importScript(string locatorType, string location, boolean failIfMissing, object resolutionParameters, object scope)
+ 
+The parameters server the following purpose:
+
+* string locatorType (mandatory) - The identifier of the type of locator to use in resolving the script location
+* string location (mandatory) - The location value of the script to import, resolvable by the locator
+* boolean failIfMissing (optional) - Should the function fail if the script to import cannot be located
+* object resolutionParameters (optional) - The parameters passed to the locator (if not null) for resolution of the script. Any object will be converted to a (complex) key-value map before passing it to the Java implementation of the ScriptLocator-interface
+* object scope (optional) - The scope in which the imported script shall be executed. Defaults to the current scope if null or not provided. Specifying a scope for the import allows the importing script to isolate itself from the imported script, since the imported script can only access (and potentially modify) elements of the provided scope.
+
+
+The following script locator types (implementations of the Java interface ScriptLocator) are provided by the module out-of-the-box:
+
+* General
+** classpath - Loads a script from the classpath either using absolute notation with a leading "/" or relative notation. If the importing script can not be identified as originating from the classpath itself, location values without a leading "/" will also be treated as absolute locations.
+* Repository-only
+** legacyNamePath - Loads a script using simplified FileFolderService name-paths, either in absolute notation with leading "/" or relatively if the importing script can be identified as originating from the Alfresco Content Repository.
+** node - Loads a script from a specific content object identified by the NodeRef-containing location value.
+** xpath - Loads a script from the Alfresco Content Repository using a XPath expression with either the store root node or current script node (if importing script has itself been loaded from the Repository) as the context. NOTE: The differentiation between relative and absolute XPath paths is left to the Alfresco XPath search language - only the context node will be dynamically determined by the locator.
+* Surf / Share-only
+** storePath - Loads a script from the underlying search path across registered document stores, delegating the actual lookup to the Share / Surf environment. Depending on the search path configuration the imported script may be loaded from a remote source location, i.e. an Alfresco Repository. Any location with a leading "/" will be treated as an absolute location. In case the importing script can not be identified as originating from the Surf store APIs, relative location values (without leading "/") will also be treated as absolute locations. NOTE: The Share / Surf environment have distinct search paths for template and web script controller scripts. Depending on the controller script that performs the import, only the corresponding search path will be considered.
+
+===Import API Examples===
+
+The following API invocations are full equivalents (and replacements) of the <import>-tag import directives in the corresponding comment
+
+ // <import resource="classpath:alfresco/templates/webscripts/org/alfresco/repository/blogs/blogpost.lib.js">
+ // absolute call:
+ importScript("classpath", "/alfresco/templates/webscripts/org/alfresco/respository/blogs/blogpost.lib.js");
+ // relative call from blog-post.put.json.js webscript controller (if loaded from the classpath)
+ importScript("classpath", "../blogpost.lib.js");
+
+ // <import resource="/Company Home/Data Dictionary/Scripts/includeme.js"> (only in Repository tier)
+ // absolute call:
+ importScript("legacyNamePath", "/Company Home/Data Dictionary/Scripts/includeme.js");
+ // relative call from another script in one-level sub-directory of the Data Dictionary (planned, not yet implemented):
+ importScript("legacyNamePath", "../includeme.js");
+ 
+ // <import resource="workspace://SpacesStore/6f73de1b-d3b4-11db-80cb-112e6c2ea048">
+ // call (planned, not yet implemented):
+ importScript("node", "workspace://SpacesStore/6f73de1b-d3b4-11db-80cb-112e6c2ea048");
+ 
+ // <import resource="/org/springframework/extensions/surf/api.lib.js"> (only in Share / Surf tier)
+ // absolute call:
+ importScript("storePath", "/org/springframework/extensions/surf/api.lib.js");
+ // relative call from Surf client.get.js web script controller to api.lib.js:
+ importScript("storePath", ../api.lib.js");
+ 
+
+The following is an example of an "isolated scope import" to guard against unwanted access and manipulation of data:
+
+ // logic of importing script "importer.get.js"
+ function getSomeValueFromRepo(){
+    // business logic
+ }
+ 
+ function main(){
+    model.someValue = getSomeValueFromRepo();
+    
+    var importScope = {
+       model: {},
+       args: args
+    };
+    
+    // this call allows script.js to access the importScope (and regular root object), but nothing from importer.get.js (i.e. its own model or getSomeValueFromRepo) unless it is provided as a member of importScope (like args)
+    importScript("classpath", "/path/to/script.js", true, null, importScope);
+    // importer.get.js expects script.js to set someOtherValue in the provided scope model 
+    model.someOtherValue = importScope.model.someOtherValue;
+ }
+ 
+ main();
 
 ==License==
 
