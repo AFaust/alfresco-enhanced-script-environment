@@ -73,7 +73,7 @@ Please note that the exclusions are necessary to prevent the WAR build from incl
 
 ===Import API===
 
-The enhanced script environment module adds a clean, native script import API to the JavaScript runtime of both the Repository and Share / Surf tier, obsoleting the previous preprocessor-style <import>-tags. The new API also allows for developers to provide extensions that locate scripts to import based on arbitrary conditions, including resolution parameters provided by the importing script itself.
+The enhanced script environment module adds a clean, native script import API to the JavaScript runtime of both the Repository and Share / Surf tier, obsoleting the previous preprocessor-style &lt;import&gt;-tags. The new API also allows for developers to provide extensions that locate scripts to import based on arbitrary conditions, including resolution parameters provided by the importing script itself.
 All existing <import>-tags are automatically converted to the corresponding API invocations before execution of a script. The module obsoletes and abolishes all kinds of script merging before execution.
 
 The import API consists of the following functions / function variants:
@@ -104,25 +104,25 @@ The following script locator types (implementations of the Java interface Script
 
 ===Import API Examples===
 
-The following API invocations are full equivalents (and replacements) of the <import>-tag import directives in the corresponding comment
+The following API invocations are full equivalents (and replacements) of the corresponding &lt;import&gt;-tag import directives:
 
- // <import resource="classpath:alfresco/templates/webscripts/org/alfresco/repository/blogs/blogpost.lib.js">
+ <import resource="classpath:alfresco/templates/webscripts/org/alfresco/repository/blogs/blogpost.lib.js">
  // absolute call:
  importScript("classpath", "/alfresco/templates/webscripts/org/alfresco/respository/blogs/blogpost.lib.js");
  // relative call from blog-post.put.json.js webscript controller (if loaded from the classpath)
  importScript("classpath", "../blogpost.lib.js");
 
- // <import resource="/Company Home/Data Dictionary/Scripts/includeme.js"> (only in Repository tier)
+ <import resource="/Company Home/Data Dictionary/Scripts/includeme.js"> // (only in Repository tier)
  // absolute call:
  importScript("legacyNamePath", "/Company Home/Data Dictionary/Scripts/includeme.js");
  // relative call from another script in one-level sub-directory of the Data Dictionary (planned, not yet implemented):
  importScript("legacyNamePath", "../includeme.js");
  
- // <import resource="workspace://SpacesStore/6f73de1b-d3b4-11db-80cb-112e6c2ea048">
+ <import resource="workspace://SpacesStore/6f73de1b-d3b4-11db-80cb-112e6c2ea048">
  // call (planned, not yet implemented):
  importScript("node", "workspace://SpacesStore/6f73de1b-d3b4-11db-80cb-112e6c2ea048");
  
- // <import resource="/org/springframework/extensions/surf/api.lib.js"> (only in Share / Surf tier)
+ <import resource="/org/springframework/extensions/surf/api.lib.js"> // (only in Share / Surf tier)
  // absolute call:
  importScript("storePath", "/org/springframework/extensions/surf/api.lib.js");
  // relative call from Surf client.get.js web script controller to api.lib.js:
