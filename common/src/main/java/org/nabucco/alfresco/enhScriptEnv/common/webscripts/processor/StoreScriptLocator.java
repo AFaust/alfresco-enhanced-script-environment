@@ -19,7 +19,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import org.alfresco.util.PropertyCheck;
-import org.nabucco.alfresco.enhScriptEnv.common.script.AbstractRelativeResolvingScriptLocator;
+import org.nabucco.alfresco.enhScriptEnv.common.script.locator.AbstractRelativeResolvingScriptLocator;
 import org.springframework.extensions.webscripts.MultiScriptLoader;
 import org.springframework.extensions.webscripts.ScriptContent;
 import org.springframework.extensions.webscripts.ScriptLoader;

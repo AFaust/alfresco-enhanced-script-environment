@@ -12,9 +12,11 @@
  * either express or implied. See the License for the specific language governing permissions
  * and limitations under the License.
  */
-package org.nabucco.alfresco.enhScriptEnv.common.script;
+package org.nabucco.alfresco.enhScriptEnv.common.script.locator;
 
 import org.alfresco.util.PropertyCheck;
+import org.nabucco.alfresco.enhScriptEnv.common.script.ReferenceScript;
+import org.nabucco.alfresco.enhScriptEnv.common.script.ScriptImportException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.InitializingBean;
@@ -60,6 +62,18 @@ public abstract class AbstractScriptLocator<Script extends ReferenceScript> impl
         this.scriptLocatorRegistry = scriptLocatorRegistry;
     }
 
+    /**
+     * Resolves a relative location value against the reference location provided by the currently exectued script.
+     * 
+     * @param locationValue
+     *            The relative location value to resolve
+     * @param referenceValue
+     *            The reference location to resolve against. This parameter is primarily used in an informative capacity (e.g. for logging)
+     *            while the pathBuilder is the work-item.
+     * @param pathBuilder
+     *            A builder for the final path that should be manipulated during the resolution. The instance passed should be
+     *            pre-initialized with the base path determined from the reference location.
+     */
     @SuppressWarnings("static-method")
     protected void resolveRelativeLocation(final String locationValue, final String referenceValue, final StringBuilder pathBuilder)
     {

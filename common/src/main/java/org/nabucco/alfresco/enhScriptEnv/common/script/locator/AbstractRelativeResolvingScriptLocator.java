@@ -12,10 +12,11 @@
  * either express or implied. See the License for the specific language governing permissions
  * and limitations under the License.
  */
-package org.nabucco.alfresco.enhScriptEnv.common.script;
+package org.nabucco.alfresco.enhScriptEnv.common.script.locator;
 
 import java.util.Map;
 
+import org.nabucco.alfresco.enhScriptEnv.common.script.ReferenceScript;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

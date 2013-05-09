@@ -23,18 +23,18 @@
             <bean class="${basePackage}.script.RepositoryValueConverterAdapter" />
         </property>
     </bean>
-    
+
     <bean id="javaScriptProcessor.scriptLogger" class="org.nabucco.alfresco.enhScriptEnv.common.script.LogFunction">
         <property name="scriptProcessor" ref="javaScriptProcessor" />
         <property name="legacyLoggerName" value="org.alfresco.repo.jscript.ScriptLogger" />
         <property name="defaultLoggerPrefix" value="org.alfresco.repo.jscript.executions" />
     </bean>
 
-    <bean id="baseScriptLocator" abstract="true">
+    <bean id="javaScriptProcessor.baseScriptLocator" abstract="true">
         <property name="scriptLocatorRegistry" ref="javaScriptProcessor.scriptImportFunction" />
     </bean>
 
-    <bean id="legacyNamePathScriptLocator" class="${basePackage}.script.LegacyNamePathScriptLocator" parent="baseScriptLocator">
+    <bean id="javaScriptProcessor.legacyNamePathScriptLocator" class="${basePackage}.script.LegacyNamePathScriptLocator" parent="javaScriptProcessor.baseScriptLocator">
         <property name="name" value="legacyNamePath" />
         <property name="serviceRegistry" ref="ServiceRegistry" />
         <property name="namespaceService" ref="NamespaceService" />
@@ -46,7 +46,7 @@
         <property name="storePath" value="${spaces.company_home.childname}" />
     </bean>
 
-    <bean id="xPathScriptLocator" class="${basePackage}.script.XPathScriptLocator" parent="baseScriptLocator">
+    <bean id="javaScriptProcessor.xPathScriptLocator" class="${basePackage}.script.XPathScriptLocator" parent="javaScriptProcessor.baseScriptLocator">
         <property name="name" value="xpath" />
         <property name="serviceRegistry" ref="ServiceRegistry" />
         <property name="namespaceService" ref="NamespaceService" />
@@ -56,7 +56,14 @@
         <property name="defaultStoreRef" value="${spaces.store}" />
     </bean>
 
-    <bean id="classpathScriptLocator" class="${basePackage}.script.ClasspathScriptLocator" parent="baseScriptLocator">
+    <bean id="javaScriptProcessor.classpathScriptLocator" class="${basePackage}.script.ClasspathScriptLocator" parent="javaScriptProcessor.baseScriptLocator">
         <property name="name" value="classpath" />
+    </bean>
+
+    <bean id="javaScriptProcessor.scriptRegistry" class="org.nabucco.alfresco.enhScriptEnv.common.script.registry.SimpleScriptRegistry" />
+
+    <bean id="javaScriptProcessor.registryScriptLocator" class="${basePackage}.script.RepositoryRegisteredScriptLocator" parent="javaScriptProcessor.baseScriptLocator">
+        <property name="name" value="registry" />
+        <property name="scriptRegistry" ref="javaScriptProcessor.scriptRegistry" />
     </bean>
 </beans>

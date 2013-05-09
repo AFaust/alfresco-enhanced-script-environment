@@ -6,6 +6,8 @@
     <!-- Note: All beans should be prefixed ${project.artifactId} in their ID in gerneral -->
     <!-- Exceptions: service beans (unique name) and beans with name conventions (e.g. web scripts) -->
 
+    <bean id="scriptprocessor.alternative.javascript.scriptRegistry" class="org.nabucco.alfresco.enhScriptEnv.common.script.registry.SimpleScriptRegistry" />
+
     <!-- Needs to be overriden (even if it is bad practice) to allow an alternative implementation of a script processor when using autowiring -->
     <bean id="webframework.service.autowire" class="${basePackage}.surf.TypeUnspecificAutowireService" parent="webframework.service.autowire.abstract">
         <property name="actualWebscriptsScriptProcessor" ref="webframework.webscripts.scriptprocessor.alternative.javascript" />
@@ -65,6 +67,13 @@
         <property name="scriptLoader" ref="webframework.webscripts.scriptprocessor.alternative.javascript.storeScriptLocator" />
     </bean>
 
+    <bean id="webframework.webscripts.scriptprocessor.alternative.javascript.registryScriptLocator" class="org.nabucco.alfresco.enhScriptEnv.common.webscripts.processor.SurfRegisteredScriptLocator"
+        parent="webframework.webscripts.scriptprocessor.alternative.javascript.scriptLocator.base">
+        <property name="name" value="registry" />
+        <property name="scriptRegistry" ref="scriptprocessor.alternative.javascript.scriptRegistry" />
+        <property name="scriptLoader" ref="webframework.webscripts.scriptprocessor.alternative.javascript.storeScriptLocator" />
+    </bean>
+
     <!-- Template processor extensions -->
 
     <bean id="webframework.templates.scriptprocessor.alternative.javascript.scriptLogger" class="org.nabucco.alfresco.enhScriptEnv.common.script.LogFunction">
@@ -93,6 +102,13 @@
     <bean id="webframework.templates.scriptprocessor.alternative.javascript.classpathScriptLocator" class="org.nabucco.alfresco.enhScriptEnv.common.webscripts.processor.ClasspathScriptLocator"
         parent="webframework.templates.scriptprocessor.alternative.javascript.scriptLocator.base">
         <property name="name" value="classpath" />
+        <property name="scriptLoader" ref="webframework.templates.scriptprocessor.alternative.javascript.storeScriptLocator" />
+    </bean>
+    
+    <bean id="webframework.templates.scriptprocessor.alternative.javascript.registryScriptLocator" class="org.nabucco.alfresco.enhScriptEnv.common.webscripts.processor.SurfRegisteredScriptLocator"
+        parent="webframework.templates.scriptprocessor.alternative.javascript.scriptLocator.base">
+        <property name="name" value="registry" />
+        <property name="scriptRegistry" ref="scriptprocessor.alternative.javascript.scriptRegistry" />
         <property name="scriptLoader" ref="webframework.templates.scriptprocessor.alternative.javascript.storeScriptLocator" />
     </bean>
 </beans>

@@ -17,8 +17,8 @@ package org.nabucco.alfresco.enhScriptEnv.common.webscripts.processor;
 import java.net.URL;
 
 import org.alfresco.util.PropertyCheck;
-import org.nabucco.alfresco.enhScriptEnv.common.script.AbstractRelativeResolvingScriptLocator;
 import org.nabucco.alfresco.enhScriptEnv.common.script.ReferenceScript.CommonReferencePath;
+import org.nabucco.alfresco.enhScriptEnv.common.script.locator.AbstractRelativeResolvingScriptLocator;
 import org.springframework.extensions.webscripts.ScriptLoader;
 
 /**

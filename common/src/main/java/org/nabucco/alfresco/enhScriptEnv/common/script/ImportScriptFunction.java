@@ -17,6 +17,7 @@ package org.nabucco.alfresco.enhScriptEnv.common.script;
 import java.util.HashMap;
 import java.util.Map;
 
+import org.alfresco.util.ParameterCheck;
 import org.alfresco.util.PropertyCheck;
 import org.mozilla.javascript.Context;
 import org.mozilla.javascript.IdFunctionCall;
@@ -24,6 +25,8 @@ import org.mozilla.javascript.IdFunctionObject;
 import org.mozilla.javascript.ScriptRuntime;
 import org.mozilla.javascript.Scriptable;
 import org.mozilla.javascript.ScriptableObject;
+import org.nabucco.alfresco.enhScriptEnv.common.script.locator.ScriptLocator;
+import org.nabucco.alfresco.enhScriptEnv.common.script.locator.ScriptLocatorRegistry;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.InitializingBean;
@@ -79,6 +82,9 @@ public class ImportScriptFunction<Script extends ReferenceScript> implements IdF
 
                 final String locatorType = ScriptRuntime.toString(args, 0);
                 final String locationValue = ScriptRuntime.toString(args, 1);
+
+                ParameterCheck.mandatoryString("locatorType", locatorType);
+                ParameterCheck.mandatoryString("locationValue", locationValue);
 
                 // optional parameters
                 // defaults to false

@@ -95,6 +95,7 @@ The following script locator types (implementations of the Java interface Script
 
 * General
 ** classpath - Loads a script from the classpath either using absolute notation with a leading "/" or relative notation. If the importing script can not be identified as originating from the classpath itself, location values without a leading "/" will also be treated as absolute locations.
+** registry - Loads a registered script from a registry by an arbitrary name, independently of where it is actually located. The name can also be suffixed with a "@&lt;subRegistry&gt;" identifier where &lt;subRegistry&gt; addresses a specific subset of registered scripts, i.e. "documentlibrary-v2-filters" for document library filters if scripts have been registered that way. 
 * Repository-only
 ** legacyNamePath - Loads a script using simplified FileFolderService name-paths, either in absolute notation with leading "/" or relatively if the importing script can be identified as originating from the Alfresco Content Repository.
 ** node - Loads a script from a specific content object identified by the NodeRef-containing location value.

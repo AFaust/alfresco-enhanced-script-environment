@@ -27,7 +27,7 @@ import org.alfresco.service.cmr.repository.StoreRef;
 import org.alfresco.service.cmr.search.SearchService;
 import org.alfresco.service.namespace.NamespaceService;
 import org.alfresco.service.namespace.QName;
-import org.nabucco.alfresco.enhScriptEnv.common.script.AbstractScriptLocator;
+import org.nabucco.alfresco.enhScriptEnv.common.script.locator.AbstractScriptLocator;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

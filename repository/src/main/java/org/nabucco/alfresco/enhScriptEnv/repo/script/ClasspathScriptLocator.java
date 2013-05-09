@@ -17,8 +17,8 @@ package org.nabucco.alfresco.enhScriptEnv.repo.script;
 import java.net.URL;
 
 import org.alfresco.repo.jscript.ClasspathScriptLocation;
-import org.nabucco.alfresco.enhScriptEnv.common.script.AbstractRelativeResolvingScriptLocator;
 import org.nabucco.alfresco.enhScriptEnv.common.script.ReferenceScript.CommonReferencePath;
+import org.nabucco.alfresco.enhScriptEnv.common.script.locator.AbstractRelativeResolvingScriptLocator;
 
 /**
  * A script locator able to import scripts from the classpath of the web application. This implementation is able to resolve relative script

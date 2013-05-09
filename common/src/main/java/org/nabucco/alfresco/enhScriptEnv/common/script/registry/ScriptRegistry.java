@@ -12,20 +12,23 @@
  * either express or implied. See the License for the specific language governing permissions
  * and limitations under the License.
  */
-package org.nabucco.alfresco.enhScriptEnv.common.script;
+package org.nabucco.alfresco.enhScriptEnv.common.script.registry;
 
 /**
  * @author Axel Faust, <a href="http://www.prodyna.com">PRODYNA AG</a>
  */
-public interface ScriptLocatorRegistry<Script>
+public interface ScriptRegistry<Script>
 {
-    /**
-     * Registers a specific script locator with the script processor.
-     * 
-     * @param name
-     *            the name of the locator - to be used in import calls within script files
-     * @param scriptLocator
-     *            the script locator
-     */
-    public void registerScriptLocator(String name, ScriptLocator<Script> scriptLocator);
+
+    Script getScript(String scriptName);
+
+    Script getScript(String scriptName, ScriptSelectionCondition condition);
+
+    Script getScript(String scriptName, String subRegistry);
+
+    Script getScript(String scriptName, String subRegistry, ScriptSelectionCondition condition);
+
+    void registerScript(String scriptName, RegisterableScript<Script> script);
+
+    void registerScript(String scriptName, String subRegistry, RegisterableScript<Script> script);
 }
