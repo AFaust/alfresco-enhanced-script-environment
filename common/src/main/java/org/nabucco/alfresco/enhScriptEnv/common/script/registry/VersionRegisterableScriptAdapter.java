@@ -24,7 +24,7 @@ import org.springframework.beans.factory.InitializingBean;
  * 
  * @author Axel Faust, <a href="http://www.prodyna.com">PRODYNA AG</a>
  */
-public class VersionRegisteredScriptAdapter<Script> implements VersionRegisterableScript<Script>, InitializingBean
+public class VersionRegisterableScriptAdapter<Script> implements VersionRegisterableScript<Script>, InitializingBean
 {
     protected RegisterableScript<Script> adaptedScript;
 

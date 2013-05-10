@@ -24,7 +24,7 @@ import org.springframework.core.io.ClassPathResource;
 /**
  * @author Axel Faust, <a href="http://www.prodyna.com">PRODYNA AG</a>
  */
-public class ClasspathRegisteredScript implements RegisterableScript<ScriptLocation>, InitializingBean
+public class ClasspathRegisterableScript implements RegisterableScript<ScriptLocation>, InitializingBean
 {
 
     protected ClassPathResource scriptResource;
