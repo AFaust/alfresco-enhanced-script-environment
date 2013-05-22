@@ -92,6 +92,8 @@ public class ImportScriptFunction<Script extends ReferenceScript> implements IdF
                 // defaults to null
                 final Scriptable resolutionParams = ScriptRuntime.toObjectOrNull(cx, args.length > 3 ? args[3] : null);
                 final Object resolotionParamsJavaObj = this.valueConverter.convertValueForJava(resolutionParams);
+                
+                // TODO: Is Scriptable ok as base type for scope? Could be anything, even a function... 
                 final Scriptable executionScopeParam = ScriptRuntime.toObjectOrNull(cx, args.length > 4 ? args[4] : null);
 
                 final ScriptLocator<Script> scriptLocator = this.scriptLocators.get(locatorType);

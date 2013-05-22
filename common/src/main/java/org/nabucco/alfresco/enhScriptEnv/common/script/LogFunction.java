@@ -386,6 +386,7 @@ public class LogFunction implements IdFunctionCall, InitializingBean, ScopeContr
     {
         final Collection<Logger> loggers;
 
+        // TODO: what about logging in functions defined in script A but called from script B (due to scope access or explicit passing)?
         final ReferenceScript referenceScript = this.scriptProcessor.getContextScriptLocation();
 
         final LoggerData loggerData = getLoggerData(scope, referenceScript, createIfNull);

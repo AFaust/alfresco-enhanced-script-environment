@@ -127,6 +127,8 @@ public class EnhancedRhinoScriptProcessor extends BaseProcessor implements Enhan
     protected Scriptable unrestrictedShareableScope;
 
     protected boolean compileScripts = true;
+    // don't optimize by default
+    protected int optimizaionLevel = -1;
 
     protected final ValueConverter valueConverter = new ValueConverter();
 
@@ -460,7 +462,7 @@ public class EnhancedRhinoScriptProcessor extends BaseProcessor implements Enhan
      * @param shareScopes
      *            the shareScopes to set
      */
-    public final void setShareScopes(boolean shareScopes)
+    public final void setShareScopes(final boolean shareScopes)
     {
         this.shareScopes = shareScopes;
     }
@@ -469,9 +471,22 @@ public class EnhancedRhinoScriptProcessor extends BaseProcessor implements Enhan
      * @param compileScripts
      *            the compileScripts to set
      */
-    public final void setCompileScripts(boolean compileScripts)
+    public final void setCompileScripts(final boolean compileScripts)
     {
         this.compileScripts = compileScripts;
+    }
+
+    /**
+     * @param optimizaionLevel
+     *            the optimizaionLevel to set
+     */
+    public final void setOptimizaionLevel(final int optimizaionLevel)
+    {
+        if (!Context.isValidOptimizationLevel(optimizaionLevel))
+        {
+            throw new IllegalArgumentException("Invalid optimization level: " + optimizaionLevel);
+        }
+        this.optimizaionLevel = optimizaionLevel;
     }
 
     protected void updateLocationChainsBeforeExceution()
@@ -587,8 +602,9 @@ public class EnhancedRhinoScriptProcessor extends BaseProcessor implements Enhan
 
     protected Script getCompiledScript(final String source, final String path)
     {
-        ParameterCheck.mandatoryString("source", source);
         ParameterCheck.mandatoryString("path", path);
+        // only mandatory - may be empty string as NO-OP script
+        ParameterCheck.mandatory("source", source);
         try
         {
             final Script script;
@@ -598,7 +614,7 @@ public class EnhancedRhinoScriptProcessor extends BaseProcessor implements Enhan
             {
                 if (this.compileScripts)
                 {
-                    cx.setOptimizationLevel(9);
+                    cx.setOptimizationLevel(this.optimizaionLevel);
                 }
                 script = cx.compileString(resolvedSource, path, 1, null);
             }

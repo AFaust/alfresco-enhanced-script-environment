@@ -77,6 +77,7 @@ public class EnhancedJSScriptProcessor extends BaseRegisterableScriptProcessor i
     protected Scriptable restrictedShareableScope;
 
     protected boolean compileScripts = true;
+    protected int optimizationLevel = -1;
 
     protected ScriptLoader standardScriptLoader;
 
@@ -455,8 +456,9 @@ public class EnhancedJSScriptProcessor extends BaseRegisterableScriptProcessor i
 
     protected Script getCompiledScript(final String source, final String path)
     {
-        ParameterCheck.mandatoryString("source", source);
         ParameterCheck.mandatoryString("path", path);
+        // only mandatory - may be empty string as NO-OP script
+        ParameterCheck.mandatory("source", source);
         try
         {
             final Script script;
@@ -466,7 +468,7 @@ public class EnhancedJSScriptProcessor extends BaseRegisterableScriptProcessor i
             {
                 if (this.compileScripts)
                 {
-                    cx.setOptimizationLevel(9);
+                    cx.setOptimizationLevel(this.optimizationLevel);
                 }
                 script = cx.compileString(resolvedSource, path, 1, null);
             }
@@ -591,10 +593,6 @@ public class EnhancedJSScriptProcessor extends BaseRegisterableScriptProcessor i
         final Context cx = Context.enter();
         try
         {
-            if (this.compileScripts)
-            {
-                cx.setOptimizationLevel(9);
-            }
             cx.setWrapFactory(WRAP_FACTORY);
             // make sure scripts always have the relevant processor extensions available
             for (final ProcessorExtension ex : this.processorExtensions.values())
@@ -666,6 +664,19 @@ public class EnhancedJSScriptProcessor extends BaseRegisterableScriptProcessor i
     public final void setCompileScripts(final boolean compileScripts)
     {
         this.compileScripts = compileScripts;
+    }
+
+    /**
+     * @param optimizaionLevel
+     *            the optimizaionLevel to set
+     */
+    public final void setOptimizaionLevel(final int optimizaionLevel)
+    {
+        if (!Context.isValidOptimizationLevel(optimizaionLevel))
+        {
+            throw new IllegalArgumentException("Invalid optimization level: " + optimizaionLevel);
+        }
+        this.optimizaionLevel = optimizaionLevel;
     }
 
     /**
