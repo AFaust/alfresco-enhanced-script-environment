@@ -49,14 +49,13 @@ public class LogFunction implements IdFunctionCall, InitializingBean, ScopeContr
 {
 
     public static final String LOGGER_OBJ_NAME = "logger";
+    public static final Object LOG_FUNC_TAG = new Object();
 
     public static final int TRACE_FUNC_ID = 100;
     public static final int DEBUG_FUNC_ID = 101;
     public static final int INFO_FUNC_ID = 102;
     public static final int WARN_FUNC_ID = 103;
     public static final int ERROR_FUNC_ID = 104;
-
-    public static final Object LOG_FUNC_TAG = new Object();
 
     public static final String TRACE_FUNC_NAME = "trace";
     public static final String DEBUG_FUNC_NAME = "debug";
@@ -89,6 +88,15 @@ public class LogFunction implements IdFunctionCall, InitializingBean, ScopeContr
     public static final String SET_LOGGER_FUNC_NAME = "setLogger";
     public static final String SET_INHERIT_LOGGER_CTX_FUNC_NAME = "setInheritLoggerContext";
     public static final String REGISTER_CHILD_SCOPE_FUNC_NAME = "registerChildScope";
+
+    public static final int GET_SYSTEM_FUNC_ID = 400;
+    public static final int OUT_FUNC_ID = 401;
+
+    public static final String GET_SYSTEM_FUNC_NAME = "getSystem";
+    public static final String SYSTEM_PROP_NAME = "system";
+    public static final String OUT_FUNC_NAME = "out";
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(LogFunction.class);
 
     protected EnhancedScriptProcessor<? extends ReferenceScript> scriptProcessor;
 
@@ -159,6 +167,16 @@ public class LogFunction implements IdFunctionCall, InitializingBean, ScopeContr
             else if (methodId == REGISTER_CHILD_SCOPE_FUNC_ID)
             {
                 handleRegisterChildScope(scope, args);
+
+                result = null;
+            }
+            else if (methodId == GET_SYSTEM_FUNC_ID)
+            {
+                result = ScriptableObject.getProperty(thisObj, SYSTEM_PROP_NAME);
+            }
+            else if (methodId == OUT_FUNC_ID)
+            {
+                handleOut(cx, scope, thisObj, args);
 
                 result = null;
             }
@@ -306,6 +324,22 @@ public class LogFunction implements IdFunctionCall, InitializingBean, ScopeContr
         }
     }
 
+    protected void handleOut(final Context cx, final Scriptable scope, final Scriptable thisObj, final Object[] args)
+    {
+        if (args.length == 1)
+        {
+            final String message = ScriptRuntime.toString(args, 0);
+
+            final ReferenceScript contextScriptLocation = this.scriptProcessor.getContextScriptLocation();
+            LOGGER.warn("Script {} logging to System.out: ", contextScriptLocation, message);
+            System.out.println(message);
+        }
+        else
+        {
+            throw new IllegalArgumentException("Parameter message is missing");
+        }
+    }
+
     /**
      * {@inheritDoc}
      */
@@ -339,6 +373,15 @@ public class LogFunction implements IdFunctionCall, InitializingBean, ScopeContr
         exportFunction(REGISTER_CHILD_SCOPE_FUNC_ID, REGISTER_CHILD_SCOPE_FUNC_NAME, 1, loggerObj);
         exportFunction(SET_LOGGER_FUNC_ID, SET_LOGGER_FUNC_NAME, 1, loggerObj);
         exportFunction(SET_INHERIT_LOGGER_CTX_FUNC_ID, SET_INHERIT_LOGGER_CTX_FUNC_NAME, 1, loggerObj);
+
+        exportFunction(GET_SYSTEM_FUNC_ID, GET_SYSTEM_FUNC_NAME, 0, loggerObj);
+
+        // define system object
+        final NativeObject systemObj = new NativeObject();
+        exportFunction(OUT_FUNC_ID, OUT_FUNC_NAME, 1, systemObj);
+        systemObj.sealObject();
+
+        ScriptableObject.defineProperty(loggerObj, SYSTEM_PROP_NAME, systemObj, ScriptableObject.PERMANENT | ScriptableObject.READONLY);
 
         loggerObj.sealObject();
 
