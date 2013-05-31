@@ -127,8 +127,8 @@ public class EnhancedRhinoScriptProcessor extends BaseProcessor implements Enhan
     protected Scriptable unrestrictedShareableScope;
 
     protected boolean compileScripts = true;
-    // don't optimize by default
-    protected int optimizaionLevel = -1;
+    protected boolean failoverToLessOptimization = true;
+    protected int optimizationLevel = -1;
 
     protected final ValueConverter valueConverter = new ValueConverter();
 
@@ -477,16 +477,25 @@ public class EnhancedRhinoScriptProcessor extends BaseProcessor implements Enhan
     }
 
     /**
-     * @param optimizaionLevel
+     * @param optimizationLevel
      *            the optimizaionLevel to set
      */
-    public final void setOptimizaionLevel(final int optimizaionLevel)
+    public final void setOptimizationLevel(final int optimizationLevel)
     {
-        if (!Context.isValidOptimizationLevel(optimizaionLevel))
+        if (!Context.isValidOptimizationLevel(optimizationLevel))
         {
-            throw new IllegalArgumentException("Invalid optimization level: " + optimizaionLevel);
+            throw new IllegalArgumentException("Invalid optimization level: " + optimizationLevel);
         }
-        this.optimizaionLevel = optimizaionLevel;
+        this.optimizationLevel = optimizationLevel;
+    }
+
+    /**
+     * @param failoverToLessOptimization
+     *            the failoverToLessOptimization to set
+     */
+    public final void setFailoverToLessOptimization(final boolean failoverToLessOptimization)
+    {
+        this.failoverToLessOptimization = failoverToLessOptimization;
     }
 
     protected void updateLocationChainsBeforeExceution()
@@ -614,9 +623,46 @@ public class EnhancedRhinoScriptProcessor extends BaseProcessor implements Enhan
             {
                 if (this.compileScripts)
                 {
-                    cx.setOptimizationLevel(this.optimizaionLevel);
+                    int optimizationLevel = this.optimizationLevel;
+                    Script bestEffortOptimizedScript = null;
+
+                    while (optimizationLevel >= -1 && bestEffortOptimizedScript == null)
+                    {
+                        try
+                        {
+                            cx.setOptimizationLevel(optimizationLevel--);
+                            bestEffortOptimizedScript = cx.compileString(resolvedSource, path, 1, null);
+                        }
+                        catch (final RuntimeException ex)
+                        {
+                            // unfortunately, all exceptions emitted from compilation are RuntimeExceptions
+                            // but at the least, they are RuntimeException specifically
+                            if (!this.failoverToLessOptimization || !ex.getClass().isAssignableFrom(RuntimeException.class))
+                            {
+                                // if failover is not to be attempted or exception is a specialized RuntimeException
+                                throw ex;
+                            }
+                            else if (optimizationLevel > -1)
+                            {
+                                // we do at least log
+                                LOGGER.info(
+                                        "Compilation failed of {} failed with runtime exception {} - attempting lower optimization level",
+                                        path, ex.getMessage());
+                            }
+                            else
+                            {
+                                // we do at least log
+                                LOGGER.info("Compilation failed of {} failed with runtime exception {} - no further attempt", path,
+                                        ex.getMessage());
+                            }
+                        }
+                    }
+                    script = bestEffortOptimizedScript;
                 }
-                script = cx.compileString(resolvedSource, path, 1, null);
+                else
+                {
+                    script = cx.compileString(resolvedSource, path, 1, null);
+                }
             }
             finally
             {
