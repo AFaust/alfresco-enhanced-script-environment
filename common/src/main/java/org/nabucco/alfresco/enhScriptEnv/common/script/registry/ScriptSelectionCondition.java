@@ -19,5 +19,13 @@ package org.nabucco.alfresco.enhScriptEnv.common.script.registry;
  */
 public interface ScriptSelectionCondition
 {
+
+    /**
+     * Checks weather the specific script matches the selection criteria codified by this condition instance.
+     * 
+     * @param script
+     *            the script to check
+     * @return {@code true} if the script matches the criteria, {@code false} otherwise
+     */
     boolean matches(RegisterableScript<?> script);
 }

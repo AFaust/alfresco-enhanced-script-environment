@@ -14,11 +14,15 @@
  */
 package org.nabucco.alfresco.enhScriptEnv.common.script.locator;
 
+import java.util.Collection;
+import java.util.HashSet;
 import java.util.Map;
 
 import org.alfresco.util.PropertyCheck;
 import org.nabucco.alfresco.enhScriptEnv.common.script.ReferenceScript;
+import org.nabucco.alfresco.enhScriptEnv.common.script.registry.CompositeCondition;
 import org.nabucco.alfresco.enhScriptEnv.common.script.registry.ScriptRegistry;
+import org.nabucco.alfresco.enhScriptEnv.common.script.registry.ScriptSelectionCondition;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -50,10 +54,59 @@ public abstract class RegisteredScriptLocator<BaseScript, Script extends Referen
     {
         final Script result;
 
+        result = lookupScriptInRegistry(locationValue, null);
+
+        return result;
+    }
+
+    /**
+     * 
+     * {@inheritDoc}
+     */
+    @Override
+    public Script resolveLocation(final Script referenceLocation, final String locationValue, final Map<String, Object> resolutionParameters)
+    {
+        final Script script;
+        // we currently don't support any parameters, so just pass to default implementation
+        if (resolutionParameters != null)
+        {
+            final ScriptSelectionCondition condition = extractSelectionCondition(resolutionParameters);
+            if (condition != null)
+            {
+                script = lookupScriptInRegistry(locationValue, condition);
+            }
+            else
+            {
+                LOGGER.info(
+                        "Unable to determine selection condition for resolution of path {} from reference location {} - parameters provided {}",
+                        new Object[] { locationValue, referenceLocation, resolutionParameters });
+                script = resolveLocation(referenceLocation, locationValue);
+            }
+        }
+        else
+        {
+            script = resolveLocation(referenceLocation, locationValue);
+        }
+        return script;
+    }
+
+    /**
+     * @param scriptRegistry
+     *            the scriptRegistry to set
+     */
+    public final void setScriptRegistry(ScriptRegistry<BaseScript> scriptRegistry)
+    {
+        this.scriptRegistry = scriptRegistry;
+    }
+
+    protected Script lookupScriptInRegistry(final String locationValue, final ScriptSelectionCondition condition)
+    {
+        final Script result;
         if (!locationValue.contains("@"))
         {
             // no @ in location value => global script
-            final BaseScript baseScript = this.scriptRegistry.getScript(locationValue);
+            final BaseScript baseScript = condition == null ? this.scriptRegistry.getScript(locationValue) : this.scriptRegistry.getScript(
+                    locationValue, condition);
             if (baseScript != null)
             {
                 result = this.convert(baseScript);
@@ -71,7 +124,8 @@ public abstract class RegisteredScriptLocator<BaseScript, Script extends Referen
                 final String scriptName = fragments[0];
                 final String subRegistry = fragments[1];
 
-                final BaseScript baseScript = this.scriptRegistry.getScript(scriptName, subRegistry);
+                final BaseScript baseScript = condition == null ? this.scriptRegistry.getScript(scriptName, subRegistry)
+                        : this.scriptRegistry.getScript(scriptName, subRegistry, condition);
                 if (baseScript != null)
                 {
                     result = this.convert(baseScript);
@@ -90,31 +144,62 @@ public abstract class RegisteredScriptLocator<BaseScript, Script extends Referen
         return result;
     }
 
-    /**
-     * 
-     * {@inheritDoc}
-     */
-    @Override
-    public Script resolveLocation(final Script referenceLocation, final String locationValue, final Map<String, Object> resolutionParameters)
+    protected ScriptSelectionCondition extractSelectionCondition(final Map<?, ?> parameters)
     {
-        // we currently don't support any parameters, so just pass to default implementation
-        if (resolutionParameters != null)
+        final ScriptSelectionCondition condition;
+        if (parameters.containsKey("conditions"))
         {
-            LOGGER.info(
-                    "Implementation does not support resolution parameters - resolution of path {} from reference location {1} will continue with default implementation",
-                    locationValue, referenceLocation);
-            // TODO: implement lookup using ScriptSelectionCondition
-        }
-        return resolveLocation(referenceLocation, locationValue);
-    }
+            final Object conditionsObj = parameters.get("conditions");
+            if (conditionsObj instanceof Map<?, ?>)
+            {
+                // just a single condition object => not a real composite
+                condition = extractSelectionCondition((Map<?, ?>) conditionsObj);
+            }
+            else if (conditionsObj instanceof Collection<?>)
+            {
+                final Collection<ScriptSelectionCondition> conditions = new HashSet<ScriptSelectionCondition>();
+                for (final Object element : (Collection<?>) conditionsObj)
+                {
+                    if (conditionsObj instanceof Map<?, ?>)
+                    {
+                        final ScriptSelectionCondition singleCondition = extractSelectionCondition((Map<?, ?>) conditionsObj);
+                        if (singleCondition != null)
+                        {
+                            conditions.add(singleCondition);
+                        }
+                    }
+                    else
+                    {
+                        // TODO
+                    }
+                }
 
-    /**
-     * @param scriptRegistry
-     *            the scriptRegistry to set
-     */
-    public final void setScriptRegistry(ScriptRegistry<BaseScript> scriptRegistry)
-    {
-        this.scriptRegistry = scriptRegistry;
+                if (conditions.isEmpty())
+                {
+                    condition = null;
+                }
+                else if (conditions.size() == 1)
+                {
+                    condition = conditions.iterator().next();
+                }
+                else
+                {
+                    condition = new CompositeCondition(conditions);
+                }
+            }
+            else
+            {
+                // TODO
+                condition = null;
+            }
+        }
+        else
+        {
+            // TODO
+            condition = null;
+        }
+
+        return condition;
     }
 
     /**
