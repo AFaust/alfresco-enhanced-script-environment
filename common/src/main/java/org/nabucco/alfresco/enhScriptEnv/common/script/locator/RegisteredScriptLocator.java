@@ -14,13 +14,18 @@
  */
 package org.nabucco.alfresco.enhScriptEnv.common.script.locator;
 
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 
 import org.alfresco.util.PropertyCheck;
+import org.alfresco.util.VersionNumber;
 import org.nabucco.alfresco.enhScriptEnv.common.script.ReferenceScript;
+import org.nabucco.alfresco.enhScriptEnv.common.script.registry.AppliesForVersionCondition;
 import org.nabucco.alfresco.enhScriptEnv.common.script.registry.CompositeCondition;
+import org.nabucco.alfresco.enhScriptEnv.common.script.registry.FallsInVersionRangeCondition;
 import org.nabucco.alfresco.enhScriptEnv.common.script.registry.ScriptRegistry;
 import org.nabucco.alfresco.enhScriptEnv.common.script.registry.ScriptSelectionCondition;
 import org.slf4j.Logger;
@@ -31,6 +36,14 @@ import org.slf4j.LoggerFactory;
  */
 public abstract class RegisteredScriptLocator<BaseScript, Script extends ReferenceScript> extends AbstractScriptLocator<Script>
 {
+    protected static final String CONDITIONS = "conditions";
+    protected static final String VERSION = "version";
+    protected static final String APPLIES_FROM = "appliesFrom";
+    protected static final String APPLIES_TO = "appliesTo";
+
+    protected static final String APPLIES_FROM_EXCLUSIVE = "appliesFromExclusive";
+    protected static final String APPLIES_TO_EXCLUSIVE = "appliesToExclusive";
+
     private static final Logger LOGGER = LoggerFactory.getLogger(RegisteredScriptLocator.class);
 
     protected ScriptRegistry<BaseScript> scriptRegistry;
@@ -144,25 +157,118 @@ public abstract class RegisteredScriptLocator<BaseScript, Script extends Referen
         return result;
     }
 
-    protected ScriptSelectionCondition extractSelectionCondition(final Map<?, ?> parameters)
+    protected static ScriptSelectionCondition extractSelectionCondition(final Map<?, ?> parameters)
     {
-        final ScriptSelectionCondition condition;
-        if (parameters.containsKey("conditions"))
+        final ScriptSelectionCondition multiCondition = extractCompositeCondition(parameters);
+        final ScriptSelectionCondition versionCondition = extractVersionCondition(parameters);
+        final ScriptSelectionCondition versionRangeCondition = extractVersionRangeCondition(parameters);
+
+        final List<ScriptSelectionCondition> conditions = new ArrayList<ScriptSelectionCondition>();
+        if (multiCondition != null)
         {
-            final Object conditionsObj = parameters.get("conditions");
+            conditions.add(multiCondition);
+        }
+        if (versionCondition != null)
+        {
+            conditions.add(versionCondition);
+        }
+        if (versionRangeCondition != null)
+        {
+            conditions.add(versionRangeCondition);
+        }
+
+        final ScriptSelectionCondition condition;
+        if (conditions.isEmpty())
+        {
+            condition = null;
+        }
+        else if (conditions.size() == 1)
+        {
+            condition = conditions.get(0);
+        }
+        else
+        {
+            condition = new CompositeCondition(conditions);
+        }
+
+        return condition;
+    }
+
+    protected static ScriptSelectionCondition extractVersionCondition(final Map<?, ?> parameters)
+    {
+        final ScriptSelectionCondition versionCondition;
+        if (parameters.containsKey(VERSION))
+        {
+            final Object versionNumberObj = parameters.get(VERSION);
+
+            if (versionNumberObj instanceof String)
+            {
+                final VersionNumber versionNumber = new VersionNumber((String) versionNumberObj);
+                versionCondition = new AppliesForVersionCondition(versionNumber);
+            }
+            else
+            {
+                versionCondition = null;
+            }
+        }
+        else
+        {
+            versionCondition = null;
+        }
+        return versionCondition;
+    }
+
+    protected static ScriptSelectionCondition extractVersionRangeCondition(final Map<?, ?> parameters)
+    {
+        final ScriptSelectionCondition versionRangeCondition;
+        if (parameters.containsKey(APPLIES_FROM) || parameters.containsKey(APPLIES_TO))
+        {
+            final Object appliesFromObj = parameters.get(APPLIES_FROM);
+            final Object appliesToObj = parameters.get(APPLIES_TO);
+            if (appliesFromObj instanceof String || appliesToObj instanceof String)
+            {
+                final VersionNumber appliesFrom = appliesFromObj instanceof String ? new VersionNumber((String) appliesFromObj) : null;
+                final VersionNumber appliesTo = appliesToObj instanceof String ? new VersionNumber((String) appliesToObj) : null;
+
+                final Object appliesFromExclusiveObj = parameters.get(APPLIES_FROM_EXCLUSIVE);
+                final Object appliesToExclusiveObj = parameters.get(APPLIES_TO_EXCLUSIVE);
+
+                final boolean appliesFromExclusive = toBoolean(appliesFromExclusiveObj);
+                final boolean appliesToExclusive = toBoolean(appliesToExclusiveObj);
+
+                versionRangeCondition = new FallsInVersionRangeCondition(appliesFrom, appliesFromExclusive, appliesTo, appliesToExclusive);
+            }
+            else
+            {
+                versionRangeCondition = null;
+            }
+        }
+        else
+        {
+            versionRangeCondition = null;
+        }
+        return versionRangeCondition;
+    }
+
+    protected static ScriptSelectionCondition extractCompositeCondition(final Map<?, ?> parameters)
+    {
+        final ScriptSelectionCondition compositeCondition;
+        if (parameters.containsKey(CONDITIONS))
+        {
+            final Object conditionsObj = parameters.get(CONDITIONS);
             if (conditionsObj instanceof Map<?, ?>)
             {
                 // just a single condition object => not a real composite
-                condition = extractSelectionCondition((Map<?, ?>) conditionsObj);
+                compositeCondition = extractSelectionCondition((Map<?, ?>) conditionsObj);
             }
             else if (conditionsObj instanceof Collection<?>)
             {
                 final Collection<ScriptSelectionCondition> conditions = new HashSet<ScriptSelectionCondition>();
                 for (final Object element : (Collection<?>) conditionsObj)
                 {
-                    if (conditionsObj instanceof Map<?, ?>)
+                    if (element instanceof Map<?, ?>)
                     {
-                        final ScriptSelectionCondition singleCondition = extractSelectionCondition((Map<?, ?>) conditionsObj);
+                        final ScriptSelectionCondition singleCondition = extractSelectionCondition((Map<?, ?>) element);
                         if (singleCondition != null)
                         {
                             conditions.add(singleCondition);
@@ -170,36 +276,49 @@ public abstract class RegisteredScriptLocator<BaseScript, Script extends Referen
                     }
                     else
                     {
-                        // TODO
+                        throw new IllegalArgumentException("Condition collection element not supported: " + element.toString());
                     }
                 }
 
                 if (conditions.isEmpty())
                 {
-                    condition = null;
+                    // not a condition at all
+                    compositeCondition = null;
                 }
                 else if (conditions.size() == 1)
                 {
-                    condition = conditions.iterator().next();
+                    // just a single condition object => not a real composite
+                    compositeCondition = conditions.iterator().next();
                 }
                 else
                 {
-                    condition = new CompositeCondition(conditions);
+                    compositeCondition = new CompositeCondition(conditions);
                 }
             }
             else
             {
-                // TODO
-                condition = null;
+                throw new IllegalArgumentException("Condition object not supported: " + conditionsObj.toString());
             }
         }
         else
         {
-            // TODO
-            condition = null;
+            compositeCondition = null;
         }
+        return compositeCondition;
+    }
 
-        return condition;
+    protected static boolean toBoolean(final Object boolParameter)
+    {
+        boolean result = false;
+        if (boolParameter instanceof Boolean)
+        {
+            result = ((Boolean) boolParameter).booleanValue();
+        }
+        else if (boolParameter instanceof String)
+        {
+            result = Boolean.parseBoolean((String) boolParameter);
+        }
+        return result;
     }
 
     /**

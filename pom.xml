@@ -13,10 +13,18 @@
         <alfresco.groupId>org.alfresco</alfresco.groupId>
         <alfresco.version>4.2.c</alfresco.version>
 
-        <!-- Default distribution target if not overriden by profile -->
-        <!-- <distribution.repo.release.id></distribution.repo.release.id> <distribution.repo.release.name></distribution.repo.release.name> <distribution.repo.release.url></distribution.repo.release.url> 
-            <distribution.repo.snapshot.id></distribution.repo.snapshot.id> <distribution.repo.snapshot.name></distribution.repo.snapshot.name> <distribution.repo.snapshot.url></distribution.repo.snapshot.url> -->
     </properties>
+
+    <dependencyManagement>
+        <dependencies>
+            <dependency>
+                <groupId>junit</groupId>
+                <artifactId>junit</artifactId>
+                <version>4.11</version>
+                <scope>test</scope>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
 
     <build>
 
@@ -43,6 +51,12 @@
                             </goals>
                         </execution>
                     </executions>
+                </plugin>
+
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-surefire-plugin</artifactId>
+                    <version>2.14.1</version>
                 </plugin>
 
                 <plugin>

@@ -17,6 +17,7 @@ package org.nabucco.alfresco.enhScriptEnv.common.script.registry;
 import org.alfresco.util.ParameterCheck;
 import org.alfresco.util.PropertyCheck;
 import org.alfresco.util.VersionNumber;
+import org.nabucco.alfresco.enhScriptEnv.common.util.CorrectVersionNumberComparator;
 import org.springframework.beans.factory.InitializingBean;
 
 /**
@@ -65,7 +66,7 @@ public class VersionRegisterableScriptAdapter<Script> implements VersionRegister
         if (o instanceof VersionRegisterableScript<?>)
         {
             final VersionNumber otherVersion = ((VersionRegisterableScript<?>) o).getVersion();
-            result = this.version.compareTo(otherVersion);
+            result = CorrectVersionNumberComparator.compareVersions(this.version, otherVersion);
         }
 
         if (result == 0)

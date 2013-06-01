@@ -2,6 +2,7 @@ package org.nabucco.alfresco.enhScriptEnv.common.script.registry;
 
 import org.alfresco.util.ParameterCheck;
 import org.alfresco.util.VersionNumber;
+import org.nabucco.alfresco.enhScriptEnv.common.util.CorrectVersionNumberComparator;
 
 /**
  * @author Axel Faust, <a href="http://www.prodyna.com">PRODYNA AG</a>
@@ -36,8 +37,10 @@ public class AppliesForVersionCondition implements ScriptSelectionCondition
             final boolean appliesToExclusive = versionedScript.isAppliesToExclusive();
             final boolean appliesFromExclusive = versionedScript.isAppliesFromExclusive();
 
-            final boolean appliesFromMatches = appliesFrom == null || this.version.compareTo(appliesFrom) > (appliesFromExclusive ? 0 : -1);
-            final boolean appliesToMatches = appliesTo == null || this.version.compareTo(appliesTo) < (appliesToExclusive ? 0 : 1);
+            final boolean appliesFromMatches = appliesFrom == null
+                    || CorrectVersionNumberComparator.compareVersions(this.version, appliesFrom) > (appliesFromExclusive ? 0 : -1);
+            final boolean appliesToMatches = appliesTo == null
+                    || CorrectVersionNumberComparator.compareVersions(this.version, appliesTo) < (appliesToExclusive ? 0 : 1);
             result = appliesFromMatches && appliesToMatches;
         }
         else
