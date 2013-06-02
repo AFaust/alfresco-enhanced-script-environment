@@ -117,8 +117,9 @@ public class LogFunction implements IdFunctionCall, InitializingBean, ScopeContr
     /**
      * Parent scope registry for bottom-up lookup and including context script in which parent-child relation was registered
      */
-    protected final Map<Scriptable, WeakReference<Pair<Scriptable, ReferenceScript>>> scopeParents = Collections
-            .synchronizedMap(new WeakHashMap<Scriptable, WeakReference<Pair<Scriptable, ReferenceScript>>>());
+    // TODO: Need to change to simple WeakHashMap with ReadWriteLock-based synchronization (similar to scopeLoggerData)
+    protected final Map<Scriptable, Pair<WeakReference<Scriptable>, ReferenceScript>> scopeParents = Collections
+            .synchronizedMap(new WeakHashMap<Scriptable, Pair<WeakReference<Scriptable>, ReferenceScript>>());
     /**
      * Logger data by script scope for dynamic script strings (non-persistent scripts) signified by lack of a {@link ReferenceScript}
      * instance
@@ -213,17 +214,8 @@ public class LogFunction implements IdFunctionCall, InitializingBean, ScopeContr
             {
                 final Scriptable childScope = (Scriptable) scopeParam;
                 final ReferenceScript script = this.scriptProcessor.getContextScriptLocation();
-                this.scopeParents.put(childScope, new WeakReference<Pair<Scriptable, ReferenceScript>>(
-                        new Pair<Scriptable, ReferenceScript>(scope, script)));
-
-                // check if we need to propagate a scriptLogger via scope-global logger data
-                final LoggerData scopeLoggerData = getLoggerData(scope, null, true);
-                final Scriptable scriptLogger = scopeLoggerData.getScriptLogger();
-                if (scriptLogger != null)
-                {
-                    final LoggerData childScopeLoggerData = getLoggerData(childScope, null, true);
-                    childScopeLoggerData.setScriptLogger(scriptLogger);
-                }
+                this.scopeParents.put(childScope, new Pair<WeakReference<Scriptable>, ReferenceScript>(
+                        new WeakReference<Scriptable>(scope), script));
             }
             else
             {
@@ -552,13 +544,13 @@ public class LogFunction implements IdFunctionCall, InitializingBean, ScopeContr
         final ReferenceScript parentScript = scriptIndex > 0 ? scriptCallChain.get(scriptIndex - 1) : null;
 
         // determine parent scope from explicit registration
-        final WeakReference<Pair<Scriptable, ReferenceScript>> scopeParentPair = this.scopeParents.get(scope);
+        final Pair<WeakReference<Scriptable>, ReferenceScript> scopeParentPair = this.scopeParents.get(scope);
         // use parent scope only if one has been registered and the script it was registered for is the identical script retrieved from the
         // call chain
-        final Scriptable parentScope = scopeParentPair == null || (scopeParentPair.get().getSecond() != parentScript) ? scope
-                : scopeParentPair.get().getFirst();
+        final Scriptable parentScope = scopeParentPair == null || (scopeParentPair.getSecond() != parentScript) ? scope : scopeParentPair
+                .getFirst().get();
 
-        final LoggerData parentLoggerData = getLoggerData(parentScope, parentScript, false);
+        final LoggerData parentLoggerData = parentScope != null ? getLoggerData(parentScope, parentScript, false) : null;
         final Collection<Logger> loggers;
         if (parentLoggerData == null || parentLoggerData.isInheritLoggerContext())
         {
@@ -580,13 +572,13 @@ public class LogFunction implements IdFunctionCall, InitializingBean, ScopeContr
         final ReferenceScript parentScript = scriptIndex > 0 ? scriptCallChain.get(scriptIndex - 1) : null;
 
         // determine parent scope from explicit registration
-        final WeakReference<Pair<Scriptable, ReferenceScript>> scopeParentPair = this.scopeParents.get(scope);
+        final Pair<WeakReference<Scriptable>, ReferenceScript> scopeParentPair = this.scopeParents.get(scope);
         // use parent scope only if one has been registered and the script it was registered for is the identical script retrieved from the
         // call chain
-        final Scriptable parentScope = scopeParentPair == null || (scopeParentPair.get().getSecond() != parentScript) ? scope
-                : scopeParentPair.get().getFirst();
+        final Scriptable parentScope = scopeParentPair == null || (scopeParentPair.getSecond() != parentScript) ? scope : scopeParentPair
+                .getFirst().get();
 
-        final LoggerData parentLoggerData = getLoggerData(parentScope, parentScript, false);
+        final LoggerData parentLoggerData = parentScope != null ? getLoggerData(parentScope, parentScript, false) : null;
 
         // check immediate parent
         final boolean nextParentLoggerIsExplicit = parentLoggerData != null && parentLoggerData.getExplicitLogger() != null
@@ -665,6 +657,20 @@ public class LogFunction implements IdFunctionCall, InitializingBean, ScopeContr
                 finally
                 {
                     this.scopeLoggerDataLock.writeLock().unlock();
+                }
+            }
+
+            if (loggerData == null)
+            {
+                // determine parent scope from explicit registration
+                final Pair<WeakReference<Scriptable>, ReferenceScript> scopeParentPair = this.scopeParents.get(scope);
+                if (scopeParentPair != null)
+                {
+                    final Scriptable parentScope = scopeParentPair.getFirst().get();
+                    if (parentScope != null)
+                    {
+                        loggerData = getLoggerData(parentScope, script, createIfNull);
+                    }
                 }
             }
         }
