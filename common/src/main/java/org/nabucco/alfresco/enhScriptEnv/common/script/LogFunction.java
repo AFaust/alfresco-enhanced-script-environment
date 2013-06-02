@@ -39,6 +39,7 @@ import org.mozilla.javascript.WrappedException;
 import org.nabucco.alfresco.enhScriptEnv.common.script.ReferenceScript.ReferencePathType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.slf4j.helpers.MessageFormatter;
 import org.springframework.beans.factory.InitializingBean;
 import org.springframework.extensions.webscripts.ScriptValueConverter;
 
@@ -95,6 +96,10 @@ public class LogFunction implements IdFunctionCall, InitializingBean, ScopeContr
     public static final String GET_SYSTEM_FUNC_NAME = "getSystem";
     public static final String SYSTEM_PROP_NAME = "system";
     public static final String OUT_FUNC_NAME = "out";
+
+    public static final int SET_SCRIPT_LOGGER_FUNC_ID = 500;
+
+    public static final String SET_SCRIPT_LOGGER_FUNC_NAME = "setScriptLogger";
 
     private static final Logger LOGGER = LoggerFactory.getLogger(LogFunction.class);
 
@@ -180,6 +185,12 @@ public class LogFunction implements IdFunctionCall, InitializingBean, ScopeContr
 
                 result = null;
             }
+            else if (methodId == SET_SCRIPT_LOGGER_FUNC_ID)
+            {
+                handleSetScriptLogger(cx, scope, thisObj, args);
+
+                result = null;
+            }
             else
             {
                 throw new IllegalArgumentException(String.valueOf(methodId));
@@ -204,6 +215,15 @@ public class LogFunction implements IdFunctionCall, InitializingBean, ScopeContr
                 final ReferenceScript script = this.scriptProcessor.getContextScriptLocation();
                 this.scopeParents.put(childScope, new WeakReference<Pair<Scriptable, ReferenceScript>>(
                         new Pair<Scriptable, ReferenceScript>(scope, script)));
+
+                // check if we need to propagate a scriptLogger via scope-global logger data
+                final LoggerData scopeLoggerData = getLoggerData(scope, null, true);
+                final Scriptable scriptLogger = scopeLoggerData.getScriptLogger();
+                if (scriptLogger != null)
+                {
+                    final LoggerData childScopeLoggerData = getLoggerData(childScope, null, true);
+                    childScopeLoggerData.setScriptLogger(scriptLogger);
+                }
             }
             else
             {
@@ -284,11 +304,13 @@ public class LogFunction implements IdFunctionCall, InitializingBean, ScopeContr
     protected void handleLogging(final Context cx, final Scriptable scope, final Scriptable thisObj, final Object[] args, final int methodId)
     {
         final Collection<Logger> loggers = this.getLoggers(cx, scope, true);
+        final LoggerData globalLoggerData = this.getLoggerData(scope, null, false);
+        final Scriptable scriptLogger = globalLoggerData != null ? globalLoggerData.getScriptLogger() : null;
 
         if (args.length == 1)
         {
             final String message = ScriptRuntime.toString(args, 0);
-            log(methodId, loggers, message);
+            log(methodId, loggers, scriptLogger, message);
         }
         else if (args.length > 1)
         {
@@ -305,7 +327,7 @@ public class LogFunction implements IdFunctionCall, InitializingBean, ScopeContr
                 {
                     ex = (Throwable) secondParam;
                 }
-                log(methodId, loggers, message, ex);
+                log(methodId, loggers, scriptLogger, message, ex);
             }
             else
             {
@@ -315,7 +337,7 @@ public class LogFunction implements IdFunctionCall, InitializingBean, ScopeContr
                 {
                     params[idx] = ScriptValueConverter.unwrapValue(args[argsIdx]);
                 }
-                log(methodId, loggers, message, params);
+                log(methodId, loggers, scriptLogger, message, params);
             }
         }
         else
@@ -326,7 +348,7 @@ public class LogFunction implements IdFunctionCall, InitializingBean, ScopeContr
 
     protected void handleOut(final Context cx, final Scriptable scope, final Scriptable thisObj, final Object[] args)
     {
-        if (args.length == 1)
+        if (args.length >= 1)
         {
             final String message = ScriptRuntime.toString(args, 0);
 
@@ -337,6 +359,35 @@ public class LogFunction implements IdFunctionCall, InitializingBean, ScopeContr
         else
         {
             throw new IllegalArgumentException("Parameter message is missing");
+        }
+    }
+
+    protected void handleSetScriptLogger(final Context cx, final Scriptable scope, final Scriptable thisObj, final Object[] args)
+    {
+        if (args.length >= 1)
+        {
+            final Scriptable scriptLogger = ScriptRuntime.toObject(scope, args[0]);
+            final Object registeredScriptLogger = ScriptableObject.getProperty(scope, LOGGER_OBJ_NAME);
+            if (registeredScriptLogger == scriptLogger)
+            {
+                throw new IllegalArgumentException("Setting the root-scope logger as scriptLogger is not allowed due to recursion");
+            }
+
+            // ScriptLogger is always treated as a top-level context data object, so retrieve the top-level logger data
+            final LoggerData loggerData = getLoggerData(scope, null, true);
+            final Scriptable setScriptLogger = loggerData.getScriptLogger();
+            if (setScriptLogger != null)
+            {
+                throw new IllegalStateException("ScriptLogger has already been set - not allowed to replace it once set");
+            }
+            else
+            {
+                loggerData.setScriptLogger(scriptLogger);
+            }
+        }
+        else
+        {
+            throw new IllegalArgumentException("Parameter scriptLogger is missing");
         }
     }
 
@@ -375,6 +426,8 @@ public class LogFunction implements IdFunctionCall, InitializingBean, ScopeContr
         exportFunction(SET_INHERIT_LOGGER_CTX_FUNC_ID, SET_INHERIT_LOGGER_CTX_FUNC_NAME, 1, loggerObj);
 
         exportFunction(GET_SYSTEM_FUNC_ID, GET_SYSTEM_FUNC_NAME, 0, loggerObj);
+
+        exportFunction(SET_SCRIPT_LOGGER_FUNC_ID, SET_SCRIPT_LOGGER_FUNC_NAME, 1, loggerObj);
 
         // define system object
         final NativeObject systemObj = new NativeObject();
@@ -618,7 +671,7 @@ public class LogFunction implements IdFunctionCall, InitializingBean, ScopeContr
         return loggerData;
     }
 
-    protected void log(final int methodId, final Collection<Logger> loggers, final String message)
+    protected void log(final int methodId, final Collection<Logger> loggers, final Scriptable scriptLogger, final String message)
     {
         for (final Logger logger : loggers)
         {
@@ -643,9 +696,15 @@ public class LogFunction implements IdFunctionCall, InitializingBean, ScopeContr
                 throw new IllegalArgumentException("Unsupported method ID");
             }
         }
+
+        if (scriptLogger != null)
+        {
+            log(methodId, scriptLogger, message);
+        }
     }
 
-    protected void log(final int methodId, final Collection<Logger> loggers, final String message, final Throwable ex)
+    protected void log(final int methodId, final Collection<Logger> loggers, final Scriptable scriptLogger, final String message,
+            final Throwable ex)
     {
         for (final Logger logger : loggers)
         {
@@ -670,9 +729,15 @@ public class LogFunction implements IdFunctionCall, InitializingBean, ScopeContr
                 throw new IllegalArgumentException("Unsupported method ID");
             }
         }
+
+        if (scriptLogger != null)
+        {
+            log(methodId, scriptLogger, message + "\n" + ex.toString());
+        }
     }
 
-    protected void log(final int methodId, final Collection<Logger> loggers, final String message, final Object... params)
+    protected void log(final int methodId, final Collection<Logger> loggers, final Scriptable scriptLogger, final String message,
+            final Object... params)
     {
         for (final Logger logger : loggers)
         {
@@ -697,13 +762,48 @@ public class LogFunction implements IdFunctionCall, InitializingBean, ScopeContr
                 throw new IllegalArgumentException("Unsupported method ID");
             }
         }
+
+        if (scriptLogger != null)
+        {
+            final String formattedMessage = MessageFormatter.arrayFormat(message, params);
+            log(methodId, scriptLogger, formattedMessage);
+        }
+    }
+
+    protected void log(final int methodId, final Scriptable scriptLogger, final String message)
+    {
+        final String methodName;
+        switch (methodId)
+        {
+        case DEBUG_FUNC_ID:
+            methodName = "debug";
+            break;
+        case INFO_FUNC_ID:
+            methodName = "info";
+            break;
+        case WARN_FUNC_ID:
+            methodName = "warn";
+            break;
+        case ERROR_FUNC_ID:
+            methodName = "error";
+            break;
+        default:
+            // methodId not supported for directing logging to ScriptLogger
+            return;
+        }
+
+        if (ScriptableObject.hasProperty(scriptLogger, methodName))
+        {
+            ScriptableObject.callMethod(scriptLogger, methodName, new Object[] { message });
+        }
     }
 
     protected static class LoggerData
     {
-        private volatile Collection<Logger> loggers;
-        private volatile String explicitLogger;
-        private volatile boolean inheritLoggerContext = true;
+        private Collection<Logger> loggers;
+        private String explicitLogger;
+        private boolean inheritLoggerContext = true;
+        private Scriptable scriptLogger;
 
         public LoggerData()
         {
@@ -759,6 +859,23 @@ public class LogFunction implements IdFunctionCall, InitializingBean, ScopeContr
         public final void setInheritLoggerContext(final boolean inheritLoggerContext)
         {
             this.inheritLoggerContext = inheritLoggerContext;
+        }
+
+        /**
+         * @return the scriptLogger
+         */
+        public final Scriptable getScriptLogger()
+        {
+            return this.scriptLogger;
+        }
+
+        /**
+         * @param scriptLogger
+         *            the legacyLogger to set
+         */
+        public final void setScriptLogger(final Scriptable scriptLogger)
+        {
+            this.scriptLogger = scriptLogger;
         }
 
     }
