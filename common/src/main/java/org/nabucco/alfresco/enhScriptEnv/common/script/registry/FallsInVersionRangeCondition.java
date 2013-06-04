@@ -21,7 +21,7 @@ public class FallsInVersionRangeCondition implements ScriptSelectionCondition
         this.appliesTo = appliesTo;
         this.appliesToExclusive = appliesToExclusive;
 
-        if (this.appliesFrom == null ^ this.appliesTo == null)
+        if (this.appliesFrom == null && this.appliesTo == null)
         {
             throw new IllegalArgumentException("Either appliesFrom or appliesTo are required to be set");
         }
