@@ -36,6 +36,13 @@
 
         <dependency>
             <groupId>org.springframework.extensions.surf</groupId>
+            <artifactId>spring-webscripts-api</artifactId>
+            <version>1.2.0-M4</version>
+            <scope>compile</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.springframework.extensions.surf</groupId>
             <artifactId>spring-webscripts</artifactId>
             <version>1.2.0-M4</version>
             <scope>compile</scope>
@@ -45,6 +52,22 @@
             <groupId>${alfresco.groupId}</groupId>
             <artifactId>alfresco-core</artifactId>
             <version>${alfresco.version}</version>
+            <scope>compile</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.eclipse.wst</groupId>
+            <artifactId>org.eclipse.wst.jsdt.debug.rhino.debugger</artifactId>
+            <version>1.0.301.v201208171701</version>
+            <type>jar</type>
+            <scope>compile</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.eclipse.wst</groupId>
+            <artifactId>org.eclipse.wst.jsdt.debug.transport</artifactId>
+            <version>1.0.101.v201208171701</version>
+            <type>jar</type>
             <scope>compile</scope>
         </dependency>
 
@@ -65,7 +88,7 @@
             <plugin>
                 <artifactId>maven-source-plugin</artifactId>
             </plugin>
-            
+
             <plugin>
                 <artifactId>maven-surefire-plugin</artifactId>
             </plugin>

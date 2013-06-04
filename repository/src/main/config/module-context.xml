@@ -7,5 +7,6 @@
     <import resource="classpath:alfresco/module/${project.artifactId}/context/bootstrap-context.xml" />
     <import resource="classpath:alfresco/module/${project.artifactId}/context/behaviour-context.xml" />
     <import resource="classpath:alfresco/module/${project.artifactId}/context/service-context.xml" />
+    <import resource="classpath:alfresco/module/${project.artifactId}/context/web-scripts-context.xml" />
 
 </beans>

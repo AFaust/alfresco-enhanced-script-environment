@@ -77,6 +77,7 @@ public class EnhancedJSScriptProcessor extends BaseRegisterableScriptProcessor i
     protected Scriptable restrictedShareableScope;
 
     protected boolean compileScripts = true;
+    protected volatile boolean debuggerActive = false;
     protected boolean failoverToLessOptimization = true;
     protected int optimizationLevel = -1;
 
@@ -385,6 +386,26 @@ public class EnhancedJSScriptProcessor extends BaseRegisterableScriptProcessor i
      * {@inheritDoc}
      */
     @Override
+    public void debuggerAttached()
+    {
+        this.debuggerActive = true;
+    }
+
+    /**
+     * 
+     * {@inheritDoc}
+     */
+    @Override
+    public void debuggerDetached()
+    {
+        this.debuggerActive = false;
+    }
+
+    /**
+     * 
+     * {@inheritDoc}
+     */
+    @Override
     public void registerScopeContributor(final ScopeContributor contributor)
     {
         if (contributor != null)
@@ -417,7 +438,10 @@ public class EnhancedJSScriptProcessor extends BaseRegisterableScriptProcessor i
             realPath = this.getClass().getClassLoader().getResource(path.substring(path.indexOf(':') + 1)).toExternalForm();
         }
 
-        if (this.compileScripts && content.isCachable())
+        // store since it may be reset between cache-check and cache-put, and we don't want debug-enabled scripts cached
+        final boolean debuggerActive = this.debuggerActive;
+        // test the cache for a pre-compiled script matching our path
+        if (this.compileScripts && !debuggerActive && content.isCachable())
         {
             script = this.scriptCache.get(content.getPath());
         }
@@ -440,7 +464,7 @@ public class EnhancedJSScriptProcessor extends BaseRegisterableScriptProcessor i
                 throw new WebScriptException(MessageFormat.format("Failed to load supplied script: {0}", ex.getMessage()), ex);
             }
 
-            if (this.compileScripts && content.isCachable())
+            if (this.compileScripts && !debuggerActive && content.isCachable())
             {
                 this.scriptCache.put(content.getPath(), script);
 
@@ -467,7 +491,7 @@ public class EnhancedJSScriptProcessor extends BaseRegisterableScriptProcessor i
             final Context cx = Context.enter();
             try
             {
-                if (this.compileScripts)
+                if (this.compileScripts && !this.debuggerActive)
                 {
                     int optimizationLevel = this.optimizationLevel;
                     Script bestEffortOptimizedScript = null;

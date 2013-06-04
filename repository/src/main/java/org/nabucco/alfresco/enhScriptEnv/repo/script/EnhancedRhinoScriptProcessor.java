@@ -127,6 +127,7 @@ public class EnhancedRhinoScriptProcessor extends BaseProcessor implements Enhan
     protected Scriptable unrestrictedShareableScope;
 
     protected boolean compileScripts = true;
+    protected volatile boolean debuggerActive = false;
     protected boolean failoverToLessOptimization = true;
     protected int optimizationLevel = -1;
 
@@ -436,6 +437,26 @@ public class EnhancedRhinoScriptProcessor extends BaseProcessor implements Enhan
      * {@inheritDoc}
      */
     @Override
+    public void debuggerAttached()
+    {
+        this.debuggerActive = true;
+    }
+
+    /**
+     * 
+     * {@inheritDoc}
+     */
+    @Override
+    public void debuggerDetached()
+    {
+        this.debuggerActive = false;
+    }
+
+    /**
+     * 
+     * {@inheritDoc}
+     */
+    @Override
     public void registerScopeContributor(final ScopeContributor contributor)
     {
         if (contributor != null)
@@ -570,8 +591,10 @@ public class EnhancedRhinoScriptProcessor extends BaseProcessor implements Enhan
             }
         }
 
+        // store since it may be reset between cache-check and cache-put, and we don't want debug-enabled scripts cached
+        final boolean debuggerActive = this.debuggerActive;
         // test the cache for a pre-compiled script matching our path
-        if (this.compileScripts && location.isCachable())
+        if (this.compileScripts && !debuggerActive && location.isCachable())
         {
             script = this.lookupScriptCache(this.scriptCache, this.scriptCacheLock, path);
         }
@@ -594,7 +617,7 @@ public class EnhancedRhinoScriptProcessor extends BaseProcessor implements Enhan
                 throw new ScriptException("Failed to compile supplied script: " + err.getMessage(), err);
             }
 
-            if (this.compileScripts && location.isCachable())
+            if (this.compileScripts && !debuggerActive && location.isCachable())
             {
                 this.updateScriptCache(this.scriptCache, this.scriptCacheLock, path, script);
             }
@@ -621,7 +644,7 @@ public class EnhancedRhinoScriptProcessor extends BaseProcessor implements Enhan
             final Context cx = Context.enter();
             try
             {
-                if (this.compileScripts)
+                if (this.compileScripts && !debuggerActive)
                 {
                     int optimizationLevel = this.optimizationLevel;
                     Script bestEffortOptimizedScript = null;

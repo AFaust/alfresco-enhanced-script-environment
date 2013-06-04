@@ -262,6 +262,23 @@
             </pluginRepositories>
         </profile>
 
+        <profile>
+            <!-- This repository should contain the necessary JSDT dependencies, but unfortunately is incomplete in that regard -->
+            <id>eclipseRepository</id>
+            <activation>
+                <activeByDefault>false</activeByDefault>
+            </activation>
+
+            <repositories>
+
+                <repository>
+                    <id>eclipse-testing</id>
+                    <url>http://maven.eclipse.org/nexus/content/repositories/testing/</url>
+                </repository>
+
+            </repositories>
+        </profile>
+
     </profiles>
     <modules>
         <module>common</module>

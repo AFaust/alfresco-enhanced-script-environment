@@ -104,11 +104,23 @@
         <property name="name" value="classpath" />
         <property name="scriptLoader" ref="webframework.templates.scriptprocessor.alternative.javascript.storeScriptLocator" />
     </bean>
-    
+
     <bean id="webframework.templates.scriptprocessor.alternative.javascript.registryScriptLocator" class="org.nabucco.alfresco.enhScriptEnv.common.webscripts.processor.SurfRegisteredScriptLocator"
         parent="webframework.templates.scriptprocessor.alternative.javascript.scriptLocator.base">
         <property name="name" value="registry" />
         <property name="scriptRegistry" ref="scriptprocessor.alternative.javascript.scriptRegistry" />
         <property name="scriptLoader" ref="webframework.templates.scriptprocessor.alternative.javascript.storeScriptLocator" />
+    </bean>
+
+    <!-- Override the original bean to enable processor notification -->
+    <!-- Switch on debugger by setting log4j.logger.org.springframework.extensions.webscripts.ScriptDebugger to DEBUG -->
+    <bean id="scriptDebugger" class="org.springframework.extensions.webscripts.ScriptDebugger">
+        <property name="title" value="JavaScript Debugger" />
+        <property name="scriptProcessors">
+            <list>
+                <ref bean="webframework.webscripts.scriptprocessor.alternative.javascript" />
+                <ref bean="webframework.templates.scriptprocessor.alternative.javascript" />
+            </list>
+        </property>
     </bean>
 </beans>

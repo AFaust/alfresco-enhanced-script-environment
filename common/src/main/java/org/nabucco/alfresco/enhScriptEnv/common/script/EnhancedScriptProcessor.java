@@ -71,4 +71,16 @@ public interface EnhancedScriptProcessor<Script extends ReferenceScript>
      *            the contributor to register
      */
     void registerScopeContributor(ScopeContributor contributor);
+
+    /**
+     * Notifies the script processor that a debugger has been attached to the script environment. Depending on the internal implementation,
+     * this may affect compilation and optimization behavior of the processor.
+     */
+    void debuggerAttached();
+
+    /**
+     * Notifies the script processor that a debugger has been detached from the script environment. Depending on the internal implementation,
+     * this may affect compilation and optimization behavior of the processor.
+     */
+    void debuggerDetached();
 }
