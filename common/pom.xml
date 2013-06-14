@@ -14,8 +14,8 @@
 
     <dependencies>
         <dependency>
-            <groupId>org.mozilla.javascript</groupId>
-            <artifactId>rhino-js</artifactId>
+            <groupId>rhino</groupId>
+            <artifactId>js</artifactId>
             <version>1.6R7</version>
             <scope>compile</scope>
         </dependency>
