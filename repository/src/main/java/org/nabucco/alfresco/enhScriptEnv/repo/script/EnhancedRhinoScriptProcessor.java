@@ -55,6 +55,7 @@ import org.alfresco.util.MD5;
 import org.alfresco.util.ParameterCheck;
 import org.mozilla.javascript.Context;
 import org.mozilla.javascript.ImporterTopLevel;
+import org.mozilla.javascript.NativeJavaObject;
 import org.mozilla.javascript.Script;
 import org.mozilla.javascript.Scriptable;
 import org.mozilla.javascript.ScriptableObject;
@@ -87,7 +88,7 @@ public class EnhancedRhinoScriptProcessor extends BaseProcessor implements Enhan
     protected static final WrapFactory DEFAULT_WRAP_FACTORY = new WrapFactory()
     {
         /**
-         * 
+         *
          * {@inheritDoc}
          */
         @Override
@@ -146,7 +147,7 @@ public class EnhancedRhinoScriptProcessor extends BaseProcessor implements Enhan
     protected final Collection<ScopeContributor> registeredContributors = new HashSet<ScopeContributor>();
 
     /**
-     * 
+     *
      * {@inheritDoc}
      */
     @Override
@@ -157,11 +158,11 @@ public class EnhancedRhinoScriptProcessor extends BaseProcessor implements Enhan
     }
 
     /**
-     * 
+     *
      * {@inheritDoc}
      */
     @Override
-    public void onApplicationEvent(ContextRefreshedEvent event)
+    public void onApplicationEvent(final ContextRefreshedEvent event)
     {
         Context cx = Context.enter();
         try
@@ -317,7 +318,7 @@ public class EnhancedRhinoScriptProcessor extends BaseProcessor implements Enhan
         {
 
             final Scriptable realScope;
-            if (scope == null || !(scope instanceof Scriptable))
+            if (scope == null)
             {
                 if (this.shareScopes)
                 {
@@ -329,6 +330,20 @@ public class EnhancedRhinoScriptProcessor extends BaseProcessor implements Enhan
                 else
                 {
                     realScope = this.setupScope(cx, location.isSecure(), false);
+                }
+            }
+            else if (!(scope instanceof Scriptable))
+            {
+                realScope = new NativeJavaObject(null, scope, scope.getClass());
+                if (this.shareScopes)
+                {
+                    final Scriptable sharedScope = location.isSecure() ? this.unrestrictedShareableScope : this.restrictedShareableScope;
+                    realScope.setPrototype(sharedScope);
+                }
+                else
+                {
+                    final Scriptable baseScope = this.setupScope(cx, location.isSecure(), false);
+                    realScope.setPrototype(baseScope);
                 }
             }
             else
@@ -399,7 +414,7 @@ public class EnhancedRhinoScriptProcessor extends BaseProcessor implements Enhan
     @Override
     public ScriptLocationAdapter getContextScriptLocation()
     {
-        final List<ScriptLocationAdapter> currentChain = getActiveScriptLocationChain();
+        final List<ScriptLocationAdapter> currentChain = this.getActiveScriptLocationChain();
         final ScriptLocationAdapter result;
         if (currentChain != null && !currentChain.isEmpty())
         {
@@ -413,13 +428,13 @@ public class EnhancedRhinoScriptProcessor extends BaseProcessor implements Enhan
     }
 
     /**
-     * 
+     *
      * {@inheritDoc}
      */
     @Override
     public List<ScriptLocationAdapter> getScriptCallChain()
     {
-        final List<ScriptLocationAdapter> currentChain = getActiveScriptLocationChain();
+        final List<ScriptLocationAdapter> currentChain = this.getActiveScriptLocationChain();
         final List<ScriptLocationAdapter> result;
         if (currentChain != null)
         {
@@ -433,7 +448,7 @@ public class EnhancedRhinoScriptProcessor extends BaseProcessor implements Enhan
     }
 
     /**
-     * 
+     *
      * {@inheritDoc}
      */
     @Override
@@ -443,7 +458,7 @@ public class EnhancedRhinoScriptProcessor extends BaseProcessor implements Enhan
     }
 
     /**
-     * 
+     *
      * {@inheritDoc}
      */
     @Override
@@ -453,7 +468,7 @@ public class EnhancedRhinoScriptProcessor extends BaseProcessor implements Enhan
     }
 
     /**
-     * 
+     *
      * {@inheritDoc}
      */
     @Override
@@ -644,7 +659,7 @@ public class EnhancedRhinoScriptProcessor extends BaseProcessor implements Enhan
             final Context cx = Context.enter();
             try
             {
-                if (this.compileScripts && !debuggerActive)
+                if (this.compileScripts && !this.debuggerActive)
                 {
                     int optimizationLevel = this.optimizationLevel;
                     Script bestEffortOptimizedScript = null;
@@ -704,18 +719,18 @@ public class EnhancedRhinoScriptProcessor extends BaseProcessor implements Enhan
     /**
      * Resolves the import directives in the specified script to proper import API calls. Supported import directives are of the following
      * form:
-     * 
+     *
      * <pre>
      * <import resource="classpath:alfresco/includeme.js">
      * <import resource="workspace://SpacesStore/6f73de1b-d3b4-11db-80cb-112e6c2ea048">
      * <import resource="/Company Home/Data Dictionary/Scripts/includeme.js">
      * </pre>
-     * 
+     *
      * Either a classpath resource, NodeRef or cm:name path based script can be imported.
-     * 
+     *
      * @param script
      *            The script content to resolve imports in
-     * 
+     *
      * @return a valid script with all includes resolved to a proper import API call
      */
     @SuppressWarnings("static-method")

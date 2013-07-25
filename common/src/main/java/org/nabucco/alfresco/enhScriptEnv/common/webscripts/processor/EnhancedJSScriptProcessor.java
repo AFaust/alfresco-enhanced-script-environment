@@ -30,6 +30,7 @@ import org.alfresco.util.ParameterCheck;
 import org.alfresco.util.PropertyCheck;
 import org.mozilla.javascript.Context;
 import org.mozilla.javascript.ImporterTopLevel;
+import org.mozilla.javascript.NativeJavaObject;
 import org.mozilla.javascript.Script;
 import org.mozilla.javascript.Scriptable;
 import org.mozilla.javascript.ScriptableObject;
@@ -51,7 +52,7 @@ import org.springframework.extensions.webscripts.processor.JSScriptProcessor.Pre
 import org.springframework.util.FileCopyUtils;
 
 /**
- * 
+ *
  * @author Axel Faust, <a href="http://www.prodyna.com">PRODYNA AG</a>
  */
 public class EnhancedJSScriptProcessor extends BaseRegisterableScriptProcessor implements ScriptProcessor,
@@ -97,7 +98,7 @@ public class EnhancedJSScriptProcessor extends BaseRegisterableScriptProcessor i
     }
 
     /**
-     * 
+     *
      * {@inheritDoc}
      */
     @Override
@@ -107,7 +108,7 @@ public class EnhancedJSScriptProcessor extends BaseRegisterableScriptProcessor i
     }
 
     /**
-     * 
+     *
      * {@inheritDoc}
      */
     @Override
@@ -117,7 +118,7 @@ public class EnhancedJSScriptProcessor extends BaseRegisterableScriptProcessor i
     }
 
     /**
-     * 
+     *
      * {@inheritDoc}
      */
     @Override
@@ -150,7 +151,7 @@ public class EnhancedJSScriptProcessor extends BaseRegisterableScriptProcessor i
         {
 
             final Scriptable realScope;
-            if (scope == null || !(scope instanceof Scriptable))
+            if (scope == null)
             {
                 if (this.shareScopes)
                 {
@@ -162,6 +163,20 @@ public class EnhancedJSScriptProcessor extends BaseRegisterableScriptProcessor i
                 else
                 {
                     realScope = this.setupScope(cx, content.isSecure(), false);
+                }
+            }
+            else if (!(scope instanceof Scriptable))
+            {
+                realScope = new NativeJavaObject(null, scope, scope.getClass());
+                if (this.shareScopes)
+                {
+                    final Scriptable sharedScope = content.isSecure() ? this.unrestrictedShareableScope : this.restrictedShareableScope;
+                    realScope.setPrototype(sharedScope);
+                }
+                else
+                {
+                    final Scriptable baseScope = this.setupScope(cx, content.isSecure(), false);
+                    realScope.setPrototype(baseScope);
                 }
             }
             else
@@ -225,7 +240,7 @@ public class EnhancedJSScriptProcessor extends BaseRegisterableScriptProcessor i
     }
 
     /**
-     * 
+     *
      * {@inheritDoc}
      */
     @Override
@@ -245,7 +260,7 @@ public class EnhancedJSScriptProcessor extends BaseRegisterableScriptProcessor i
     }
 
     /**
-     * 
+     *
      * {@inheritDoc}
      */
     @Override
@@ -265,7 +280,7 @@ public class EnhancedJSScriptProcessor extends BaseRegisterableScriptProcessor i
     }
 
     /**
-     * 
+     *
      * {@inheritDoc}
      */
     @Override
@@ -275,7 +290,7 @@ public class EnhancedJSScriptProcessor extends BaseRegisterableScriptProcessor i
         try
         {
             cx.setWrapFactory(WRAP_FACTORY);
-            this.unrestrictedShareableScope = setupScope(cx, true, false);
+            this.unrestrictedShareableScope = this.setupScope(cx, true, false);
         }
         finally
         {
@@ -286,7 +301,7 @@ public class EnhancedJSScriptProcessor extends BaseRegisterableScriptProcessor i
         try
         {
             cx.setWrapFactory(WRAP_FACTORY);
-            this.restrictedShareableScope = setupScope(cx, false, false);
+            this.restrictedShareableScope = this.setupScope(cx, false, false);
         }
         finally
         {
@@ -295,7 +310,7 @@ public class EnhancedJSScriptProcessor extends BaseRegisterableScriptProcessor i
     }
 
     /**
-     * 
+     *
      * {@inheritDoc}
      */
     @Override
@@ -305,7 +320,7 @@ public class EnhancedJSScriptProcessor extends BaseRegisterableScriptProcessor i
     }
 
     /**
-     * 
+     *
      * {@inheritDoc}
      */
     @Override
@@ -316,25 +331,25 @@ public class EnhancedJSScriptProcessor extends BaseRegisterableScriptProcessor i
     }
 
     /**
-     * 
+     *
      * {@inheritDoc}
      */
     @Override
     public Object executeScript(final String path, final Map<String, Object> model)
     {
         // locate script within web script stores
-        final ScriptContent scriptLocation = findScript(path);
+        final ScriptContent scriptLocation = this.findScript(path);
         if (scriptLocation == null)
         {
             LOGGER.info("Unable to locate script {}", path);
             throw new WebScriptException(MessageFormat.format("Unable to locate script {0}", path));
         }
         // execute script
-        return executeScript(scriptLocation, model);
+        return this.executeScript(scriptLocation, model);
     }
 
     /**
-     * 
+     *
      * {@inheritDoc}
      */
     @Override
@@ -362,7 +377,7 @@ public class EnhancedJSScriptProcessor extends BaseRegisterableScriptProcessor i
     }
 
     /**
-     * 
+     *
      * {@inheritDoc}
      */
     @Override
@@ -372,7 +387,7 @@ public class EnhancedJSScriptProcessor extends BaseRegisterableScriptProcessor i
     }
 
     /**
-     * 
+     *
      * {@inheritDoc}
      */
     @Override
@@ -382,7 +397,7 @@ public class EnhancedJSScriptProcessor extends BaseRegisterableScriptProcessor i
     }
 
     /**
-     * 
+     *
      * {@inheritDoc}
      */
     @Override
@@ -392,7 +407,7 @@ public class EnhancedJSScriptProcessor extends BaseRegisterableScriptProcessor i
     }
 
     /**
-     * 
+     *
      * {@inheritDoc}
      */
     @Override
@@ -402,7 +417,7 @@ public class EnhancedJSScriptProcessor extends BaseRegisterableScriptProcessor i
     }
 
     /**
-     * 
+     *
      * {@inheritDoc}
      */
     @Override
