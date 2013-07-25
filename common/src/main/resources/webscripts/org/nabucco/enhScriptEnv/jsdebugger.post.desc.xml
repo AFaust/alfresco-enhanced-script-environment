@@ -1,0 +1,6 @@
+<webscript>
+  <shortname>Javascript Remote Debugger Maintenance</shortname>
+  <description>Javascript Remote Debugger Maintenance</description>
+  <url>/api/javascript/remote-debugger?active={active?}</url>
+  <authentication>admin</authentication>
+</webscript>

@@ -1,0 +1,6 @@
+<webscript>
+  <shortname>Javascript Remote Debugger</shortname>
+  <description>Javascript Remote Debugger</description>
+  <url>/api/javascript/remote-debugger</url>
+  <authentication>admin</authentication>
+</webscript>

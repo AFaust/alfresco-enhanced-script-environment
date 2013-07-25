@@ -15,4 +15,21 @@
             </list>
         </property>
     </bean>
+
+    <bean id="remoteScriptDebugger" class="org.nabucco.alfresco.enhScriptEnv.common.webscripts.RemoteScriptDebugger">
+        <property name="scriptProcessors">
+            <list>
+                <ref bean="javaScriptProcessor" />
+            </list>
+        </property>
+    </bean>
+
+    <bean id="webscript.org.nabucco.enhScriptEnv.jsdebugger.get" class="org.nabucco.alfresco.enhScriptEnv.common.webscripts.RemoteJavascriptDebuggerGet">
+        <property name="debugger" ref="remoteScriptDebugger" />
+    </bean>
+
+    <bean id="webscript.org.nabucco.enhScriptEnv.jsdebugger.post" class="org.nabucco.alfresco.enhScriptEnv.common.webscripts.RemoteJavascriptDebuggerPost">
+        <property name="debugger" ref="remoteScriptDebugger" />
+    </bean>
+
 </beans>

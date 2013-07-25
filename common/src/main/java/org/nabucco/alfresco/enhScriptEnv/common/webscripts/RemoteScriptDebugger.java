@@ -58,9 +58,9 @@ public class RemoteScriptDebugger implements InitializingBean
         return result;
     }
 
-    public void activate()
+    public synchronized void activate()
     {
-        if (!isActive())
+        if (!this.isActive())
         {
             // setup debugger based on configuration
             final String configString = MessageFormat.format("transport={0},suspend={1},address={2},trace={3}", new Object[] {
@@ -80,15 +80,15 @@ public class RemoteScriptDebugger implements InitializingBean
             catch (final Exception ex)
             {
                 LOGGER.error("Error starting remote debugger agent", ex);
-                shutdown();
+                this.shutdown();
                 throw new WebScriptException("Error starting remote debugger agent", ex);
             }
         }
     }
 
-    public void shutdown()
+    public synchronized void shutdown()
     {
-        if (isActive())
+        if (this.isActive())
         {
             try
             {
@@ -114,7 +114,7 @@ public class RemoteScriptDebugger implements InitializingBean
      * @param startOnStartup
      *            the startOnStartup to set
      */
-    public final void setStartOnStartup(boolean startOnStartup)
+    public final void setStartOnStartup(final boolean startOnStartup)
     {
         this.startOnStartup = startOnStartup;
     }
@@ -123,7 +123,7 @@ public class RemoteScriptDebugger implements InitializingBean
      * @param suspend
      *            the suspend to set
      */
-    public final void setSuspend(boolean suspend)
+    public final void setSuspend(final boolean suspend)
     {
         this.suspend = suspend;
     }
@@ -132,7 +132,7 @@ public class RemoteScriptDebugger implements InitializingBean
      * @param trace
      *            the trace to set
      */
-    public final void setTrace(boolean trace)
+    public final void setTrace(final boolean trace)
     {
         this.trace = trace;
     }
@@ -141,7 +141,7 @@ public class RemoteScriptDebugger implements InitializingBean
      * @param port
      *            the port to set
      */
-    public final void setPort(int port)
+    public final void setPort(final int port)
     {
         this.port = port;
     }
@@ -150,7 +150,7 @@ public class RemoteScriptDebugger implements InitializingBean
      * @param transport
      *            the transport to set
      */
-    public final void setTransport(String transport)
+    public final void setTransport(final String transport)
     {
         this.transport = transport;
     }
@@ -159,7 +159,7 @@ public class RemoteScriptDebugger implements InitializingBean
      * @param scriptProcessors
      *            the scriptProcessors to set
      */
-    public final void setScriptProcessors(List<EnhancedScriptProcessor<?>> scriptProcessors)
+    public final void setScriptProcessors(final List<EnhancedScriptProcessor<?>> scriptProcessors)
     {
         this.scriptProcessors = scriptProcessors;
     }
