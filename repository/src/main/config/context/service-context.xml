@@ -66,4 +66,9 @@
         <property name="name" value="registry" />
         <property name="scriptRegistry" ref="javaScriptProcessor.scriptRegistry" />
     </bean>
+
+    <bean id="javaScriptProcessor.versionInfoContributor" class="${basePackage}.script.util.VersionInfoContributor">
+        <property name="scriptProcessor" ref="javaScriptProcessor" />
+        <property name="descriptorService" ref="DescriptorService" />
+    </bean>
 </beans>
