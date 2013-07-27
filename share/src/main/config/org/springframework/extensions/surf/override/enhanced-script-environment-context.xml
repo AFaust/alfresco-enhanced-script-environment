@@ -67,11 +67,21 @@
         <property name="scriptLoader" ref="webframework.webscripts.scriptprocessor.alternative.javascript.storeScriptLocator" />
     </bean>
 
-    <bean id="webframework.webscripts.scriptprocessor.alternative.javascript.registryScriptLocator" class="org.nabucco.alfresco.enhScriptEnv.common.webscripts.processor.SurfRegisteredScriptLocator"
+    <bean id="webframework.webscripts.scriptprocessor.alternative.javascript.registryScriptLocator" class="${basePackage}.surf.ShareRegisteredScriptLocator"
         parent="webframework.webscripts.scriptprocessor.alternative.javascript.scriptLocator.base">
         <property name="name" value="registry" />
         <property name="scriptRegistry" ref="scriptprocessor.alternative.javascript.scriptRegistry" />
         <property name="scriptLoader" ref="webframework.webscripts.scriptprocessor.alternative.javascript.storeScriptLocator" />
+        <property name="connectorService" ref="connector.service" />
+        <property name="serviceRegistry" ref="webframework.service.registry" />
+        <property name="frameworkUtil" ref="framework.utils" />
+    </bean>
+
+    <bean id="webframework.webscripts.scriptprocessor.alternative.javascript.versionInfoContributor" class="${basePackage}.util.VersionInfoContributor">
+        <property name="scriptProcessor" ref="webframework.webscripts.scriptprocessor.alternative.javascript" />
+        <property name="connectorService" ref="connector.service" />
+        <property name="serviceRegistry" ref="webframework.service.registry" />
+        <property name="frameworkUtil" ref="framework.utils" />
     </bean>
 
     <!-- Template processor extensions -->
@@ -105,12 +115,24 @@
         <property name="scriptLoader" ref="webframework.templates.scriptprocessor.alternative.javascript.storeScriptLocator" />
     </bean>
 
-    <bean id="webframework.templates.scriptprocessor.alternative.javascript.registryScriptLocator" class="org.nabucco.alfresco.enhScriptEnv.common.webscripts.processor.SurfRegisteredScriptLocator"
+    <bean id="webframework.templates.scriptprocessor.alternative.javascript.registryScriptLocator" class="${basePackage}.surf.ShareRegisteredScriptLocator"
         parent="webframework.templates.scriptprocessor.alternative.javascript.scriptLocator.base">
         <property name="name" value="registry" />
         <property name="scriptRegistry" ref="scriptprocessor.alternative.javascript.scriptRegistry" />
         <property name="scriptLoader" ref="webframework.templates.scriptprocessor.alternative.javascript.storeScriptLocator" />
+        <property name="connectorService" ref="connector.service" />
+        <property name="serviceRegistry" ref="webframework.service.registry" />
+        <property name="frameworkUtil" ref="framework.utils" />
     </bean>
+
+    <bean id="webframework.templates.scriptprocessor.alternative.javascript.versionInfoContributor" class="${basePackage}.util.VersionInfoContributor">
+        <property name="scriptProcessor" ref="webframework.templates.scriptprocessor.alternative.javascript" />
+        <property name="connectorService" ref="connector.service" />
+        <property name="serviceRegistry" ref="webframework.service.registry" />
+        <property name="frameworkUtil" ref="framework.utils" />
+    </bean>
+
+    <!-- Debugging support -->
 
     <!-- Override the original bean to enable processor notification -->
     <!-- Switch on debugger by setting log4j.logger.org.springframework.extensions.webscripts.ScriptDebugger to DEBUG -->
@@ -124,7 +146,7 @@
         </property>
     </bean>
 
-    <bean id="remoteScriptDebugger" class="org.nabucco.alfresco.enhScriptEnv.common.webscripts.RemoteScriptDebugger">
+    <bean id="enhanced-script-env.remoteScriptDebugger" class="org.nabucco.alfresco.enhScriptEnv.common.webscripts.RemoteScriptDebugger">
         <property name="scriptProcessors">
             <list>
                 <ref bean="webframework.webscripts.scriptprocessor.alternative.javascript" />
@@ -134,11 +156,10 @@
     </bean>
 
     <bean id="webscript.org.nabucco.enhScriptEnv.jsdebugger.get" class="org.nabucco.alfresco.enhScriptEnv.common.webscripts.RemoteJavascriptDebuggerGet">
-        <property name="debugger" ref="remoteScriptDebugger" />
+        <property name="debugger" ref="enhanced-script-env.remoteScriptDebugger" />
     </bean>
-    
+
     <bean id="webscript.org.nabucco.enhScriptEnv.jsdebugger.post" class="org.nabucco.alfresco.enhScriptEnv.common.webscripts.RemoteJavascriptDebuggerPost">
-        <property name="debugger" ref="remoteScriptDebugger" />
+        <property name="debugger" ref="enhanced-script-env.remoteScriptDebugger" />
     </bean>
-    
 </beans>

@@ -38,6 +38,7 @@ public abstract class RegisteredScriptLocator<BaseScript, Script extends Referen
 {
     protected static final String CONDITIONS = "conditions";
     protected static final String VERSION = "version";
+    protected static final String COMMUNITY = "community";
     protected static final String APPLIES_FROM = "appliesFrom";
     protected static final String APPLIES_TO = "appliesTo";
 
@@ -59,7 +60,7 @@ public abstract class RegisteredScriptLocator<BaseScript, Script extends Referen
     }
 
     /**
-     * 
+     *
      * {@inheritDoc}
      */
     @Override
@@ -67,13 +68,13 @@ public abstract class RegisteredScriptLocator<BaseScript, Script extends Referen
     {
         final Script result;
 
-        result = lookupScriptInRegistry(locationValue, null);
+        result = this.lookupScriptInRegistry(locationValue, null);
 
         return result;
     }
 
     /**
-     * 
+     *
      * {@inheritDoc}
      */
     @Override
@@ -83,22 +84,22 @@ public abstract class RegisteredScriptLocator<BaseScript, Script extends Referen
         // we currently don't support any parameters, so just pass to default implementation
         if (resolutionParameters != null)
         {
-            final ScriptSelectionCondition condition = extractSelectionCondition(resolutionParameters);
+            final ScriptSelectionCondition condition = this.extractSelectionCondition(resolutionParameters);
             if (condition != null)
             {
-                script = lookupScriptInRegistry(locationValue, condition);
+                script = this.lookupScriptInRegistry(locationValue, condition);
             }
             else
             {
                 LOGGER.info(
                         "Unable to determine selection condition for resolution of path {} from reference location {} - parameters provided {}",
                         new Object[] { locationValue, referenceLocation, resolutionParameters });
-                script = resolveLocation(referenceLocation, locationValue);
+                script = this.resolveLocation(referenceLocation, locationValue);
             }
         }
         else
         {
-            script = resolveLocation(referenceLocation, locationValue);
+            script = this.resolveLocation(referenceLocation, locationValue);
         }
         return script;
     }
@@ -107,7 +108,7 @@ public abstract class RegisteredScriptLocator<BaseScript, Script extends Referen
      * @param scriptRegistry
      *            the scriptRegistry to set
      */
-    public final void setScriptRegistry(ScriptRegistry<BaseScript> scriptRegistry)
+    public final void setScriptRegistry(final ScriptRegistry<BaseScript> scriptRegistry)
     {
         this.scriptRegistry = scriptRegistry;
     }
@@ -157,11 +158,11 @@ public abstract class RegisteredScriptLocator<BaseScript, Script extends Referen
         return result;
     }
 
-    protected static ScriptSelectionCondition extractSelectionCondition(final Map<?, ?> parameters)
+    protected ScriptSelectionCondition extractSelectionCondition(final Map<?, ?> parameters)
     {
-        final ScriptSelectionCondition multiCondition = extractCompositeCondition(parameters);
-        final ScriptSelectionCondition versionCondition = extractVersionCondition(parameters);
-        final ScriptSelectionCondition versionRangeCondition = extractVersionRangeCondition(parameters);
+        final ScriptSelectionCondition multiCondition = this.extractCompositeCondition(parameters);
+        final ScriptSelectionCondition versionCondition = this.extractVersionCondition(parameters);
+        final ScriptSelectionCondition versionRangeCondition = this.extractVersionRangeCondition(parameters);
 
         final List<ScriptSelectionCondition> conditions = new ArrayList<ScriptSelectionCondition>();
         if (multiCondition != null)
@@ -194,7 +195,7 @@ public abstract class RegisteredScriptLocator<BaseScript, Script extends Referen
         return condition;
     }
 
-    protected static ScriptSelectionCondition extractVersionCondition(final Map<?, ?> parameters)
+    protected ScriptSelectionCondition extractVersionCondition(final Map<?, ?> parameters)
     {
         final ScriptSelectionCondition versionCondition;
         if (parameters.containsKey(VERSION))
@@ -204,7 +205,15 @@ public abstract class RegisteredScriptLocator<BaseScript, Script extends Referen
             if (versionNumberObj instanceof String)
             {
                 final VersionNumber versionNumber = new VersionNumber((String) versionNumberObj);
-                versionCondition = new AppliesForVersionCondition(versionNumber);
+
+                boolean community = this.isCommunityEdition();
+                if (parameters.containsKey(COMMUNITY))
+                {
+                    final Object communityObj = parameters.get(COMMUNITY);
+                    community = toBoolean(communityObj);
+                }
+
+                versionCondition = new AppliesForVersionCondition(versionNumber, community);
             }
             else
             {
@@ -218,7 +227,7 @@ public abstract class RegisteredScriptLocator<BaseScript, Script extends Referen
         return versionCondition;
     }
 
-    protected static ScriptSelectionCondition extractVersionRangeCondition(final Map<?, ?> parameters)
+    protected ScriptSelectionCondition extractVersionRangeCondition(final Map<?, ?> parameters)
     {
         final ScriptSelectionCondition versionRangeCondition;
         if (parameters.containsKey(APPLIES_FROM) || parameters.containsKey(APPLIES_TO))
@@ -236,7 +245,15 @@ public abstract class RegisteredScriptLocator<BaseScript, Script extends Referen
                 final boolean appliesFromExclusive = toBoolean(appliesFromExclusiveObj);
                 final boolean appliesToExclusive = toBoolean(appliesToExclusiveObj);
 
-                versionRangeCondition = new FallsInVersionRangeCondition(appliesFrom, appliesFromExclusive, appliesTo, appliesToExclusive);
+                boolean community = this.isCommunityEdition();
+                if (parameters.containsKey(COMMUNITY))
+                {
+                    final Object communityObj = parameters.get(COMMUNITY);
+                    community = toBoolean(communityObj);
+                }
+
+                versionRangeCondition = new FallsInVersionRangeCondition(appliesFrom, appliesFromExclusive, appliesTo, appliesToExclusive,
+                        community);
             }
             else
             {
@@ -250,7 +267,7 @@ public abstract class RegisteredScriptLocator<BaseScript, Script extends Referen
         return versionRangeCondition;
     }
 
-    protected static ScriptSelectionCondition extractCompositeCondition(final Map<?, ?> parameters)
+    protected ScriptSelectionCondition extractCompositeCondition(final Map<?, ?> parameters)
     {
         final ScriptSelectionCondition compositeCondition;
         if (parameters.containsKey(CONDITIONS))
@@ -259,7 +276,7 @@ public abstract class RegisteredScriptLocator<BaseScript, Script extends Referen
             if (conditionsObj instanceof Map<?, ?>)
             {
                 // just a single condition object => not a real composite
-                compositeCondition = extractSelectionCondition((Map<?, ?>) conditionsObj);
+                compositeCondition = this.extractSelectionCondition((Map<?, ?>) conditionsObj);
             }
             else if (conditionsObj instanceof Collection<?>)
             {
@@ -268,7 +285,7 @@ public abstract class RegisteredScriptLocator<BaseScript, Script extends Referen
                 {
                     if (element instanceof Map<?, ?>)
                     {
-                        final ScriptSelectionCondition singleCondition = extractSelectionCondition((Map<?, ?>) element);
+                        final ScriptSelectionCondition singleCondition = this.extractSelectionCondition((Map<?, ?>) element);
                         if (singleCondition != null)
                         {
                             conditions.add(singleCondition);
@@ -323,10 +340,16 @@ public abstract class RegisteredScriptLocator<BaseScript, Script extends Referen
 
     /**
      * Converts a basic script instance to the expected locator result script instance type.
-     * 
+     *
      * @param baseScript
      *            the base script instance to convert
      * @return the converted script instance
      */
     abstract protected Script convert(BaseScript baseScript);
+
+    protected boolean isCommunityEdition()
+    {
+        // by default, we treat any unknown environment as "community edition"
+        return true;
+    };
 }

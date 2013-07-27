@@ -14,17 +14,47 @@
  */
 package org.nabucco.alfresco.enhScriptEnv.repo.script;
 
+import org.alfresco.service.cmr.admin.RepoUsage.LicenseMode;
 import org.alfresco.service.cmr.repository.ScriptLocation;
+import org.alfresco.service.descriptor.Descriptor;
+import org.alfresco.service.descriptor.DescriptorService;
+import org.alfresco.util.PropertyCheck;
 import org.nabucco.alfresco.enhScriptEnv.common.script.locator.RegisteredScriptLocator;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * @author Axel Faust, <a href="http://www.prodyna.com">PRODYNA AG</a>
  */
 public class RepositoryRegisteredScriptLocator extends RegisteredScriptLocator<ScriptLocation, ScriptLocationAdapter>
 {
+    private static final Logger LOGGER = LoggerFactory.getLogger(RepositoryRegisteredScriptLocator.class);
+
+    protected DescriptorService descriptorService;
 
     /**
-     * 
+     *
+     * {@inheritDoc}
+     */
+    @Override
+    public void afterPropertiesSet()
+    {
+        super.afterPropertiesSet();
+
+        PropertyCheck.mandatory(this, "descriptorService", this.descriptorService);
+    }
+
+    /**
+     * @param descriptorService
+     *            the descriptorService to set
+     */
+    public final void setDescriptorService(final DescriptorService descriptorService)
+    {
+        this.descriptorService = descriptorService;
+    }
+
+    /**
+     *
      * {@inheritDoc}
      */
     @Override
@@ -33,4 +63,37 @@ public class RepositoryRegisteredScriptLocator extends RegisteredScriptLocator<S
         return new ScriptLocationAdapter(baseScript);
     }
 
+    /**
+     *
+     * {@inheritDoc}
+     */
+    @Override
+    protected boolean isCommunityEdition()
+    {
+        final boolean result;
+        final Descriptor currentRepositoryDescriptor = this.descriptorService.getCurrentRepositoryDescriptor();
+        if (currentRepositoryDescriptor == null)
+        {
+            result = true;
+        }
+        else
+        {
+            final LicenseMode licenseMode = currentRepositoryDescriptor.getLicenseMode();
+            if (licenseMode == LicenseMode.ENTERPRISE || licenseMode == LicenseMode.TEAM)
+            {
+                result = false;
+            }
+            else if (licenseMode == null || licenseMode == LicenseMode.UNKNOWN)
+            {
+                result = true;
+            }
+            else
+            {
+                LOGGER.warn("Unknown / unexpected license mode {} - assuming 'community mode'", licenseMode);
+                result = true;
+            }
+        }
+
+        return result;
+    }
 }

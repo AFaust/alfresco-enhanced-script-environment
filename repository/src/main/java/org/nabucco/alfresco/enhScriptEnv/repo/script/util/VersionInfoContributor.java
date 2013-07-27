@@ -18,7 +18,6 @@ import org.alfresco.service.cmr.admin.RepoUsage.LicenseMode;
 import org.alfresco.service.descriptor.Descriptor;
 import org.alfresco.service.descriptor.DescriptorService;
 import org.alfresco.util.PropertyCheck;
-import org.alfresco.util.VersionNumber;
 import org.mozilla.javascript.Context;
 import org.mozilla.javascript.NativeObject;
 import org.mozilla.javascript.Scriptable;
@@ -27,6 +26,8 @@ import org.mozilla.javascript.WrapFactory;
 import org.nabucco.alfresco.enhScriptEnv.common.script.EnhancedScriptProcessor;
 import org.nabucco.alfresco.enhScriptEnv.common.script.ReferenceScript;
 import org.nabucco.alfresco.enhScriptEnv.common.script.ScopeContributor;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.InitializingBean;
 
 /**
@@ -34,6 +35,16 @@ import org.springframework.beans.factory.InitializingBean;
  */
 public class VersionInfoContributor implements ScopeContributor, InitializingBean
 {
+    private static final Logger LOGGER = LoggerFactory.getLogger(VersionInfoContributor.class);
+
+    protected static final String KEY_DESCRIPTOR = "DESCRIPTOR";
+
+    protected static final String KEY_EDITION = "EDITION";
+    protected static final String KEY_FULL_VERSION = "FULL_VERSION";
+    protected static final String KEY_VERSION = "VERSION";
+    protected static final String KEY_SCHEMA = "SCHEMA";
+    protected static final String KEY_IS_COMMUNITY = "IS_COMMUNITY";
+
     protected static final WrapFactory DEFAULT_WRAP_FACTORY = new WrapFactory();
 
     protected EnhancedScriptProcessor<? extends ReferenceScript> scriptProcessor;
@@ -61,39 +72,49 @@ public class VersionInfoContributor implements ScopeContributor, InitializingBea
         try
         {
             final Descriptor currentRepositoryDescriptor = this.descriptorService.getCurrentRepositoryDescriptor();
-            if (currentRepositoryDescriptor != null)
+            final Descriptor serverDescriptor = this.descriptorService.getServerDescriptor();
+            if (currentRepositoryDescriptor != null && serverDescriptor != null)
             {
-                final VersionNumber versionNumber = currentRepositoryDescriptor.getVersionNumber();
-
                 final NativeObject descriptorObj = new NativeObject();
 
-                ScriptableObject.defineConstProperty(descriptorObj, "VERSION");
-                ScriptableObject.defineConstProperty(descriptorObj, "DESCRIPTOR");
-                ScriptableObject.defineConstProperty(descriptorObj, "IS_COMMUNITY");
+                ScriptableObject.defineConstProperty(descriptorObj, KEY_EDITION);
+                ScriptableObject.defineConstProperty(descriptorObj, KEY_FULL_VERSION);
+                ScriptableObject.defineConstProperty(descriptorObj, KEY_VERSION);
+                ScriptableObject.defineConstProperty(descriptorObj, KEY_SCHEMA);
+                ScriptableObject.defineConstProperty(descriptorObj, KEY_IS_COMMUNITY);
 
-                ScriptableObject.putConstProperty(descriptorObj, "VERSION",
-                        DEFAULT_WRAP_FACTORY.wrap(context, scope, versionNumber.toString(), String.class));
-                ScriptableObject.putConstProperty(descriptorObj, "DESCRIPTOR",
-                        DEFAULT_WRAP_FACTORY.wrap(context, scope, currentRepositoryDescriptor, descriptorObj.getClass()));
+                ScriptableObject.putConstProperty(descriptorObj, KEY_EDITION,
+                        DEFAULT_WRAP_FACTORY.wrap(context, scope, serverDescriptor.getEdition(), String.class));
+                ScriptableObject.putConstProperty(descriptorObj, KEY_FULL_VERSION,
+                        DEFAULT_WRAP_FACTORY.wrap(context, scope, currentRepositoryDescriptor.getVersion(), String.class));
+                ScriptableObject.putConstProperty(descriptorObj, KEY_VERSION,
+                        DEFAULT_WRAP_FACTORY.wrap(context, scope, currentRepositoryDescriptor.getVersionNumber().toString(), String.class));
+                ScriptableObject.putConstProperty(descriptorObj, KEY_SCHEMA,
+                        DEFAULT_WRAP_FACTORY.wrap(context, scope, Integer.valueOf(currentRepositoryDescriptor.getSchema()), Integer.class));
 
                 final Boolean isCommunity;
-                if (currentRepositoryDescriptor.getLicenseMode() == null
-                        || currentRepositoryDescriptor.getLicenseMode() == LicenseMode.UNKNOWN)
+                final LicenseMode licenseMode = currentRepositoryDescriptor.getLicenseMode();
+                if (licenseMode == LicenseMode.ENTERPRISE || licenseMode == LicenseMode.TEAM)
+                {
+                    isCommunity = Boolean.FALSE;
+                }
+                else if (licenseMode == null || licenseMode == LicenseMode.UNKNOWN)
                 {
                     isCommunity = Boolean.TRUE;
                 }
                 else
                 {
-                    isCommunity = Boolean.FALSE;
+                    LOGGER.warn("Unknown / unexpected license mode {} - assuming 'community mode'", licenseMode);
+                    isCommunity = Boolean.TRUE;
                 }
 
-                ScriptableObject.putConstProperty(descriptorObj, "IS_COMMUNITY",
-                        DEFAULT_WRAP_FACTORY.wrap(context, scope, isCommunity, descriptorObj.getClass()));
+                ScriptableObject.putConstProperty(descriptorObj, KEY_IS_COMMUNITY,
+                        DEFAULT_WRAP_FACTORY.wrap(context, scope, isCommunity, Boolean.class));
 
                 descriptorObj.sealObject();
 
-                ScriptableObject.defineConstProperty(scope, "REPOSITORY");
-                ScriptableObject.putConstProperty(scope, "REPOSITORY", descriptorObj);
+                ScriptableObject.defineConstProperty(scope, KEY_DESCRIPTOR);
+                ScriptableObject.putConstProperty(scope, KEY_DESCRIPTOR, descriptorObj);
             }
         }
         finally
@@ -109,6 +130,15 @@ public class VersionInfoContributor implements ScopeContributor, InitializingBea
     public final void setDescriptorService(final DescriptorService descriptorService)
     {
         this.descriptorService = descriptorService;
+    }
+
+    /**
+     * @param scriptProcessor
+     *            the scriptProcessor to set
+     */
+    public final void setScriptProcessor(final EnhancedScriptProcessor<? extends ReferenceScript> scriptProcessor)
+    {
+        this.scriptProcessor = scriptProcessor;
     }
 
 }

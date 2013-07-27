@@ -22,7 +22,7 @@ import org.springframework.beans.factory.InitializingBean;
 
 /**
  * This implementation class adapts any kind of registerable script to enhance it with version information.
- * 
+ *
  * @author Axel Faust, <a href="http://www.prodyna.com">PRODYNA AG</a>
  */
 public class VersionRegisterableScriptAdapter<Script> implements VersionRegisterableScript<Script>, InitializingBean
@@ -36,8 +36,10 @@ public class VersionRegisterableScriptAdapter<Script> implements VersionRegister
     protected boolean appliesFromExclusive;
     protected boolean appliesToExclusive;
 
+    protected boolean isForCommunity;
+
     /**
-     * 
+     *
      * {@inheritDoc}
      */
     @Override
@@ -67,6 +69,20 @@ public class VersionRegisterableScriptAdapter<Script> implements VersionRegister
         {
             final VersionNumber otherVersion = ((VersionRegisterableScript<?>) o).getVersion();
             result = CorrectVersionNumberComparator.compareVersions(this.version, otherVersion);
+
+            if (result == 0)
+            {
+                if (this.isForCommunity && !((VersionRegisterableScript<?>) o).isForCommunity())
+                {
+                    // Community considered lower than Enterprise
+                    result = -1;
+                }
+                else if (!this.isForCommunity && ((VersionRegisterableScript<?>) o).isForCommunity())
+                {
+                    // Community considered lower than Enterprise
+                    result = 1;
+                }
+            }
         }
 
         if (result == 0)
@@ -120,6 +136,16 @@ public class VersionRegisterableScriptAdapter<Script> implements VersionRegister
     public boolean isAppliesFromExclusive()
     {
         return this.appliesFromExclusive;
+    }
+
+    /**
+     *
+     * {@inheritDoc}
+     */
+    @Override
+    public boolean isForCommunity()
+    {
+        return this.isForCommunity;
     }
 
     /**
@@ -204,6 +230,15 @@ public class VersionRegisterableScriptAdapter<Script> implements VersionRegister
     public final void setAppliesToExclusive(final boolean appliesToExclusive)
     {
         this.appliesToExclusive = appliesToExclusive;
+    }
+
+    /**
+     * @param isForCommunity
+     *            the isForCommunity to set
+     */
+    public final void setForCommunity(final boolean isForCommunity)
+    {
+        this.isForCommunity = isForCommunity;
     }
 
 }

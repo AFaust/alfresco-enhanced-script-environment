@@ -25,15 +25,17 @@ public class AppliesForVersionCondition implements ScriptSelectionCondition
 {
 
     protected final VersionNumber version;
+    protected final boolean community;
 
-    public AppliesForVersionCondition(final VersionNumber version)
+    public AppliesForVersionCondition(final VersionNumber version, final boolean community)
     {
         ParameterCheck.mandatory("version", version);
         this.version = version;
+        this.community = community;
     }
 
     /**
-     * 
+     *
      * {@inheritDoc}
      */
     @Override
@@ -55,7 +57,7 @@ public class AppliesForVersionCondition implements ScriptSelectionCondition
                     || CorrectVersionNumberComparator.compareVersions(this.version, appliesFrom) > (appliesFromExclusive ? 0 : -1);
             final boolean appliesToMatches = appliesTo == null
                     || CorrectVersionNumberComparator.compareVersions(this.version, appliesTo) < (appliesToExclusive ? 0 : 1);
-            result = appliesFromMatches && appliesToMatches;
+            result = appliesFromMatches && appliesToMatches && versionedScript.isForCommunity() == this.community;
         }
         else
         {

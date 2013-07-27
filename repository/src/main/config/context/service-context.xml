@@ -65,6 +65,7 @@
     <bean id="javaScriptProcessor.registryScriptLocator" class="${basePackage}.script.RepositoryRegisteredScriptLocator" parent="javaScriptProcessor.baseScriptLocator">
         <property name="name" value="registry" />
         <property name="scriptRegistry" ref="javaScriptProcessor.scriptRegistry" />
+        <property name="descriptorService" ref="DescriptorService" />
     </bean>
 
     <bean id="javaScriptProcessor.versionInfoContributor" class="${basePackage}.script.util.VersionInfoContributor">

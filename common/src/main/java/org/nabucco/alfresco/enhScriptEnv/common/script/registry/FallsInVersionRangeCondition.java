@@ -27,13 +27,16 @@ public class FallsInVersionRangeCondition implements ScriptSelectionCondition
     protected final boolean appliesFromExclusive;
     protected final boolean appliesToExclusive;
 
+    protected final boolean community;
+
     public FallsInVersionRangeCondition(final VersionNumber appliesFrom, final boolean appliesFromExclusive, final VersionNumber appliesTo,
-            final boolean appliesToExclusive)
+            final boolean appliesToExclusive, final boolean community)
     {
         this.appliesFrom = appliesFrom;
         this.appliesFromExclusive = appliesFromExclusive;
         this.appliesTo = appliesTo;
         this.appliesToExclusive = appliesToExclusive;
+        this.community = community;
 
         if (this.appliesFrom == null && this.appliesTo == null)
         {
@@ -42,7 +45,7 @@ public class FallsInVersionRangeCondition implements ScriptSelectionCondition
     }
 
     /**
-     * 
+     *
      * {@inheritDoc}
      */
     @Override
@@ -60,7 +63,7 @@ public class FallsInVersionRangeCondition implements ScriptSelectionCondition
                     || version.compareTo(this.appliesFrom) > (this.appliesFromExclusive ? 0 : -1);
             final boolean appliesToMatches = this.appliesTo == null
                     || version.compareTo(this.appliesTo) < (this.appliesToExclusive ? 0 : 1);
-            result = appliesFromMatches && appliesToMatches;
+            result = appliesFromMatches && appliesToMatches && this.community == versionedScript.isForCommunity();
         }
         else
         {

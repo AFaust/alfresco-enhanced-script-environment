@@ -16,8 +16,10 @@ public class DummyVersionRegisterableScript implements VersionRegisterableScript
     protected boolean appliesFromExclusive;
     protected boolean appliesToExclusive;
 
+    protected boolean forCommunity = true;
+
     /**
-     * 
+     *
      * {@inheritDoc}
      */
     @Override
@@ -32,7 +34,7 @@ public class DummyVersionRegisterableScript implements VersionRegisterableScript
     @Override
     public int compareTo(final RegisterableScript<Object> otherScript)
     {
-        return hashCode() - otherScript.hashCode();
+        return this.hashCode() - otherScript.hashCode();
     }
 
     /**
@@ -84,7 +86,7 @@ public class DummyVersionRegisterableScript implements VersionRegisterableScript
      * @param version
      *            the version to set
      */
-    public final void setVersion(VersionNumber version)
+    public final void setVersion(final VersionNumber version)
     {
         this.version = version;
     }
@@ -93,7 +95,7 @@ public class DummyVersionRegisterableScript implements VersionRegisterableScript
      * @param appliesFrom
      *            the appliesFrom to set
      */
-    public final void setAppliesFrom(VersionNumber appliesFrom)
+    public final void setAppliesFrom(final VersionNumber appliesFrom)
     {
         this.appliesFrom = appliesFrom;
     }
@@ -102,7 +104,7 @@ public class DummyVersionRegisterableScript implements VersionRegisterableScript
      * @param appliesTo
      *            the appliesTo to set
      */
-    public final void setAppliesTo(VersionNumber appliesTo)
+    public final void setAppliesTo(final VersionNumber appliesTo)
     {
         this.appliesTo = appliesTo;
     }
@@ -111,7 +113,7 @@ public class DummyVersionRegisterableScript implements VersionRegisterableScript
      * @param appliesFromExclusive
      *            the appliesFromExclusive to set
      */
-    public final void setAppliesFromExclusive(boolean appliesFromExclusive)
+    public final void setAppliesFromExclusive(final boolean appliesFromExclusive)
     {
         this.appliesFromExclusive = appliesFromExclusive;
     }
@@ -120,8 +122,27 @@ public class DummyVersionRegisterableScript implements VersionRegisterableScript
      * @param appliesToExclusive
      *            the appliesToExclusive to set
      */
-    public final void setAppliesToExclusive(boolean appliesToExclusive)
+    public final void setAppliesToExclusive(final boolean appliesToExclusive)
     {
         this.appliesToExclusive = appliesToExclusive;
     }
+
+    /**
+     * @return the forCommunity
+     */
+    @Override
+    public final boolean isForCommunity()
+    {
+        return this.forCommunity;
+    }
+
+    /**
+     * @param forCommunity
+     *            the forCommunity to set
+     */
+    public final void setForCommunity(final boolean isForCommunity)
+    {
+        this.forCommunity = isForCommunity;
+    }
+
 }

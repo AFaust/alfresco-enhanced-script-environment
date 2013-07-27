@@ -30,4 +30,6 @@ public interface VersionRegisterableScript<Script> extends RegisterableScript<Sc
     VersionNumber getAppliesFrom();
 
     boolean isAppliesFromExclusive();
+
+    boolean isForCommunity();
 }
