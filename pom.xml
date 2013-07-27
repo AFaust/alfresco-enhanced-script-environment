@@ -6,6 +6,7 @@
     <artifactId>org.nabucco.alfresco.enhScriptEnv</artifactId>
     <version>0.0.1.0-SNAPSHOT</version>
     <packaging>pom</packaging>
+    <name>Alfresco Enhanced Script Environment</name>
 
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
@@ -31,6 +32,28 @@
         <pluginManagement>
 
             <plugins>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-enforcer-plugin</artifactId>
+                    <version>1.2</version>
+                    <executions>
+                        <execution>
+                            <id>Enforce Alfresco Requirements</id>
+                            <goals>
+                                <goal>enforce</goal>
+                            </goals>
+                            <configuration>
+                                <rules>
+                                    <requireJavaVersion>
+                                        <version>[1.6.0,1.7.0)</version>
+                                        <message>Alfresco 4.0 / 4.1 require Java 6 and reusable modules must not make use of Java 7 to avoid incompatibilities</message>
+                                    </requireJavaVersion>
+                                </rules>
+                            </configuration>
+                        </execution>
+                    </executions>
+                </plugin>
+                
                 <plugin>
                     <artifactId>maven-compiler-plugin</artifactId>
                     <version>2.5.1</version>
@@ -60,16 +83,17 @@
                 </plugin>
 
                 <plugin>
-                    <groupId>org.alfresco.maven</groupId>
-                    <artifactId>maven-nosnapshot-plugin</artifactId>
-                    <version>0.0.8</version>
+                    <groupId>org.alfresco.maven.plugin</groupId>
+                    <artifactId>alfresco-maven-plugin</artifactId>
+                    <version>1.0.2</version>
                     <executions>
                         <execution>
-                            <id>default</id>
-                            <phase>initialize</phase>
                             <goals>
-                                <goal>strip</goal>
+                                <goal>set-version</goal>
                             </goals>
+                            <configuration>
+                                <snapshotToTimestamp>true</snapshotToTimestamp>
+                            </configuration>
                         </execution>
                     </executions>
                 </plugin>
@@ -135,19 +159,6 @@
                     <configuration>
                         <lifecycleMappingMetadata>
                             <pluginExecutions>
-                                <pluginExecution>
-                                    <pluginExecutionFilter>
-                                        <groupId>org.alfresco.maven</groupId>
-                                        <artifactId>maven-nosnapshot-plugin</artifactId>
-                                        <versionRange>[0.0.8,)</versionRange>
-                                        <goals>
-                                            <goal>strip</goal>
-                                        </goals>
-                                    </pluginExecutionFilter>
-                                    <action>
-                                        <ignore />
-                                    </action>
-                                </pluginExecution>
                                 <pluginExecution>
                                     <pluginExecutionFilter>
                                         <groupId>net.alchim31.maven</groupId>
@@ -280,9 +291,9 @@
         </profile>
 
     </profiles>
+    
     <modules>
-        <module>common</module>
-        <module>repository</module>
-        <module>share</module>
+        <module>framework</module>
+        <module>patch-modules</module>
     </modules>
 </project>
