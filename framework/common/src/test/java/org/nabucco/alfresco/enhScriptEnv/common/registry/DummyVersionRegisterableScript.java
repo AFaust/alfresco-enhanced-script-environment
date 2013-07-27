@@ -16,7 +16,7 @@ public class DummyVersionRegisterableScript implements VersionRegisterableScript
     protected boolean appliesFromExclusive;
     protected boolean appliesToExclusive;
 
-    protected boolean forCommunity = true;
+    protected Boolean forCommunity;
 
     /**
      *
@@ -131,7 +131,7 @@ public class DummyVersionRegisterableScript implements VersionRegisterableScript
      * @return the forCommunity
      */
     @Override
-    public final boolean isForCommunity()
+    public final Boolean isForCommunity()
     {
         return this.forCommunity;
     }
@@ -140,7 +140,7 @@ public class DummyVersionRegisterableScript implements VersionRegisterableScript
      * @param forCommunity
      *            the forCommunity to set
      */
-    public final void setForCommunity(final boolean isForCommunity)
+    public final void setForCommunity(final Boolean isForCommunity)
     {
         this.forCommunity = isForCommunity;
     }

@@ -1,0 +1,1 @@
+query = '+PATH:"' + parsedArgs.rootNode.qnamePath + '//*" +TYPE:"cm:content"' + filterQueryDefaults;

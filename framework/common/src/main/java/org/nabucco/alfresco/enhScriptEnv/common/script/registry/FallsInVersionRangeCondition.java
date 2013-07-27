@@ -27,10 +27,10 @@ public class FallsInVersionRangeCondition implements ScriptSelectionCondition
     protected final boolean appliesFromExclusive;
     protected final boolean appliesToExclusive;
 
-    protected final boolean community;
+    protected final Boolean community;
 
     public FallsInVersionRangeCondition(final VersionNumber appliesFrom, final boolean appliesFromExclusive, final VersionNumber appliesTo,
-            final boolean appliesToExclusive, final boolean community)
+            final boolean appliesToExclusive, final Boolean community)
     {
         this.appliesFrom = appliesFrom;
         this.appliesFromExclusive = appliesFromExclusive;
@@ -42,6 +42,12 @@ public class FallsInVersionRangeCondition implements ScriptSelectionCondition
         {
             throw new IllegalArgumentException("Either appliesFrom or appliesTo are required to be set");
         }
+    }
+
+    public FallsInVersionRangeCondition(final VersionNumber appliesFrom, final boolean appliesFromExclusive, final VersionNumber appliesTo,
+            final boolean appliesToExclusive)
+    {
+        this(appliesFrom, appliesFromExclusive, appliesTo, appliesToExclusive, null);
     }
 
     /**
@@ -63,7 +69,9 @@ public class FallsInVersionRangeCondition implements ScriptSelectionCondition
                     || version.compareTo(this.appliesFrom) > (this.appliesFromExclusive ? 0 : -1);
             final boolean appliesToMatches = this.appliesTo == null
                     || version.compareTo(this.appliesTo) < (this.appliesToExclusive ? 0 : 1);
-            result = appliesFromMatches && appliesToMatches && this.community == versionedScript.isForCommunity();
+            final boolean editionMatches = this.community == versionedScript.isForCommunity()
+                    || this.community.equals(versionedScript.isForCommunity());
+            result = appliesFromMatches && appliesToMatches && editionMatches;
         }
         else
         {

@@ -206,11 +206,18 @@ public abstract class RegisteredScriptLocator<BaseScript, Script extends Referen
             {
                 final VersionNumber versionNumber = new VersionNumber((String) versionNumberObj);
 
-                boolean community = this.isCommunityEdition();
+                Boolean community = Boolean.valueOf(this.isCommunityEdition());
                 if (parameters.containsKey(COMMUNITY))
                 {
                     final Object communityObj = parameters.get(COMMUNITY);
-                    community = toBoolean(communityObj);
+                    if (communityObj == null)
+                    {
+                        community = null;
+                    }
+                    else
+                    {
+                        community = Boolean.valueOf(toBoolean(communityObj));
+                    }
                 }
 
                 versionCondition = new AppliesForVersionCondition(versionNumber, community);
@@ -245,11 +252,18 @@ public abstract class RegisteredScriptLocator<BaseScript, Script extends Referen
                 final boolean appliesFromExclusive = toBoolean(appliesFromExclusiveObj);
                 final boolean appliesToExclusive = toBoolean(appliesToExclusiveObj);
 
-                boolean community = this.isCommunityEdition();
+                Boolean community = Boolean.valueOf(this.isCommunityEdition());
                 if (parameters.containsKey(COMMUNITY))
                 {
                     final Object communityObj = parameters.get(COMMUNITY);
-                    community = toBoolean(communityObj);
+                    if (communityObj == null)
+                    {
+                        community = null;
+                    }
+                    else
+                    {
+                        community = Boolean.valueOf(toBoolean(communityObj));
+                    }
                 }
 
                 versionRangeCondition = new FallsInVersionRangeCondition(appliesFrom, appliesFromExclusive, appliesTo, appliesToExclusive,

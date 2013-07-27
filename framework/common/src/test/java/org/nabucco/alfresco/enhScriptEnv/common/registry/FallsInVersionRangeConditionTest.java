@@ -29,10 +29,9 @@ public class FallsInVersionRangeConditionTest
     public void testBothEndsExclusive()
     {
         final FallsInVersionRangeCondition condition = new FallsInVersionRangeCondition(new VersionNumber("1.2.3"), true,
-                new VersionNumber("1.3"), true, true);
+                new VersionNumber("1.3"), true);
 
         final DummyVersionRegisterableScript script = new DummyVersionRegisterableScript();
-        script.setForCommunity(true);
 
         script.setVersion(new VersionNumber("1.2.4"));
         Assert.assertTrue("FallsInVersionRangeExclusive 1.2.3-1.3 does not match 1.2.4", condition.matches(script));
@@ -55,10 +54,8 @@ public class FallsInVersionRangeConditionTest
     public void testOpenEnded()
     {
         final DummyVersionRegisterableScript script = new DummyVersionRegisterableScript();
-        script.setForCommunity(true);
         {
-            final FallsInVersionRangeCondition condition = new FallsInVersionRangeCondition(null, false, new VersionNumber("1.3"), true,
-                    true);
+            final FallsInVersionRangeCondition condition = new FallsInVersionRangeCondition(null, false, new VersionNumber("1.3"), true);
 
             script.setVersion(new VersionNumber("0"));
             Assert.assertTrue("FallsInVersionRangeOpenLowerEnd -1.3 does not match 0", condition.matches(script));
@@ -69,8 +66,7 @@ public class FallsInVersionRangeConditionTest
         }
 
         {
-            final FallsInVersionRangeCondition condition = new FallsInVersionRangeCondition(new VersionNumber("1.3"), true, null, false,
-                    true);
+            final FallsInVersionRangeCondition condition = new FallsInVersionRangeCondition(new VersionNumber("1.3"), true, null, false);
 
             script.setVersion(new VersionNumber("999"));
             Assert.assertTrue("FallsInVersionRangeOpenUpperEnd 1.3- does not match 999", condition.matches(script));

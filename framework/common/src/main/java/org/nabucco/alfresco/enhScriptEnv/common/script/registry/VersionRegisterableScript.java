@@ -31,5 +31,5 @@ public interface VersionRegisterableScript<Script> extends RegisterableScript<Sc
 
     boolean isAppliesFromExclusive();
 
-    boolean isForCommunity();
+    Boolean isForCommunity();
 }

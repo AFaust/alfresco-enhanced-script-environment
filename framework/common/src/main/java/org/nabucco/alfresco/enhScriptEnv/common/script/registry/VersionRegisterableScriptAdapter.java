@@ -36,7 +36,7 @@ public class VersionRegisterableScriptAdapter<Script> implements VersionRegister
     protected boolean appliesFromExclusive;
     protected boolean appliesToExclusive;
 
-    protected boolean isForCommunity;
+    protected Boolean isForCommunity;
 
     /**
      *
@@ -143,7 +143,7 @@ public class VersionRegisterableScriptAdapter<Script> implements VersionRegister
      * {@inheritDoc}
      */
     @Override
-    public boolean isForCommunity()
+    public Boolean isForCommunity()
     {
         return this.isForCommunity;
     }
@@ -236,7 +236,7 @@ public class VersionRegisterableScriptAdapter<Script> implements VersionRegister
      * @param isForCommunity
      *            the isForCommunity to set
      */
-    public final void setForCommunity(final boolean isForCommunity)
+    public final void setForCommunity(final Boolean isForCommunity)
     {
         this.isForCommunity = isForCommunity;
     }

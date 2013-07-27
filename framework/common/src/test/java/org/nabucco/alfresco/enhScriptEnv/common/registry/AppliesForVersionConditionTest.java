@@ -14,12 +14,11 @@ public class AppliesForVersionConditionTest
     @Test
     public void testFromExclusive()
     {
-        final AppliesForVersionCondition condition = new AppliesForVersionCondition(new VersionNumber("1.2.3"), true);
+        final AppliesForVersionCondition condition = new AppliesForVersionCondition(new VersionNumber("1.2.3"));
 
         final DummyVersionRegisterableScript script = new DummyVersionRegisterableScript();
 
         script.setAppliesFromExclusive(true);
-        script.setForCommunity(true);
 
         script.setAppliesFrom(new VersionNumber("1.2"));
         Assert.assertTrue("AppliesFromExclusive 1.2 does not match 1.2.3", condition.matches(script));
@@ -41,12 +40,11 @@ public class AppliesForVersionConditionTest
     @Test
     public void testFromInclusive()
     {
-        final AppliesForVersionCondition condition = new AppliesForVersionCondition(new VersionNumber("1.2.3"), true);
+        final AppliesForVersionCondition condition = new AppliesForVersionCondition(new VersionNumber("1.2.3"));
 
         final DummyVersionRegisterableScript script = new DummyVersionRegisterableScript();
 
         script.setAppliesFromExclusive(false);
-        script.setForCommunity(true);
 
         script.setAppliesFrom(new VersionNumber("1.2"));
         Assert.assertTrue("AppliesFromInclusive 1.2 does not match 1.2.3", condition.matches(script));
@@ -70,12 +68,11 @@ public class AppliesForVersionConditionTest
     @Test
     public void testToExclusive()
     {
-        final AppliesForVersionCondition condition = new AppliesForVersionCondition(new VersionNumber("1.2.3"), true);
+        final AppliesForVersionCondition condition = new AppliesForVersionCondition(new VersionNumber("1.2.3"));
 
         final DummyVersionRegisterableScript script = new DummyVersionRegisterableScript();
 
         script.setAppliesToExclusive(true);
-        script.setForCommunity(true);
 
         script.setAppliesTo(new VersionNumber("1.2"));
         Assert.assertFalse("AppliesToInclusive 1.2 does match 1.2.3", condition.matches(script));
@@ -99,12 +96,11 @@ public class AppliesForVersionConditionTest
     @Test
     public void testToInclusive()
     {
-        final AppliesForVersionCondition condition = new AppliesForVersionCondition(new VersionNumber("1.2.3"), true);
+        final AppliesForVersionCondition condition = new AppliesForVersionCondition(new VersionNumber("1.2.3"));
 
         final DummyVersionRegisterableScript script = new DummyVersionRegisterableScript();
 
         script.setAppliesToExclusive(false);
-        script.setForCommunity(true);
 
         script.setAppliesTo(new VersionNumber("1.2"));
         Assert.assertFalse("AppliesToInclusive 1.2 does match 1.2.3", condition.matches(script));
@@ -129,14 +125,12 @@ public class AppliesForVersionConditionTest
     public void testToAndFromExclusive()
     {
 
-        final AppliesForVersionCondition condition = new AppliesForVersionCondition(new VersionNumber("1.2.3"), true);
+        final AppliesForVersionCondition condition = new AppliesForVersionCondition(new VersionNumber("1.2.3"));
 
         final DummyVersionRegisterableScript script = new DummyVersionRegisterableScript();
 
         script.setAppliesFromExclusive(true);
         script.setAppliesToExclusive(true);
-        script.setForCommunity(true);
-        ;
 
         script.setAppliesFrom(new VersionNumber("1.1"));
         script.setAppliesTo(new VersionNumber("1.2"));
@@ -178,14 +172,12 @@ public class AppliesForVersionConditionTest
     @Test
     public void testToAndFromInclusive()
     {
-
-        final AppliesForVersionCondition condition = new AppliesForVersionCondition(new VersionNumber("1.2.3"), true);
+        final AppliesForVersionCondition condition = new AppliesForVersionCondition(new VersionNumber("1.2.3"));
 
         final DummyVersionRegisterableScript script = new DummyVersionRegisterableScript();
 
         script.setAppliesFromExclusive(false);
         script.setAppliesToExclusive(false);
-        script.setForCommunity(true);
 
         script.setAppliesFrom(new VersionNumber("1.1"));
         script.setAppliesTo(new VersionNumber("1.2"));
