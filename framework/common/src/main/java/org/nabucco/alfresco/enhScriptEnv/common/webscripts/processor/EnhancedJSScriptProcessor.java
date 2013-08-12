@@ -546,6 +546,7 @@ public class EnhancedJSScriptProcessor extends BaseRegisterableScriptProcessor i
                 }
                 else
                 {
+                    cx.setOptimizationLevel(-1);
                     script = cx.compileString(resolvedSource, path, 1, null);
                 }
             }

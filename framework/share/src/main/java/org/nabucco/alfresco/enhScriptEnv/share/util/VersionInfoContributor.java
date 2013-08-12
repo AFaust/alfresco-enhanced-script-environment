@@ -250,7 +250,7 @@ public class VersionInfoContributor implements ScopeContributor, InitializingBea
 
                             final String coreVersion;
                             final Matcher versionMatcher = Pattern.compile(CORE_VERSION_PATTERN).matcher(version);
-                            if (versionMatcher.matches())
+                            if (versionMatcher.find())
                             {
                                 coreVersion = versionMatcher.group(1);
                             }

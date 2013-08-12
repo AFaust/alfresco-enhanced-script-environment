@@ -699,6 +699,7 @@ public class EnhancedRhinoScriptProcessor extends BaseProcessor implements Enhan
                 }
                 else
                 {
+                    cx.setOptimizationLevel(-1);
                     script = cx.compileString(resolvedSource, path, 1, null);
                 }
             }
