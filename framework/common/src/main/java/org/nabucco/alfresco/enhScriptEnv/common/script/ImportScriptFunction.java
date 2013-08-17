@@ -25,6 +25,7 @@ import org.mozilla.javascript.IdFunctionObject;
 import org.mozilla.javascript.ScriptRuntime;
 import org.mozilla.javascript.Scriptable;
 import org.mozilla.javascript.ScriptableObject;
+import org.mozilla.javascript.Undefined;
 import org.nabucco.alfresco.enhScriptEnv.common.script.locator.ScriptLocator;
 import org.nabucco.alfresco.enhScriptEnv.common.script.locator.ScriptLocatorRegistry;
 import org.slf4j.Logger;
@@ -79,6 +80,16 @@ public class ImportScriptFunction<Script extends ReferenceScript> implements IdF
             if (f.methodId() == IMPORT_FUNC_ID)
             {
                 final ReferenceScript referenceLocation = this.scriptProcessor.getContextScriptLocation();
+
+                if (args.length == 0 || args[0] == Undefined.instance || args[0] == null)
+                {
+                    throw new IllegalArgumentException("No locator type provided");
+                }
+
+                if (args.length < 2 || args[1] == Undefined.instance || args[1] == null)
+                {
+                    throw new IllegalArgumentException("No location value provided");
+                }
 
                 final String locatorType = ScriptRuntime.toString(args, 0);
                 final String locationValue = ScriptRuntime.toString(args, 1);

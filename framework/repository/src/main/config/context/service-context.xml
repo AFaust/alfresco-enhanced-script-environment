@@ -26,6 +26,9 @@
 
     <bean id="javaScriptProcessor.scriptLogger" class="org.nabucco.alfresco.enhScriptEnv.common.script.LogFunction">
         <property name="scriptProcessor" ref="javaScriptProcessor" />
+        <property name="valueConverter">
+            <bean class="${basePackage}.script.RepositoryValueConverterAdapter" />
+        </property>
         <property name="legacyLoggerName" value="org.alfresco.repo.jscript.ScriptLogger" />
         <property name="defaultLoggerPrefix" value="org.alfresco.repo.jscript.executions" />
     </bean>
@@ -71,5 +74,15 @@
     <bean id="javaScriptProcessor.versionInfoContributor" class="${basePackage}.script.util.VersionInfoContributor">
         <property name="scriptProcessor" ref="javaScriptProcessor" />
         <property name="descriptorService" ref="DescriptorService" />
+    </bean>
+
+    <bean id="javaScriptProcessor.executeBatchFunction" class="${basePackage}.script.batch.RepositoryExecuteBatchFunction">
+        <property name="scriptProcessor" ref="javaScriptProcessor" />
+        <property name="transactionService" ref="TransactionService" />
+        <property name="converters">
+            <list>
+                <bean class="org.nabucco.alfresco.enhScriptEnv.common.script.batch.NativeArrayConverter" />
+            </list>
+        </property>
     </bean>
 </beans>

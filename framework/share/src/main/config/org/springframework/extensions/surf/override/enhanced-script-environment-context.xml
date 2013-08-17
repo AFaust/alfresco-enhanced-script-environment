@@ -40,6 +40,9 @@
     <!-- Web Script processor extensions -->
     <bean id="webframework.webscripts.scriptprocessor.alternative.javascript.scriptLogger" class="org.nabucco.alfresco.enhScriptEnv.common.script.LogFunction">
         <property name="scriptProcessor" ref="webframework.webscripts.scriptprocessor.alternative.javascript" />
+        <property name="valueConverter">
+            <bean class="org.nabucco.alfresco.enhScriptEnv.common.webscripts.processor.SimpleSurfValueConverter" />
+        </property>
         <property name="legacyLoggerName" value="org.springframework.extensions.webscripts.ScriptLogger" />
         <property name="defaultLoggerPrefix" value="org.springframework.extensions.webscripts.executions" />
     </bean>
@@ -88,6 +91,9 @@
 
     <bean id="webframework.templates.scriptprocessor.alternative.javascript.scriptLogger" class="org.nabucco.alfresco.enhScriptEnv.common.script.LogFunction">
         <property name="scriptProcessor" ref="webframework.templates.scriptprocessor.alternative.javascript" />
+        <property name="valueConverter">
+            <bean class="org.nabucco.alfresco.enhScriptEnv.common.webscripts.processor.SimpleSurfValueConverter" />
+        </property>
         <property name="legacyLoggerName" value="org.springframework.extensions.webscripts.ScriptLogger" />
         <property name="defaultLoggerPrefix" value="org.springframework.extensions.templates.executions" />
     </bean>

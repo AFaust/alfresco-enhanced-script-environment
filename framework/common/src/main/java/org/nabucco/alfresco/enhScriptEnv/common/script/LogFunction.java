@@ -36,13 +36,13 @@ import org.mozilla.javascript.NativeObject;
 import org.mozilla.javascript.ScriptRuntime;
 import org.mozilla.javascript.Scriptable;
 import org.mozilla.javascript.ScriptableObject;
+import org.mozilla.javascript.Undefined;
 import org.mozilla.javascript.WrappedException;
 import org.nabucco.alfresco.enhScriptEnv.common.script.ReferenceScript.ReferencePathType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.helpers.MessageFormatter;
 import org.springframework.beans.factory.InitializingBean;
-import org.springframework.extensions.webscripts.ScriptValueConverter;
 
 /**
  * @author Axel Faust, <a href="http://www.prodyna.com">PRODYNA AG</a>
@@ -106,6 +106,8 @@ public class LogFunction implements IdFunctionCall, InitializingBean, ScopeContr
 
     protected EnhancedScriptProcessor<? extends ReferenceScript> scriptProcessor;
 
+    protected ValueConverter valueConverter;
+
     protected String defaultLoggerPrefix;
 
     // optional
@@ -129,6 +131,7 @@ public class LogFunction implements IdFunctionCall, InitializingBean, ScopeContr
     public void afterPropertiesSet()
     {
         PropertyCheck.mandatory(this, "scriptProcessor", this.scriptProcessor);
+        PropertyCheck.mandatory(this, "valueConverter", this.valueConverter);
         PropertyCheck.mandatory(this, "defaultLoggerPrefix", this.defaultLoggerPrefix);
 
         this.scriptProcessor.registerScopeContributor(this);
@@ -220,7 +223,7 @@ public class LogFunction implements IdFunctionCall, InitializingBean, ScopeContr
                 }
                 finally
                 {
-                    this.scopeParentLock.writeLock().lock();
+                    this.scopeParentLock.writeLock().unlock();
                 }
             }
             else
@@ -245,6 +248,11 @@ public class LogFunction implements IdFunctionCall, InitializingBean, ScopeContr
 
     protected void handleSetLogger(final Scriptable scope, final Object[] args)
     {
+        if (args.length == 0 || args[0] == Undefined.instance || args[0] == null)
+        {
+            throw new IllegalArgumentException("No logger name provided");
+        }
+
         final String explicitLogger = ScriptRuntime.toString(args, 0);
         final ReferenceScript referenceScript = this.scriptProcessor.getContextScriptLocation();
         final LoggerData loggerData = this.getLoggerData(scope, referenceScript, true);
@@ -306,6 +314,11 @@ public class LogFunction implements IdFunctionCall, InitializingBean, ScopeContr
         final LoggerData globalLoggerData = this.getLoggerData(scope, topLevelScript, false);
         final Scriptable scriptLogger = globalLoggerData != null ? globalLoggerData.getScriptLogger() : null;
 
+        if (args.length == 0 || args[0] == Undefined.instance || args[0] == null)
+        {
+            throw new IllegalArgumentException("No message provided");
+        }
+
         if (args.length == 1)
         {
             final String message = ScriptRuntime.toString(args, 0);
@@ -331,33 +344,30 @@ public class LogFunction implements IdFunctionCall, InitializingBean, ScopeContr
             else
             {
                 final Object[] params = new Object[args.length - 1];
-                params[0] = ScriptValueConverter.unwrapValue(secondParam);
+                params[0] = this.valueConverter.convertValueForJava(secondParam);
                 for (int argsIdx = 2, idx = 1; argsIdx < args.length && idx < params.length; argsIdx++, idx++)
                 {
-                    params[idx] = ScriptValueConverter.unwrapValue(args[argsIdx]);
+                    params[idx] = this.valueConverter.convertValueForJava(args[argsIdx]);
                 }
                 this.log(methodId, loggers, scriptLogger, message, params);
             }
-        }
-        else
-        {
-            throw new IllegalArgumentException("Parameter message is missing");
         }
     }
 
     protected void handleOut(final Context cx, final Scriptable scope, final Scriptable thisObj, final Object[] args)
     {
+        if (args.length == 0 || args[0] == Undefined.instance || args[0] == null)
+        {
+            throw new IllegalArgumentException("No message provided");
+        }
+
         if (args.length >= 1)
         {
             final String message = ScriptRuntime.toString(args, 0);
 
             final ReferenceScript contextScriptLocation = this.scriptProcessor.getContextScriptLocation();
-            LOGGER.warn("Script {} logging to System.out: ", contextScriptLocation, message);
+            LOGGER.warn("Script {} logging to System.out: {}", contextScriptLocation, message);
             System.out.println(message);
-        }
-        else
-        {
-            throw new IllegalArgumentException("Parameter message is missing");
         }
     }
 
@@ -467,6 +477,15 @@ public class LogFunction implements IdFunctionCall, InitializingBean, ScopeContr
     public final void setScriptProcessor(final EnhancedScriptProcessor scriptProcessor)
     {
         this.scriptProcessor = scriptProcessor;
+    }
+
+    /**
+     * @param valueConverter
+     *            the valueConverter to set
+     */
+    public final void setValueConverter(final ValueConverter valueConverter)
+    {
+        this.valueConverter = valueConverter;
     }
 
     protected void exportFunction(final int methodId, final String name, final int arity, final Scriptable scope)
