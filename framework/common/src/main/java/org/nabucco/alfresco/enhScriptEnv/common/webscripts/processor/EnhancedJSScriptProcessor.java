@@ -20,24 +20,33 @@ import java.text.MessageFormat;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashSet;
+import java.util.Iterator;
+import java.util.LinkedHashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.locks.ReadWriteLock;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 import org.alfresco.error.AlfrescoRuntimeException;
+import org.alfresco.util.MD5;
 import org.alfresco.util.ParameterCheck;
 import org.alfresco.util.PropertyCheck;
 import org.mozilla.javascript.Context;
 import org.mozilla.javascript.ImporterTopLevel;
+import org.mozilla.javascript.NativeFunction;
 import org.mozilla.javascript.NativeJavaObject;
 import org.mozilla.javascript.Script;
 import org.mozilla.javascript.Scriptable;
 import org.mozilla.javascript.ScriptableObject;
 import org.mozilla.javascript.WrapFactory;
 import org.mozilla.javascript.WrappedException;
+import org.mozilla.javascript.debug.DebuggableScript;
 import org.nabucco.alfresco.enhScriptEnv.common.script.EnhancedScriptProcessor;
+import org.nabucco.alfresco.enhScriptEnv.common.script.ReferenceScript;
 import org.nabucco.alfresco.enhScriptEnv.common.script.ScopeContributor;
+import org.nabucco.alfresco.enhScriptEnv.common.util.SourceFileVisitor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.InitializingBean;
@@ -66,11 +75,29 @@ public class EnhancedJSScriptProcessor extends BaseRegisterableScriptProcessor i
 
     private static final Logger LOGGER = LoggerFactory.getLogger(EnhancedJSScriptProcessor.class);
 
+    private static final int DEFAULT_MAX_SCRIPT_CACHE_SIZE = 200;
+
+    private static final boolean ASM_AVAILABLE;
+    static
+    {
+        boolean asmAvailable = false;
+        try
+        {
+            final Class<?> classReaderCls = Class.forName("org.objectweb.asm.ClassReader");
+            asmAvailable = classReaderCls != null;
+        }
+        catch (final ClassNotFoundException clsNotFoundEx)
+        {
+            // NO-OP
+        }
+        ASM_AVAILABLE = asmAvailable;
+    }
+
     // reuse existing implementation
     private static final WrapFactory WRAP_FACTORY = new PresentationWrapFactory();
 
-    protected final ThreadLocal<List<ScriptContentAdapter>> activeScriptContentChain = new ThreadLocal<List<ScriptContentAdapter>>();
-    protected final ThreadLocal<List<List<ScriptContentAdapter>>> recursionScriptContentChains = new ThreadLocal<List<List<ScriptContentAdapter>>>();
+    protected final ThreadLocal<List<ReferenceScript>> activeScriptContentChain = new ThreadLocal<List<ReferenceScript>>();
+    protected final ThreadLocal<List<List<ReferenceScript>>> recursionScriptContentChains = new ThreadLocal<List<List<ReferenceScript>>>();
 
     protected boolean shareScopes = true;
 
@@ -84,7 +111,15 @@ public class EnhancedJSScriptProcessor extends BaseRegisterableScriptProcessor i
 
     protected ScriptLoader standardScriptLoader;
 
-    protected final Map<String, Script> scriptCache = new ConcurrentHashMap<String, Script>(256);
+    protected final Map<String, Script> scriptCache = new LinkedHashMap<String, Script>(256);
+    protected final ReadWriteLock scriptCacheLock = new ReentrantReadWriteLock(true);
+
+    protected final AtomicLong dynamicScriptCounter = new AtomicLong();
+
+    protected final Map<String, Script> dynamicScriptByHashCache = new LinkedHashMap<String, Script>();
+    protected final ReadWriteLock dynamicScriptCacheLock = new ReentrantReadWriteLock(true);
+
+    protected int maxScriptCacheSize = DEFAULT_MAX_SCRIPT_CACHE_SIZE;
 
     protected final Collection<ScopeContributor> registeredContributors = new HashSet<ScopeContributor>();
 
@@ -122,28 +157,153 @@ public class EnhancedJSScriptProcessor extends BaseRegisterableScriptProcessor i
      * {@inheritDoc}
      */
     @Override
+    public void executeInScope(final String source, final Object scope)
+    {
+        ParameterCheck.mandatoryString("source", source);
+
+        // compile the script based on the node content
+        Script script = null;
+        final MD5 md5 = new MD5();
+        final String digest = md5.digest(source.getBytes());
+
+        script = this.lookupScriptCache(this.dynamicScriptByHashCache, this.dynamicScriptCacheLock, digest);
+
+        final String debugScriptName;
+        if (script == null)
+        {
+            debugScriptName = "string://DynamicJS-" + String.valueOf(this.dynamicScriptCounter.getAndIncrement());
+            script = this.getCompiledScript(source, debugScriptName);
+
+            if (this.compileScripts)
+            {
+                this.updateScriptCache(this.dynamicScriptByHashCache, this.dynamicScriptCacheLock, digest, script);
+            }
+        }
+        else if (script instanceof NativeFunction)
+        {
+            final DebuggableScript debuggableView = ((NativeFunction) script).getDebuggableView();
+            if (debuggableView != null)
+            {
+                debugScriptName = debuggableView.getSourceName();
+            }
+            else
+            {
+                // obviously not an interpreted script
+                if (ASM_AVAILABLE)
+                {
+                    final String sourceFileName = SourceFileVisitor.readSourceFile(script.getClass());
+                    debugScriptName = sourceFileName != null ? sourceFileName : ("string://Cached-DynamicJS-" + digest);
+                }
+                else
+                {
+                    debugScriptName = "string://Cached-DynamicJS-" + digest;
+                }
+            }
+        }
+        else
+        {
+            debugScriptName = "string://Cached-DynamicJS-" + digest;
+        }
+
+        LOGGER.info("{} Start", debugScriptName);
+
+        List<ReferenceScript> currentChain = this.activeScriptContentChain.get();
+        boolean newChain = false;
+        if (currentChain == null)
+        {
+            this.updateContentChainsBeforeExceution();
+            currentChain = this.activeScriptContentChain.get();
+            newChain = true;
+        }
+        // else: assume the original script chain is continued
+        currentChain.add(new ReferenceScript.DynamicScript(debugScriptName));
+
+        final long startTime = System.currentTimeMillis();
+        final Context cx = Context.enter();
+        try
+        {
+
+            final Scriptable realScope;
+            if (scope == null)
+            {
+                if (this.shareScopes)
+                {
+                    final Scriptable sharedScope = this.restrictedShareableScope;
+                    realScope = cx.newObject(sharedScope);
+                    realScope.setPrototype(sharedScope);
+                    realScope.setParentScope(null);
+                }
+                else
+                {
+                    realScope = this.setupScope(cx, false, false);
+                }
+            }
+            else if (!(scope instanceof Scriptable))
+            {
+                realScope = new NativeJavaObject(null, scope, scope.getClass());
+                if (this.shareScopes)
+                {
+                    final Scriptable sharedScope = this.restrictedShareableScope;
+                    realScope.setPrototype(sharedScope);
+                }
+                else
+                {
+                    final Scriptable baseScope = this.setupScope(cx, false, false);
+                    realScope.setPrototype(baseScope);
+                }
+            }
+            else
+            {
+                realScope = (Scriptable) scope;
+            }
+
+            this.executeScriptInScopeImpl(script, realScope);
+        }
+        catch (final Exception ex)
+        {
+            // TODO: error handling / bubbling to caller? how to handle Rhino exceptions if caller is not a script?
+            LOGGER.info("{} Exception: {}", debugScriptName, ex);
+            throw new WebScriptException(MessageFormat.format("Failed to execute script string: {1}", ex.getMessage()), ex);
+        }
+        finally
+        {
+            Context.exit();
+
+            currentChain.remove(currentChain.size() - 1);
+            if (newChain)
+            {
+                this.updateContentChainsAfterReturning();
+            }
+
+            final long endTime = System.currentTimeMillis();
+            LOGGER.info("{} End {} msg", debugScriptName, Long.valueOf(endTime - startTime));
+        }
+    }
+
+    /**
+     *
+     * {@inheritDoc}
+     */
+    @Override
     public void executeInScope(final ScriptContentAdapter content, final Object scope)
     {
         ParameterCheck.mandatory("content", content);
 
         final Script script = this.getCompiledScript(content);
-        final String debugScriptName;
-
-        {
-            final String path = content.getPath();
-            final int i = path.lastIndexOf('/');
-            debugScriptName = i != -1 ? path.substring(i + 1) : path;
-        }
+        final String debugScriptName = content.getName();
 
         LOGGER.info("{} Start", debugScriptName);
 
-        // TODO: Can we always be sure we're continuing the previous chain?
-        final List<ScriptContentAdapter> currentChain = this.activeScriptContentChain.get();
-        if (currentChain != null)
+        List<ReferenceScript> currentChain = this.activeScriptContentChain.get();
+        boolean newChain = false;
+        if (currentChain == null)
         {
-            // preliminary safeguard against incorrect invocation - see TODO notice
-            currentChain.add(content);
+            this.updateContentChainsBeforeExceution();
+            currentChain = this.activeScriptContentChain.get();
+            newChain = true;
         }
+        // else: assume the original script chain is continued
+        currentChain.add(content);
 
         final long startTime = System.currentTimeMillis();
         final Context cx = Context.enter();
@@ -195,10 +355,11 @@ public class EnhancedJSScriptProcessor extends BaseRegisterableScriptProcessor i
         finally
         {
             Context.exit();
-            if (currentChain != null)
+
+            currentChain.remove(currentChain.size() - 1);
+            if (newChain)
             {
-                // preliminary safeguard against incorrect invocation - see TODO notice
-                currentChain.remove(currentChain.size() - 1);
+                this.updateContentChainsAfterReturning();
             }
 
             final long endTime = System.currentTimeMillis();
@@ -244,10 +405,10 @@ public class EnhancedJSScriptProcessor extends BaseRegisterableScriptProcessor i
      * {@inheritDoc}
      */
     @Override
-    public ScriptContentAdapter getContextScriptLocation()
+    public ReferenceScript getContextScriptLocation()
     {
-        final List<ScriptContentAdapter> currentChain = this.activeScriptContentChain.get();
-        final ScriptContentAdapter result;
+        final List<ReferenceScript> currentChain = this.activeScriptContentChain.get();
+        final ReferenceScript result;
         if (currentChain != null && !currentChain.isEmpty())
         {
             result = currentChain.get(currentChain.size() - 1);
@@ -264,13 +425,13 @@ public class EnhancedJSScriptProcessor extends BaseRegisterableScriptProcessor i
      * {@inheritDoc}
      */
     @Override
-    public List<ScriptContentAdapter> getScriptCallChain()
+    public List<ReferenceScript> getScriptCallChain()
     {
-        final List<ScriptContentAdapter> currentChain = this.activeScriptContentChain.get();
-        final List<ScriptContentAdapter> result;
+        final List<ReferenceScript> currentChain = this.activeScriptContentChain.get();
+        final List<ReferenceScript> result;
         if (currentChain != null)
         {
-            result = new ArrayList<ScriptContentAdapter>(currentChain);
+            result = new ArrayList<ReferenceScript>(currentChain);
         }
         else
         {
@@ -357,18 +518,14 @@ public class EnhancedJSScriptProcessor extends BaseRegisterableScriptProcessor i
     {
         ParameterCheck.mandatory("content", content);
         final Script script = this.getCompiledScript(content);
-        final String debugScriptName;
-        {
-            final String path = content.getPath();
-            final int i = path.lastIndexOf('/');
-            debugScriptName = i != -1 ? path.substring(i + 1) : path;
-        }
+        final ScriptContentAdapter contentAdapter = new ScriptContentAdapter(content, this.standardScriptLoader);
+        final String debugScriptName = contentAdapter.getName();
 
         this.updateContentChainsBeforeExceution();
-        this.activeScriptContentChain.get().add(new ScriptContentAdapter(content, this.standardScriptLoader));
+        this.activeScriptContentChain.get().add(contentAdapter);
         try
         {
-            return this.executeScriptImpl(script, model, content.isSecure(), debugScriptName);
+            return this.executeScriptImpl(script, model, contentAdapter.isSecure(), debugScriptName);
         }
         finally
         {
@@ -393,7 +550,24 @@ public class EnhancedJSScriptProcessor extends BaseRegisterableScriptProcessor i
     @Override
     public void reset()
     {
-        this.scriptCache.clear();
+        this.scriptCacheLock.writeLock().lock();
+        try
+        {
+            this.scriptCache.clear();
+        }
+        finally
+        {
+            this.scriptCacheLock.writeLock().unlock();
+        }
+        this.dynamicScriptCacheLock.writeLock().lock();
+        try
+        {
+            this.dynamicScriptByHashCache.clear();
+        }
+        finally
+        {
+            this.dynamicScriptCacheLock.writeLock().unlock();
+        }
     }
 
     /**
@@ -458,7 +632,7 @@ public class EnhancedJSScriptProcessor extends BaseRegisterableScriptProcessor i
         // test the cache for a pre-compiled script matching our path
         if (this.compileScripts && !debuggerActive && content.isCachable())
         {
-            script = this.scriptCache.get(content.getPath());
+            script = this.lookupScriptCache(this.scriptCache, this.scriptCacheLock, content.getPath());
         }
 
         if (script == null)
@@ -481,7 +655,7 @@ public class EnhancedJSScriptProcessor extends BaseRegisterableScriptProcessor i
 
             if (this.compileScripts && !debuggerActive && content.isCachable())
             {
-                this.scriptCache.put(content.getPath(), script);
+                this.updateScriptCache(this.scriptCache, this.scriptCacheLock, path, script);
 
             }
             LOGGER.debug("Compiled script for {}", path);
@@ -508,6 +682,9 @@ public class EnhancedJSScriptProcessor extends BaseRegisterableScriptProcessor i
             {
                 if (this.compileScripts && !this.debuggerActive)
                 {
+                    cx.setGeneratingDebug(true);
+                    cx.setGeneratingSource(true);
+
                     int optimizationLevel = this.optimizationLevel;
                     Script bestEffortOptimizedScript = null;
 
@@ -572,6 +749,44 @@ public class EnhancedJSScriptProcessor extends BaseRegisterableScriptProcessor i
                 STORE_PATH_RESOURCE_IMPORT_REPLACEMENT);
 
         return storePathResolvedScript;
+    }
+
+    protected Script lookupScriptCache(final Map<String, Script> cache, final ReadWriteLock lock, final String key)
+    {
+        Script script;
+        lock.readLock().lock();
+        try
+        {
+            script = cache.get(key);
+        }
+        finally
+        {
+            lock.readLock().unlock();
+        }
+        return script;
+    }
+
+    protected void updateScriptCache(final Map<String, Script> cache, final ReadWriteLock lock, final String key, final Script script)
+    {
+        lock.writeLock().lock();
+        try
+        {
+            cache.put(key, script);
+
+            if (cache.size() > this.maxScriptCacheSize)
+            {
+                final Iterator<String> keyIterator = cache.keySet().iterator();
+                while (cache.size() > this.maxScriptCacheSize)
+                {
+                    final String keyToRemove = keyIterator.next();
+                    cache.remove(keyToRemove);
+                }
+            }
+        }
+        finally
+        {
+            lock.writeLock().unlock();
+        }
     }
 
     protected Scriptable setupScope(final Context executionContext, final boolean trustworthyScript, final boolean mutableScope)
@@ -696,28 +911,28 @@ public class EnhancedJSScriptProcessor extends BaseRegisterableScriptProcessor i
 
     protected void updateContentChainsBeforeExceution()
     {
-        final List<ScriptContentAdapter> activeChain = this.activeScriptContentChain.get();
+        final List<ReferenceScript> activeChain = this.activeScriptContentChain.get();
         if (activeChain != null)
         {
-            List<List<ScriptContentAdapter>> recursionChains = this.recursionScriptContentChains.get();
+            List<List<ReferenceScript>> recursionChains = this.recursionScriptContentChains.get();
             if (recursionChains == null)
             {
-                recursionChains = new LinkedList<List<ScriptContentAdapter>>();
+                recursionChains = new LinkedList<List<ReferenceScript>>();
                 this.recursionScriptContentChains.set(recursionChains);
             }
 
             recursionChains.add(0, activeChain);
         }
-        this.activeScriptContentChain.set(new LinkedList<ScriptContentAdapter>());
+        this.activeScriptContentChain.set(new LinkedList<ReferenceScript>());
     }
 
     protected void updateContentChainsAfterReturning()
     {
         this.activeScriptContentChain.remove();
-        final List<List<ScriptContentAdapter>> recursionChains = this.recursionScriptContentChains.get();
+        final List<List<ReferenceScript>> recursionChains = this.recursionScriptContentChains.get();
         if (recursionChains != null)
         {
-            final List<ScriptContentAdapter> previousChain = recursionChains.remove(0);
+            final List<ReferenceScript> previousChain = recursionChains.remove(0);
             if (recursionChains.isEmpty())
             {
                 this.recursionScriptContentChains.remove();

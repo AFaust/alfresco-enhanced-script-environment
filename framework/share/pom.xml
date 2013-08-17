@@ -115,6 +115,11 @@
                 <groupId>net.alchim31.maven</groupId>
                 <artifactId>yuicompressor-maven-plugin</artifactId>
             </plugin>
+            
+            <plugin>
+                <groupId>com.googlecode.jslint4java</groupId>
+                <artifactId>jslint4java-maven-plugin</artifactId>
+            </plugin>
 
             <plugin>
                 <artifactId>maven-assembly-plugin</artifactId>

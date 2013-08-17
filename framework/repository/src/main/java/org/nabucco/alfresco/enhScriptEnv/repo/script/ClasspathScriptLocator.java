@@ -17,30 +17,31 @@ package org.nabucco.alfresco.enhScriptEnv.repo.script;
 import java.net.URL;
 
 import org.alfresco.repo.jscript.ClasspathScriptLocation;
+import org.nabucco.alfresco.enhScriptEnv.common.script.ReferenceScript;
 import org.nabucco.alfresco.enhScriptEnv.common.script.ReferenceScript.CommonReferencePath;
 import org.nabucco.alfresco.enhScriptEnv.common.script.locator.AbstractRelativeResolvingScriptLocator;
 
 /**
  * A script locator able to import scripts from the classpath of the web application. This implementation is able to resolve relative script
  * locations when supplied with an execution context.
- * 
+ *
  * @author Axel Faust, <a href="http://www.prodyna.com">PRODYNA AG</a>
  */
 public class ClasspathScriptLocator extends AbstractRelativeResolvingScriptLocator<ScriptLocationAdapter>
 {
     /**
-     * 
+     *
      * {@inheritDoc}
      */
     @Override
-    protected String getReferencePath(final ScriptLocationAdapter referenceLocation)
+    protected String getReferencePath(final ReferenceScript referenceLocation)
     {
         final String referencePath = referenceLocation.getReferencePath(CommonReferencePath.CLASSPATH);
         return referencePath;
     }
 
     /**
-     * 
+     *
      * {@inheritDoc}
      */
     @Override
@@ -48,12 +49,12 @@ public class ClasspathScriptLocator extends AbstractRelativeResolvingScriptLocat
     {
         String absoluteClasspath = absolutePath.startsWith("/") ? absolutePath : "/" + absolutePath;
         final ScriptLocationAdapter result;
-        URL scriptResource = getClass().getClassLoader().getResource(absoluteClasspath);
+        URL scriptResource = this.getClass().getClassLoader().getResource(absoluteClasspath);
         if (scriptResource == null && absoluteClasspath.startsWith("/"))
         {
             // Some classloaders prefer alfresco/foo to /alfresco/foo, try that
             absoluteClasspath = absoluteClasspath.substring(1);
-            scriptResource = getClass().getClassLoader().getResource(absoluteClasspath);
+            scriptResource = this.getClass().getClassLoader().getResource(absoluteClasspath);
         }
 
         if (scriptResource != null)

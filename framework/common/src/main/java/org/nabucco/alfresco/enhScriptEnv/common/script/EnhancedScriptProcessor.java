@@ -25,23 +25,35 @@ public interface EnhancedScriptProcessor<Script extends ReferenceScript>
     /**
      * Executes a script in a provided scope. When the scope is mutable, execution of the script may result in modifications of its state
      * depending on the script being executed.
-     * 
+     *
      * @param location
      *            the location of the script
      * @param scope
      *            the scope the script is to be executed in
-     * 
+     *
      */
     void executeInScope(Script location, Object scope);
+
+    /**
+     * Executes a script in a provided scope. When the scope is mutable, execution of the script may result in modifications of its state
+     * depending on the script being executed.
+     *
+     * @param source
+     *            the source code of the script to execute
+     * @param scope
+     *            the scope the script is to be executed in
+     *
+     */
+    void executeInScope(String source, Object scope);
 
     /**
      * Retrieves the script location for the current script execution context. This result of this method heavily depends on the state of
      * execution of the current thread and the chain of script executions that resulted in the invocation of the caller.
      * 
      * @return the script location object for the script currently being executed resulting in the invocation of the caller. This may be
-     *         {@code null} if either no script is currently being executed or the script being executed is of a dynamic nature.
+     *         {@code null} if no script is currently being executed.
      */
-    Script getContextScriptLocation();
+    ReferenceScript getContextScriptLocation();
 
     /**
      * Retrieves the chain of scripts for the current script execution context. This method will not return all the scripts that the current
@@ -49,14 +61,13 @@ public interface EnhancedScriptProcessor<Script extends ReferenceScript>
      * have invoked each other.
      * 
      * @return the chain scripts leading to the call on the script currently being executed in the order they have been called, i.e. with
-     *         first script at an index position of zero. This may be {@code null} if either no script is currently being executed or an
-     *         empty collection if the script being executed is of a dynamic nature.
+     *         first script at an index position of zero. This may be {@code null} if no script is currently being executed.
      */
-    List<Script> getScriptCallChain();
+    List<ReferenceScript> getScriptCallChain();
 
     /**
      * Initializes a new execution scope for the provided script
-     * 
+     *
      * @param location
      *            the script to initialize a execution context for
      * @return the new execution context
@@ -66,7 +77,7 @@ public interface EnhancedScriptProcessor<Script extends ReferenceScript>
     /**
      * Registers a scope contributor to be invoked whenever a new scripting scope is initialized for contribution of additional values /
      * functionality to that scope.
-     * 
+     *
      * @param contributor
      *            the contributor to register
      */

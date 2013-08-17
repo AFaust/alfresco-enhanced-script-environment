@@ -27,6 +27,7 @@ import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 import org.alfresco.util.Pair;
+import org.alfresco.util.ParameterCheck;
 import org.alfresco.util.PropertyCheck;
 import org.mozilla.javascript.Context;
 import org.mozilla.javascript.IdFunctionCall;
@@ -114,20 +115,17 @@ public class LogFunction implements IdFunctionCall, InitializingBean, ScopeContr
      * Logger data map for state management and logger caching
      */
     protected final Map<Scriptable, Map<ReferenceScript, LoggerData>> scopeLoggerData = new WeakHashMap<Scriptable, Map<ReferenceScript, LoggerData>>();
+
     /**
      * Parent scope registry for bottom-up lookup and including context script in which parent-child relation was registered
      */
-    // TODO: Need to change to simple WeakHashMap with ReadWriteLock-based synchronization (similar to scopeLoggerData)
-    protected final Map<Scriptable, Pair<WeakReference<Scriptable>, ReferenceScript>> scopeParents = Collections
-            .synchronizedMap(new WeakHashMap<Scriptable, Pair<WeakReference<Scriptable>, ReferenceScript>>());
-    /**
-     * Logger data by script scope for dynamic script strings (non-persistent scripts) signified by lack of a {@link ReferenceScript}
-     * instance
-     */
-    protected final Map<Scriptable, LoggerData> scopeSentinelLoggerData = new WeakHashMap<Scriptable, LogFunction.LoggerData>();
+    protected final Map<Scriptable, Pair<WeakReference<Scriptable>, ReferenceScript>> scopeParents = new WeakHashMap<Scriptable, Pair<WeakReference<Scriptable>, ReferenceScript>>();
 
     protected final ReadWriteLock scopeLoggerDataLock = new ReentrantReadWriteLock(true);
 
+    protected final ReadWriteLock scopeParentLock = new ReentrantReadWriteLock(true);
+
+    @Override
     public void afterPropertiesSet()
     {
         PropertyCheck.mandatory(this, "scriptProcessor", this.scriptProcessor);
@@ -150,29 +148,29 @@ public class LogFunction implements IdFunctionCall, InitializingBean, ScopeContr
             final int methodId = f.methodId();
             if (methodId >= TRACE_FUNC_ID && methodId <= ERROR_FUNC_ID)
             {
-                handleLogging(cx, scope, thisObj, args, methodId);
+                this.handleLogging(cx, scope, thisObj, args, methodId);
 
                 result = null;
             }
             else if (methodId >= TRACE_ENABLED_FUNC_ID && methodId <= ERROR_ENABLED_FUNC_ID)
             {
-                result = handleEnablementCheck(cx, scope, thisObj, methodId);
+                result = this.handleEnablementCheck(cx, scope, thisObj, methodId);
             }
             else if (methodId == SET_LOGGER_FUNC_ID)
             {
-                handleSetLogger(scope, args);
+                this.handleSetLogger(scope, args);
 
                 result = null;
             }
             else if (methodId == SET_INHERIT_LOGGER_CTX_FUNC_ID)
             {
-                handleSetLoggerInheritance(scope, args);
+                this.handleSetLoggerInheritance(scope, args);
 
                 result = null;
             }
             else if (methodId == REGISTER_CHILD_SCOPE_FUNC_ID)
             {
-                handleRegisterChildScope(scope, args);
+                this.handleRegisterChildScope(scope, args);
 
                 result = null;
             }
@@ -182,13 +180,13 @@ public class LogFunction implements IdFunctionCall, InitializingBean, ScopeContr
             }
             else if (methodId == OUT_FUNC_ID)
             {
-                handleOut(cx, scope, thisObj, args);
+                this.handleOut(cx, scope, thisObj, args);
 
                 result = null;
             }
             else if (methodId == SET_SCRIPT_LOGGER_FUNC_ID)
             {
-                handleSetScriptLogger(cx, scope, thisObj, args);
+                this.handleSetScriptLogger(cx, scope, thisObj, args);
 
                 result = null;
             }
@@ -214,8 +212,16 @@ public class LogFunction implements IdFunctionCall, InitializingBean, ScopeContr
             {
                 final Scriptable childScope = (Scriptable) scopeParam;
                 final ReferenceScript script = this.scriptProcessor.getContextScriptLocation();
-                this.scopeParents.put(childScope, new Pair<WeakReference<Scriptable>, ReferenceScript>(
-                        new WeakReference<Scriptable>(scope), script));
+                this.scopeParentLock.writeLock().lock();
+                try
+                {
+                    this.scopeParents.put(childScope, new Pair<WeakReference<Scriptable>, ReferenceScript>(new WeakReference<Scriptable>(
+                            scope), script));
+                }
+                finally
+                {
+                    this.scopeParentLock.writeLock().lock();
+                }
             }
             else
             {
@@ -233,7 +239,7 @@ public class LogFunction implements IdFunctionCall, InitializingBean, ScopeContr
         final boolean inheritLoggerContext = ScriptRuntime.toBoolean(args, 0);
 
         final ReferenceScript referenceScript = this.scriptProcessor.getContextScriptLocation();
-        final LoggerData loggerData = getLoggerData(scope, referenceScript, true);
+        final LoggerData loggerData = this.getLoggerData(scope, referenceScript, true);
         loggerData.setInheritLoggerContext(inheritLoggerContext);
     }
 
@@ -241,7 +247,7 @@ public class LogFunction implements IdFunctionCall, InitializingBean, ScopeContr
     {
         final String explicitLogger = ScriptRuntime.toString(args, 0);
         final ReferenceScript referenceScript = this.scriptProcessor.getContextScriptLocation();
-        final LoggerData loggerData = getLoggerData(scope, referenceScript, true);
+        final LoggerData loggerData = this.getLoggerData(scope, referenceScript, true);
 
         if (loggerData.getLoggers() == null && loggerData.getExplicitLogger() == null)
         {
@@ -263,7 +269,7 @@ public class LogFunction implements IdFunctionCall, InitializingBean, ScopeContr
     protected Object handleEnablementCheck(final Context cx, final Scriptable scope, final Scriptable thisObj, final int methodId)
     {
         final Object result;
-        final Collection<Logger> loggers = getLoggers(cx, scope, true);
+        final Collection<Logger> loggers = this.getLoggers(cx, scope, true);
         boolean enabled = false;
         for (final Logger logger : loggers)
         {
@@ -296,13 +302,14 @@ public class LogFunction implements IdFunctionCall, InitializingBean, ScopeContr
     protected void handleLogging(final Context cx, final Scriptable scope, final Scriptable thisObj, final Object[] args, final int methodId)
     {
         final Collection<Logger> loggers = this.getLoggers(cx, scope, true);
-        final LoggerData globalLoggerData = this.getLoggerData(scope, null, false);
+        final ReferenceScript topLevelScript = this.scriptProcessor.getScriptCallChain().get(0);
+        final LoggerData globalLoggerData = this.getLoggerData(scope, topLevelScript, false);
         final Scriptable scriptLogger = globalLoggerData != null ? globalLoggerData.getScriptLogger() : null;
 
         if (args.length == 1)
         {
             final String message = ScriptRuntime.toString(args, 0);
-            log(methodId, loggers, scriptLogger, message);
+            this.log(methodId, loggers, scriptLogger, message);
         }
         else if (args.length > 1)
         {
@@ -319,7 +326,7 @@ public class LogFunction implements IdFunctionCall, InitializingBean, ScopeContr
                 {
                     ex = (Throwable) secondParam;
                 }
-                log(methodId, loggers, scriptLogger, message, ex);
+                this.log(methodId, loggers, scriptLogger, message, ex);
             }
             else
             {
@@ -329,7 +336,7 @@ public class LogFunction implements IdFunctionCall, InitializingBean, ScopeContr
                 {
                     params[idx] = ScriptValueConverter.unwrapValue(args[argsIdx]);
                 }
-                log(methodId, loggers, scriptLogger, message, params);
+                this.log(methodId, loggers, scriptLogger, message, params);
             }
         }
         else
@@ -366,7 +373,8 @@ public class LogFunction implements IdFunctionCall, InitializingBean, ScopeContr
             }
 
             // ScriptLogger is always treated as a top-level context data object, so retrieve the top-level logger data
-            final LoggerData loggerData = getLoggerData(scope, null, true);
+            final ReferenceScript topLevelScript = this.scriptProcessor.getScriptCallChain().get(0);
+            final LoggerData loggerData = this.getLoggerData(scope, topLevelScript, true);
             final Scriptable setScriptLogger = loggerData.getScriptLogger();
             if (setScriptLogger != null)
             {
@@ -391,39 +399,39 @@ public class LogFunction implements IdFunctionCall, InitializingBean, ScopeContr
     {
         final NativeObject loggerObj = new NativeObject();
 
-        exportFunction(DEBUG_FUNC_ID, DEBUG_FUNC_NAME, 1, loggerObj);
-        exportFunction(DEBUG_FUNC_ID, LOG_FUNC_NAME, 1, loggerObj);
-        exportFunction(TRACE_FUNC_ID, TRACE_FUNC_NAME, 1, loggerObj);
-        exportFunction(INFO_FUNC_ID, INFO_FUNC_NAME, 1, loggerObj);
-        exportFunction(WARN_FUNC_ID, WARN_FUNC_NAME, 1, loggerObj);
-        exportFunction(ERROR_FUNC_ID, ERROR_FUNC_NAME, 1, loggerObj);
+        this.exportFunction(DEBUG_FUNC_ID, DEBUG_FUNC_NAME, 1, loggerObj);
+        this.exportFunction(DEBUG_FUNC_ID, LOG_FUNC_NAME, 1, loggerObj);
+        this.exportFunction(TRACE_FUNC_ID, TRACE_FUNC_NAME, 1, loggerObj);
+        this.exportFunction(INFO_FUNC_ID, INFO_FUNC_NAME, 1, loggerObj);
+        this.exportFunction(WARN_FUNC_ID, WARN_FUNC_NAME, 1, loggerObj);
+        this.exportFunction(ERROR_FUNC_ID, ERROR_FUNC_NAME, 1, loggerObj);
 
-        exportFunction(DEBUG_ENABLED_FUNC_ID, DEBUG_ENABLED_FUNC_NAME, 0, loggerObj);
-        exportFunction(DEBUG_ENABLED_FUNC_ID, DEBUG_LOGGING_ENABLED_FUNC_NAME, 0, loggerObj);
-        exportFunction(DEBUG_ENABLED_FUNC_ID, LOGGING_ENABLED_FUNC_NAME, 0, loggerObj);
+        this.exportFunction(DEBUG_ENABLED_FUNC_ID, DEBUG_ENABLED_FUNC_NAME, 0, loggerObj);
+        this.exportFunction(DEBUG_ENABLED_FUNC_ID, DEBUG_LOGGING_ENABLED_FUNC_NAME, 0, loggerObj);
+        this.exportFunction(DEBUG_ENABLED_FUNC_ID, LOGGING_ENABLED_FUNC_NAME, 0, loggerObj);
 
-        exportFunction(TRACE_ENABLED_FUNC_ID, TRACE_ENABLED_FUNC_NAME, 0, loggerObj);
+        this.exportFunction(TRACE_ENABLED_FUNC_ID, TRACE_ENABLED_FUNC_NAME, 0, loggerObj);
 
-        exportFunction(DEBUG_ENABLED_FUNC_ID, INFO_ENABLED_FUNC_NAME, 0, loggerObj);
-        exportFunction(DEBUG_ENABLED_FUNC_ID, INFO_LOGGING_ENABLED_FUNC_NAME, 0, loggerObj);
+        this.exportFunction(DEBUG_ENABLED_FUNC_ID, INFO_ENABLED_FUNC_NAME, 0, loggerObj);
+        this.exportFunction(DEBUG_ENABLED_FUNC_ID, INFO_LOGGING_ENABLED_FUNC_NAME, 0, loggerObj);
 
-        exportFunction(WARN_ENABLED_FUNC_ID, WARN_ENABLED_FUNC_NAME, 0, loggerObj);
-        exportFunction(WARN_ENABLED_FUNC_ID, WARN_LOGGING_ENABLED_FUNC_NAME, 0, loggerObj);
+        this.exportFunction(WARN_ENABLED_FUNC_ID, WARN_ENABLED_FUNC_NAME, 0, loggerObj);
+        this.exportFunction(WARN_ENABLED_FUNC_ID, WARN_LOGGING_ENABLED_FUNC_NAME, 0, loggerObj);
 
-        exportFunction(ERROR_ENABLED_FUNC_ID, ERROR_ENABLED_FUNC_NAME, 0, loggerObj);
-        exportFunction(ERROR_ENABLED_FUNC_ID, ERROR_LOGGING_ENABLED_FUNC_NAME, 0, loggerObj);
+        this.exportFunction(ERROR_ENABLED_FUNC_ID, ERROR_ENABLED_FUNC_NAME, 0, loggerObj);
+        this.exportFunction(ERROR_ENABLED_FUNC_ID, ERROR_LOGGING_ENABLED_FUNC_NAME, 0, loggerObj);
 
-        exportFunction(REGISTER_CHILD_SCOPE_FUNC_ID, REGISTER_CHILD_SCOPE_FUNC_NAME, 1, loggerObj);
-        exportFunction(SET_LOGGER_FUNC_ID, SET_LOGGER_FUNC_NAME, 1, loggerObj);
-        exportFunction(SET_INHERIT_LOGGER_CTX_FUNC_ID, SET_INHERIT_LOGGER_CTX_FUNC_NAME, 1, loggerObj);
+        this.exportFunction(REGISTER_CHILD_SCOPE_FUNC_ID, REGISTER_CHILD_SCOPE_FUNC_NAME, 1, loggerObj);
+        this.exportFunction(SET_LOGGER_FUNC_ID, SET_LOGGER_FUNC_NAME, 1, loggerObj);
+        this.exportFunction(SET_INHERIT_LOGGER_CTX_FUNC_ID, SET_INHERIT_LOGGER_CTX_FUNC_NAME, 1, loggerObj);
 
-        exportFunction(GET_SYSTEM_FUNC_ID, GET_SYSTEM_FUNC_NAME, 0, loggerObj);
+        this.exportFunction(GET_SYSTEM_FUNC_ID, GET_SYSTEM_FUNC_NAME, 0, loggerObj);
 
-        exportFunction(SET_SCRIPT_LOGGER_FUNC_ID, SET_SCRIPT_LOGGER_FUNC_NAME, 1, loggerObj);
+        this.exportFunction(SET_SCRIPT_LOGGER_FUNC_ID, SET_SCRIPT_LOGGER_FUNC_NAME, 1, loggerObj);
 
         // define system object
         final NativeObject systemObj = new NativeObject();
-        exportFunction(OUT_FUNC_ID, OUT_FUNC_NAME, 1, systemObj);
+        this.exportFunction(OUT_FUNC_ID, OUT_FUNC_NAME, 1, systemObj);
         systemObj.sealObject();
 
         ScriptableObject.defineProperty(loggerObj, SYSTEM_PROP_NAME, systemObj, ScriptableObject.PERMANENT | ScriptableObject.READONLY);
@@ -456,7 +464,7 @@ public class LogFunction implements IdFunctionCall, InitializingBean, ScopeContr
      * @param scriptProcessor
      *            the scriptProcessor to set
      */
-    public final void setScriptProcessor(EnhancedScriptProcessor scriptProcessor)
+    public final void setScriptProcessor(final EnhancedScriptProcessor scriptProcessor)
     {
         this.scriptProcessor = scriptProcessor;
     }
@@ -477,8 +485,8 @@ public class LogFunction implements IdFunctionCall, InitializingBean, ScopeContr
         // TODO: what about logging in functions defined in script A but called from script B (due to scope access or explicit passing)?
         final ReferenceScript referenceScript = this.scriptProcessor.getContextScriptLocation();
 
-        final LoggerData loggerData = getLoggerData(scope, referenceScript, createIfNull);
-        loggers = getLoggers(context, scope, referenceScript, loggerData);
+        final LoggerData loggerData = this.getLoggerData(scope, referenceScript, createIfNull);
+        loggers = this.getLoggers(context, scope, referenceScript, loggerData);
 
         return loggers;
     }
@@ -492,15 +500,14 @@ public class LogFunction implements IdFunctionCall, InitializingBean, ScopeContr
             loggers = new HashSet<Logger>();
             if (referenceScript != null)
             {
-                // null referenceScript means dynamic script string, which always is the first script in a call chain
-                loggers.addAll(getParentLoggers(context, scope, referenceScript));
+                loggers.addAll(this.getParentLoggers(context, scope, referenceScript));
             }
 
             if (loggerData != null && loggerData.getExplicitLogger() != null)
             {
                 loggers.add(LoggerFactory.getLogger(loggerData.getExplicitLogger()));
             }
-            else if (!isParentLoggerExplicit(context, scope, referenceScript))
+            else if (!this.isParentLoggerExplicit(context, scope, referenceScript))
             {
                 if (this.legacyLoggerName != null)
                 {
@@ -544,17 +551,27 @@ public class LogFunction implements IdFunctionCall, InitializingBean, ScopeContr
         final ReferenceScript parentScript = scriptIndex > 0 ? scriptCallChain.get(scriptIndex - 1) : null;
 
         // determine parent scope from explicit registration
-        final Pair<WeakReference<Scriptable>, ReferenceScript> scopeParentPair = this.scopeParents.get(scope);
+        final Pair<WeakReference<Scriptable>, ReferenceScript> scopeParentPair;
+
+        this.scopeParentLock.readLock().lock();
+        try
+        {
+            scopeParentPair = this.scopeParents.get(scope);
+        }
+        finally
+        {
+            this.scopeParentLock.readLock().unlock();
+        }
         // use parent scope only if one has been registered and the script it was registered for is the identical script retrieved from the
         // call chain
         final Scriptable parentScope = scopeParentPair == null || (scopeParentPair.getSecond() != parentScript) ? scope : scopeParentPair
                 .getFirst().get();
 
-        final LoggerData parentLoggerData = parentScope != null ? getLoggerData(parentScope, parentScript, false) : null;
+        final LoggerData parentLoggerData = parentScope != null ? this.getLoggerData(parentScope, parentScript, false) : null;
         final Collection<Logger> loggers;
         if (parentLoggerData == null || parentLoggerData.isInheritLoggerContext())
         {
-            loggers = getLoggers(context, parentScope, parentScript, parentLoggerData);
+            loggers = this.getLoggers(context, parentScope, parentScript, parentLoggerData);
         }
         else
         {
@@ -571,22 +588,40 @@ public class LogFunction implements IdFunctionCall, InitializingBean, ScopeContr
         final int scriptIndex = scriptCallChain.indexOf(script);
         final ReferenceScript parentScript = scriptIndex > 0 ? scriptCallChain.get(scriptIndex - 1) : null;
 
-        // determine parent scope from explicit registration
-        final Pair<WeakReference<Scriptable>, ReferenceScript> scopeParentPair = this.scopeParents.get(scope);
-        // use parent scope only if one has been registered and the script it was registered for is the identical script retrieved from the
-        // call chain
-        final Scriptable parentScope = scopeParentPair == null || (scopeParentPair.getSecond() != parentScript) ? scope : scopeParentPair
-                .getFirst().get();
+        final boolean result;
+        if (parentScript != null)
+        {
+            // determine parent scope from explicit registration
+            final Pair<WeakReference<Scriptable>, ReferenceScript> scopeParentPair;
 
-        final LoggerData parentLoggerData = parentScope != null ? getLoggerData(parentScope, parentScript, false) : null;
+            this.scopeParentLock.readLock().lock();
+            try
+            {
+                scopeParentPair = this.scopeParents.get(scope);
+            }
+            finally
+            {
+                this.scopeParentLock.readLock().unlock();
+            }
+            // use parent scope only if one has been registered and the script it was registered for is the identical script retrieved from
+            // the call chain
+            final Scriptable parentScope = scopeParentPair == null || (scopeParentPair.getSecond() != parentScript) ? scope
+                    : scopeParentPair.getFirst().get();
 
-        // check immediate parent
-        final boolean nextParentLoggerIsExplicit = parentLoggerData != null && parentLoggerData.getExplicitLogger() != null
-                && parentLoggerData.isInheritLoggerContext();
-        // recursive check (unless inheritance is off or script is null - meaning a dynamic script string as first element of call chain)
-        final boolean ancestorLoggerIsExplicit = (parentLoggerData == null || parentLoggerData.isInheritLoggerContext()) && script != null
-                && isParentLoggerExplicit(context, parentScope, parentScript);
-        final boolean result = nextParentLoggerIsExplicit || ancestorLoggerIsExplicit;
+            final LoggerData parentLoggerData = parentScope != null ? this.getLoggerData(parentScope, parentScript, false) : null;
+
+            // check immediate parent
+            final boolean nextParentLoggerIsExplicit = parentLoggerData != null && parentLoggerData.getExplicitLogger() != null
+                    && parentLoggerData.isInheritLoggerContext();
+            // recursive check unless inheritance is off
+            final boolean ancestorLoggerIsExplicit = (parentLoggerData == null || parentLoggerData.isInheritLoggerContext())
+                    && this.isParentLoggerExplicit(context, parentScope, parentScript);
+            result = nextParentLoggerIsExplicit || ancestorLoggerIsExplicit;
+        }
+        else
+        {
+            result = false;
+        }
         return result;
     }
 
@@ -622,55 +657,40 @@ public class LogFunction implements IdFunctionCall, InitializingBean, ScopeContr
 
     protected LoggerData getLoggerData(final Scriptable scope, final ReferenceScript script, final boolean createIfNull)
     {
+        // this is like an internal assertion
+        ParameterCheck.mandatory("scope", scope);
+        ParameterCheck.mandatory("script", script);
+
         LoggerData loggerData = null;
 
-        if (script != null)
+        final Map<ReferenceScript, LoggerData> loggerDataByScript = this.getScriptLoggerDataForContext(scope, createIfNull);
+        loggerData = loggerDataByScript != null ? loggerDataByScript.get(script) : null;
+        if (loggerDataByScript != null && loggerData == null && createIfNull)
         {
-            final Map<ReferenceScript, LoggerData> loggerDataByScript = getScriptLoggerDataForContext(scope, createIfNull);
-            loggerData = loggerDataByScript != null ? loggerDataByScript.get(script) : null;
-            if (loggerDataByScript != null && loggerData == null && createIfNull)
-            {
-                loggerData = new LoggerData();
-                loggerDataByScript.put(script, loggerData);
-            }
+            loggerData = new LoggerData();
+            loggerDataByScript.put(script, loggerData);
         }
-        else
+
+        if (loggerData == null)
         {
-            this.scopeLoggerDataLock.readLock().lock();
+            // determine parent scope from explicit registration
+            final Pair<WeakReference<Scriptable>, ReferenceScript> scopeParentPair;
+
+            this.scopeParentLock.readLock().lock();
             try
             {
-                loggerData = this.scopeSentinelLoggerData.get(scope);
+                scopeParentPair = this.scopeParents.get(scope);
             }
             finally
             {
-                this.scopeLoggerDataLock.readLock().unlock();
+                this.scopeParentLock.readLock().unlock();
             }
-
-            if (loggerData == null && createIfNull)
+            if (scopeParentPair != null)
             {
-                loggerData = new LoggerData();
-                this.scopeLoggerDataLock.writeLock().lock();
-                try
+                final Scriptable parentScope = scopeParentPair.getFirst().get();
+                if (parentScope != null)
                 {
-                    this.scopeSentinelLoggerData.put(scope, loggerData);
-                }
-                finally
-                {
-                    this.scopeLoggerDataLock.writeLock().unlock();
-                }
-            }
-
-            if (loggerData == null)
-            {
-                // determine parent scope from explicit registration
-                final Pair<WeakReference<Scriptable>, ReferenceScript> scopeParentPair = this.scopeParents.get(scope);
-                if (scopeParentPair != null)
-                {
-                    final Scriptable parentScope = scopeParentPair.getFirst().get();
-                    if (parentScope != null)
-                    {
-                        loggerData = getLoggerData(parentScope, script, createIfNull);
-                    }
+                    loggerData = this.getLoggerData(parentScope, script, createIfNull);
                 }
             }
         }
@@ -705,7 +725,7 @@ public class LogFunction implements IdFunctionCall, InitializingBean, ScopeContr
 
         if (scriptLogger != null)
         {
-            log(methodId, scriptLogger, message);
+            this.log(methodId, scriptLogger, message);
         }
     }
 
@@ -738,7 +758,7 @@ public class LogFunction implements IdFunctionCall, InitializingBean, ScopeContr
 
         if (scriptLogger != null)
         {
-            log(methodId, scriptLogger, message + "\n" + ex.toString());
+            this.log(methodId, scriptLogger, message + "\n" + ex.toString());
         }
     }
 
@@ -772,7 +792,7 @@ public class LogFunction implements IdFunctionCall, InitializingBean, ScopeContr
         if (scriptLogger != null)
         {
             final String formattedMessage = MessageFormatter.arrayFormat(message, params);
-            log(methodId, scriptLogger, formattedMessage);
+            this.log(methodId, scriptLogger, formattedMessage);
         }
     }
 

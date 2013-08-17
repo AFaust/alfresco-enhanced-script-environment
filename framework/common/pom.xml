@@ -58,6 +58,14 @@
             <scope>compile</scope>
         </dependency>
 
+        <!-- This is available in Repository, but may not be in Surf -->
+        <dependency>
+            <groupId>asm</groupId>
+            <artifactId>asm</artifactId>
+            <version>3.1</version>
+            <scope>provided</scope>
+        </dependency>
+
         <dependency>
             <groupId>org.eclipse.wst</groupId>
             <artifactId>org.eclipse.wst.jsdt.debug.rhino.debugger</artifactId>
@@ -93,6 +101,11 @@
 
             <plugin>
                 <artifactId>maven-source-plugin</artifactId>
+            </plugin>
+            
+            <plugin>
+                <groupId>org.alfresco.maven.plugin</groupId>
+                <artifactId>alfresco-maven-plugin</artifactId>
             </plugin>
 
             <plugin>

@@ -17,6 +17,7 @@ package org.nabucco.alfresco.enhScriptEnv.common.webscripts.processor;
 import java.net.URL;
 
 import org.alfresco.util.PropertyCheck;
+import org.nabucco.alfresco.enhScriptEnv.common.script.ReferenceScript;
 import org.nabucco.alfresco.enhScriptEnv.common.script.ReferenceScript.CommonReferencePath;
 import org.nabucco.alfresco.enhScriptEnv.common.script.locator.AbstractRelativeResolvingScriptLocator;
 import org.springframework.extensions.webscripts.ScriptLoader;
@@ -24,7 +25,7 @@ import org.springframework.extensions.webscripts.ScriptLoader;
 /**
  * A script locator able to import scripts from the classpath of the web application. This implementation is able to resolve relative script
  * locations when supplied with a execution context.
- * 
+ *
  * @author Axel Faust, <a href="http://www.prodyna.com">PRODYNA AG</a>
  */
 public class ClasspathScriptLocator extends AbstractRelativeResolvingScriptLocator<ScriptContentAdapter>
@@ -42,18 +43,18 @@ public class ClasspathScriptLocator extends AbstractRelativeResolvingScriptLocat
     }
 
     /**
-     * 
+     *
      * {@inheritDoc}
      */
     @Override
-    protected String getReferencePath(final ScriptContentAdapter referenceLocation)
+    protected String getReferencePath(final ReferenceScript referenceLocation)
     {
         final String referencePath = referenceLocation.getReferencePath(CommonReferencePath.CLASSPATH);
         return referencePath;
     }
 
     /**
-     * 
+     *
      * {@inheritDoc}
      */
     @Override
@@ -61,12 +62,12 @@ public class ClasspathScriptLocator extends AbstractRelativeResolvingScriptLocat
     {
         String absoluteClasspath = absolutePath.startsWith("/") ? absolutePath : "/" + absolutePath;
         final ScriptContentAdapter result;
-        URL scriptResource = getClass().getClassLoader().getResource(absoluteClasspath);
+        URL scriptResource = this.getClass().getClassLoader().getResource(absoluteClasspath);
         if (scriptResource == null && absoluteClasspath.startsWith("/"))
         {
             // Some classloaders prefer alfresco/foo to /alfresco/foo, try that
             absoluteClasspath = absoluteClasspath.substring(1);
-            scriptResource = getClass().getClassLoader().getResource(absoluteClasspath);
+            scriptResource = this.getClass().getClassLoader().getResource(absoluteClasspath);
         }
 
         if (scriptResource != null)
@@ -84,7 +85,7 @@ public class ClasspathScriptLocator extends AbstractRelativeResolvingScriptLocat
      * @param scriptLoader
      *            the scriptLoader to set
      */
-    public final void setScriptLoader(ScriptLoader scriptLoader)
+    public final void setScriptLoader(final ScriptLoader scriptLoader)
     {
         this.scriptLoader = scriptLoader;
     }

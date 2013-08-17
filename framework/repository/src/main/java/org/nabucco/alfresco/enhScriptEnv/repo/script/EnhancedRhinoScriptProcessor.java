@@ -55,14 +55,18 @@ import org.alfresco.util.MD5;
 import org.alfresco.util.ParameterCheck;
 import org.mozilla.javascript.Context;
 import org.mozilla.javascript.ImporterTopLevel;
+import org.mozilla.javascript.NativeFunction;
 import org.mozilla.javascript.NativeJavaObject;
 import org.mozilla.javascript.Script;
 import org.mozilla.javascript.Scriptable;
 import org.mozilla.javascript.ScriptableObject;
 import org.mozilla.javascript.WrapFactory;
 import org.mozilla.javascript.WrappedException;
+import org.mozilla.javascript.debug.DebuggableScript;
 import org.nabucco.alfresco.enhScriptEnv.common.script.EnhancedScriptProcessor;
+import org.nabucco.alfresco.enhScriptEnv.common.script.ReferenceScript;
 import org.nabucco.alfresco.enhScriptEnv.common.script.ScopeContributor;
+import org.nabucco.alfresco.enhScriptEnv.common.util.SourceFileVisitor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.InitializingBean;
@@ -117,8 +121,8 @@ public class EnhancedRhinoScriptProcessor extends BaseProcessor implements Enhan
 
     private static final int DEFAULT_MAX_SCRIPT_CACHE_SIZE = 200;
 
-    protected final ThreadLocal<List<ScriptLocationAdapter>> activeScriptLocationChain = new ThreadLocal<List<ScriptLocationAdapter>>();
-    protected final ThreadLocal<List<List<ScriptLocationAdapter>>> recursionScriptLocationChains = new ThreadLocal<List<List<ScriptLocationAdapter>>>();
+    protected final ThreadLocal<List<ReferenceScript>> activeScriptLocationChain = new ThreadLocal<List<ReferenceScript>>();
+    protected final ThreadLocal<List<List<ReferenceScript>>> recursionScriptLocationChains = new ThreadLocal<List<List<ReferenceScript>>>();
 
     protected WrapFactory wrapFactory = DEFAULT_WRAP_FACTORY;
 
@@ -134,12 +138,12 @@ public class EnhancedRhinoScriptProcessor extends BaseProcessor implements Enhan
 
     protected final ValueConverter valueConverter = new ValueConverter();
 
-    protected final LinkedHashMap<String, Script> scriptCache = new LinkedHashMap<String, Script>(256);
+    protected final Map<String, Script> scriptCache = new LinkedHashMap<String, Script>(256);
     protected final ReadWriteLock scriptCacheLock = new ReentrantReadWriteLock(true);
 
     protected final AtomicLong dynamicScriptCounter = new AtomicLong();
 
-    protected final LinkedHashMap<String, Script> dynamicScriptByHashCache = new LinkedHashMap<String, Script>();
+    protected final Map<String, Script> dynamicScriptByHashCache = new LinkedHashMap<String, Script>();
     protected final ReadWriteLock dynamicScriptCacheLock = new ReentrantReadWriteLock(true);
 
     protected int maxScriptCacheSize = DEFAULT_MAX_SCRIPT_CACHE_SIZE;
@@ -246,24 +250,44 @@ public class EnhancedRhinoScriptProcessor extends BaseProcessor implements Enhan
         Script script = null;
         final MD5 md5 = new MD5();
         final String digest = md5.digest(source.getBytes());
+        final String debugScriptName;
 
         script = this.lookupScriptCache(this.dynamicScriptByHashCache, this.dynamicScriptCacheLock, digest);
 
         if (script == null)
         {
-            script = this.getCompiledScript(source, "string://DynamicJS-" + String.valueOf(this.dynamicScriptCounter.getAndIncrement()));
+            debugScriptName = "string://DynamicJS-" + String.valueOf(this.dynamicScriptCounter.getAndIncrement());
+            script = this.getCompiledScript(source, debugScriptName);
 
             if (this.compileScripts)
             {
                 this.updateScriptCache(this.dynamicScriptByHashCache, this.dynamicScriptCacheLock, digest, script);
             }
         }
+        else if (script instanceof NativeFunction)
+        {
+            final DebuggableScript debuggableView = ((NativeFunction) script).getDebuggableView();
+            if (debuggableView != null)
+            {
+                debugScriptName = debuggableView.getSourceName();
+            }
+            else
+            {
+                // obviously not an interpreted script
+                final String sourceFileName = SourceFileVisitor.readSourceFile(script.getClass());
+                debugScriptName = sourceFileName != null ? sourceFileName : ("string://Cached-DynamicJS-" + digest);
+            }
+        }
+        else
+        {
+            debugScriptName = "string://Cached-DynamicJS-" + digest;
+        }
 
         this.updateLocationChainsBeforeExceution();
-        // Note: We are not adding a location object to the chain as initial element - a dynamic JS string has not location
+        this.activeScriptLocationChain.get().add(new ReferenceScript.DynamicScript(debugScriptName));
         try
         {
-            return this.executeScriptImpl(script, model, true, "string script");
+            return this.executeScriptImpl(script, model, true, debugScriptName);
         }
         catch (final Throwable err)
         {
@@ -281,7 +305,148 @@ public class EnhancedRhinoScriptProcessor extends BaseProcessor implements Enhan
     @Override
     public void reset()
     {
-        this.scriptCache.clear();
+        this.scriptCacheLock.writeLock().lock();
+        try
+        {
+            this.scriptCache.clear();
+        }
+        finally
+        {
+            this.scriptCacheLock.writeLock().unlock();
+        }
+        this.dynamicScriptCacheLock.writeLock().lock();
+        try
+        {
+            this.dynamicScriptByHashCache.clear();
+        }
+        finally
+        {
+            this.dynamicScriptCacheLock.writeLock().unlock();
+        }
+    }
+
+    /**
+     *
+     * {@inheritDoc}
+     */
+    @Override
+    public void executeInScope(final String source, final Object scope)
+    {
+        ParameterCheck.mandatoryString("source", source);
+
+        // compile the script based on the node content
+        Script script = null;
+        final MD5 md5 = new MD5();
+        final String digest = md5.digest(source.getBytes());
+
+        script = this.lookupScriptCache(this.dynamicScriptByHashCache, this.dynamicScriptCacheLock, digest);
+
+        final String debugScriptName;
+        if (script == null)
+        {
+            debugScriptName = "string://DynamicJS-" + String.valueOf(this.dynamicScriptCounter.getAndIncrement());
+            script = this.getCompiledScript(source, debugScriptName);
+
+            if (this.compileScripts)
+            {
+                this.updateScriptCache(this.dynamicScriptByHashCache, this.dynamicScriptCacheLock, digest, script);
+            }
+        }
+        else if (script instanceof NativeFunction)
+        {
+            final DebuggableScript debuggableView = ((NativeFunction) script).getDebuggableView();
+            if (debuggableView != null)
+            {
+                debugScriptName = debuggableView.getSourceName();
+            }
+            else
+            {
+                // obviously not an interpreted script
+                final String sourceFileName = SourceFileVisitor.readSourceFile(script.getClass());
+                debugScriptName = sourceFileName != null ? sourceFileName : ("string://Cached-DynamicJS-" + digest);
+            }
+        }
+        else
+        {
+            debugScriptName = "string://Cached-DynamicJS-" + digest;
+        }
+
+        LOGGER.info("{} Start", debugScriptName);
+        LEGACY_CALL_LOGGER.debug("{} Start", debugScriptName);
+
+        List<ReferenceScript> currentChain = this.activeScriptLocationChain.get();
+        boolean newChain = false;
+        if (currentChain == null)
+        {
+            this.updateLocationChainsBeforeExceution();
+            currentChain = this.activeScriptLocationChain.get();
+            newChain = true;
+        }
+        // else: assume the original script chain is continued
+        currentChain.add(new ReferenceScript.DynamicScript(debugScriptName));
+
+        final long startTime = System.currentTimeMillis();
+        final Context cx = Context.enter();
+        try
+        {
+
+            final Scriptable realScope;
+            if (scope == null)
+            {
+                if (this.shareScopes)
+                {
+                    final Scriptable sharedScope = this.restrictedShareableScope;
+                    realScope = cx.newObject(sharedScope);
+                    realScope.setPrototype(sharedScope);
+                    realScope.setParentScope(null);
+                }
+                else
+                {
+                    realScope = this.setupScope(cx, false, false);
+                }
+            }
+            else if (!(scope instanceof Scriptable))
+            {
+                realScope = new NativeJavaObject(null, scope, scope.getClass());
+                if (this.shareScopes)
+                {
+                    final Scriptable sharedScope = this.restrictedShareableScope;
+                    realScope.setPrototype(sharedScope);
+                }
+                else
+                {
+                    final Scriptable baseScope = this.setupScope(cx, false, false);
+                    realScope.setPrototype(baseScope);
+                }
+            }
+            else
+            {
+                realScope = (Scriptable) scope;
+            }
+
+            this.executeScriptInScopeImpl(script, realScope);
+        }
+        catch (final Exception ex)
+        {
+            // TODO: error handling / bubbling to caller? how to handle Rhino exceptions if caller is not a script?
+            LOGGER.info("{} Exception: {}", debugScriptName, ex);
+            LEGACY_CALL_LOGGER.debug("{} Exception: {}", debugScriptName, ex);
+            throw new ScriptException("Failed to execute script string: " + ex.getMessage(), ex);
+        }
+        finally
+        {
+            Context.exit();
+
+            currentChain.remove(currentChain.size() - 1);
+            if (newChain)
+            {
+                this.updateLocationChainsAfterReturning();
+            }
+
+            final long endTime = System.currentTimeMillis();
+            LOGGER.info("{} End {} ms", debugScriptName, Long.valueOf(endTime - startTime));
+            LEGACY_CALL_LOGGER.debug("{} End {} ms", debugScriptName, Long.valueOf(endTime - startTime));
+        }
     }
 
     /**
@@ -293,24 +458,21 @@ public class EnhancedRhinoScriptProcessor extends BaseProcessor implements Enhan
         ParameterCheck.mandatory("location", location);
 
         final Script script = this.getCompiledScript(location);
-        final String debugScriptName;
-
-        {
-            final String path = location.getPath();
-            final int i = path.lastIndexOf('/');
-            debugScriptName = i != -1 ? path.substring(i + 1) : path;
-        }
+        final String debugScriptName = location.getName();
 
         LOGGER.info("{} Start", debugScriptName);
         LEGACY_CALL_LOGGER.debug("{} Start", debugScriptName);
 
-        // TODO: Can we always be sure we're continuing the previous chain?
-        final List<ScriptLocationAdapter> currentChain = this.activeScriptLocationChain.get();
-        if (currentChain != null)
+        List<ReferenceScript> currentChain = this.activeScriptLocationChain.get();
+        boolean newChain = false;
+        if (currentChain == null)
         {
-            // preliminary safeguard against incorrect invocation - see TODO notice
-            currentChain.add(location);
+            this.updateLocationChainsBeforeExceution();
+            currentChain = this.activeScriptLocationChain.get();
+            newChain = true;
         }
+        // else: assume the original script chain is continued
+        currentChain.add(location);
 
         final long startTime = System.currentTimeMillis();
         final Context cx = Context.enter();
@@ -363,10 +525,11 @@ public class EnhancedRhinoScriptProcessor extends BaseProcessor implements Enhan
         finally
         {
             Context.exit();
-            if (currentChain != null)
+
+            currentChain.remove(currentChain.size() - 1);
+            if (newChain)
             {
-                // preliminary safeguard against incorrect invocation - see TODO notice
-                currentChain.remove(currentChain.size() - 1);
+                this.updateLocationChainsAfterReturning();
             }
 
             final long endTime = System.currentTimeMillis();
@@ -412,10 +575,10 @@ public class EnhancedRhinoScriptProcessor extends BaseProcessor implements Enhan
      * {@inheritDoc}
      */
     @Override
-    public ScriptLocationAdapter getContextScriptLocation()
+    public ReferenceScript getContextScriptLocation()
     {
-        final List<ScriptLocationAdapter> currentChain = this.getActiveScriptLocationChain();
-        final ScriptLocationAdapter result;
+        final List<ReferenceScript> currentChain = this.activeScriptLocationChain.get();
+        final ReferenceScript result;
         if (currentChain != null && !currentChain.isEmpty())
         {
             result = currentChain.get(currentChain.size() - 1);
@@ -432,13 +595,13 @@ public class EnhancedRhinoScriptProcessor extends BaseProcessor implements Enhan
      * {@inheritDoc}
      */
     @Override
-    public List<ScriptLocationAdapter> getScriptCallChain()
+    public List<ReferenceScript> getScriptCallChain()
     {
-        final List<ScriptLocationAdapter> currentChain = this.getActiveScriptLocationChain();
-        final List<ScriptLocationAdapter> result;
+        final List<ReferenceScript> currentChain = this.activeScriptLocationChain.get();
+        final List<ReferenceScript> result;
         if (currentChain != null)
         {
-            result = new ArrayList<ScriptLocationAdapter>(currentChain);
+            result = new ArrayList<ReferenceScript>(currentChain);
         }
         else
         {
@@ -536,40 +699,34 @@ public class EnhancedRhinoScriptProcessor extends BaseProcessor implements Enhan
 
     protected void updateLocationChainsBeforeExceution()
     {
-        final List<ScriptLocationAdapter> activeChain = this.activeScriptLocationChain.get();
+        final List<ReferenceScript> activeChain = this.activeScriptLocationChain.get();
         if (activeChain != null)
         {
-            List<List<ScriptLocationAdapter>> recursionChains = this.recursionScriptLocationChains.get();
+            List<List<ReferenceScript>> recursionChains = this.recursionScriptLocationChains.get();
             if (recursionChains == null)
             {
-                recursionChains = new LinkedList<List<ScriptLocationAdapter>>();
+                recursionChains = new LinkedList<List<ReferenceScript>>();
                 this.recursionScriptLocationChains.set(recursionChains);
             }
 
             recursionChains.add(0, activeChain);
         }
-        this.activeScriptLocationChain.set(new LinkedList<ScriptLocationAdapter>());
+        this.activeScriptLocationChain.set(new LinkedList<ReferenceScript>());
     }
 
     protected void updateLocationChainsAfterReturning()
     {
         this.activeScriptLocationChain.remove();
-        final List<List<ScriptLocationAdapter>> recursionChains = this.recursionScriptLocationChains.get();
+        final List<List<ReferenceScript>> recursionChains = this.recursionScriptLocationChains.get();
         if (recursionChains != null)
         {
-            final List<ScriptLocationAdapter> previousChain = recursionChains.remove(0);
+            final List<ReferenceScript> previousChain = recursionChains.remove(0);
             if (recursionChains.isEmpty())
             {
                 this.recursionScriptLocationChains.remove();
             }
             this.activeScriptLocationChain.set(previousChain);
         }
-    }
-
-    protected List<ScriptLocationAdapter> getActiveScriptLocationChain()
-    {
-        final List<ScriptLocationAdapter> activeLocations = this.activeScriptLocationChain.get();
-        return activeLocations;
     }
 
     protected Script getCompiledScript(final ScriptLocation location)
@@ -661,6 +818,9 @@ public class EnhancedRhinoScriptProcessor extends BaseProcessor implements Enhan
             {
                 if (this.compileScripts && !this.debuggerActive)
                 {
+                    cx.setGeneratingDebug(true);
+                    cx.setGeneratingSource(true);
+
                     int optimizationLevel = this.optimizationLevel;
                     Script bestEffortOptimizedScript = null;
 
@@ -746,7 +906,7 @@ public class EnhancedRhinoScriptProcessor extends BaseProcessor implements Enhan
         return legacyNamePathResolvedScript;
     }
 
-    protected Script lookupScriptCache(final LinkedHashMap<String, Script> cache, final ReadWriteLock lock, final String key)
+    protected Script lookupScriptCache(final Map<String, Script> cache, final ReadWriteLock lock, final String key)
     {
         Script script;
         lock.readLock().lock();
@@ -761,8 +921,7 @@ public class EnhancedRhinoScriptProcessor extends BaseProcessor implements Enhan
         return script;
     }
 
-    protected void updateScriptCache(final LinkedHashMap<String, Script> cache, final ReadWriteLock lock, final String key,
-            final Script script)
+    protected void updateScriptCache(final Map<String, Script> cache, final ReadWriteLock lock, final String key, final Script script)
     {
         lock.writeLock().lock();
         try

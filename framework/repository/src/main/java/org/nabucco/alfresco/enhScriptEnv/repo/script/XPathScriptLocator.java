@@ -27,6 +27,7 @@ import org.alfresco.service.cmr.repository.StoreRef;
 import org.alfresco.service.cmr.search.SearchService;
 import org.alfresco.service.namespace.NamespaceService;
 import org.alfresco.service.namespace.QName;
+import org.nabucco.alfresco.enhScriptEnv.common.script.ReferenceScript;
 import org.nabucco.alfresco.enhScriptEnv.common.script.locator.AbstractScriptLocator;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -34,7 +35,7 @@ import org.slf4j.LoggerFactory;
 /**
  * Script location for a dynamic script maintained as the content of a node within the Alfresco repository, based upon resolutiuon using
  * {@link SearchService#LANGUAGE_XPATH XPath} queries.
- * 
+ *
  * @author Axel Faust, <a href="http://www.prodyna.com">PRODYNA AG</a>
  */
 public class XPathScriptLocator extends AbstractScriptLocator<ScriptLocationAdapter>
@@ -53,7 +54,7 @@ public class XPathScriptLocator extends AbstractScriptLocator<ScriptLocationAdap
      * {@inheritDoc}
      */
     @Override
-    public ScriptLocationAdapter resolveLocation(final ScriptLocationAdapter referenceLocation, final String locationValue)
+    public ScriptLocationAdapter resolveLocation(final ReferenceScript referenceLocation, final String locationValue)
     {
         final ScriptLocationAdapter result;
         LOGGER.debug("Resolving {} from reference location {}", locationValue, referenceLocation);
@@ -62,12 +63,12 @@ public class XPathScriptLocator extends AbstractScriptLocator<ScriptLocationAdap
         QName contentProp = ContentModel.PROP_CONTENT;
         if (locationValue != null)
         {
-            if (referenceLocation.getScriptLocation() instanceof NodeScriptLocation)
-            {
-                final NodeScriptLocation referenceNodeLocation = (NodeScriptLocation) referenceLocation.getScriptLocation();
-                final NodeRef referenceNode = referenceNodeLocation.getNode();
-                contentProp = referenceNodeLocation.getContentProp();
+            final String referenceNodeStr = referenceLocation.getReferencePath(RepositoryReferencePath.NODE_REF);
+            final String referencePropertyStr = referenceLocation.getReferencePath(RepositoryReferencePath.CONTENT_PROPERTY);
 
+            if (referenceNodeStr != null && NodeRef.isNodeRef(referenceNodeStr))
+            {
+                final NodeRef referenceNode = new NodeRef(referenceNodeStr);
                 nodes = this.searchService.selectNodes(referenceNode, locationValue, null, this.namespaceService, true);
             }
             else
@@ -76,6 +77,11 @@ public class XPathScriptLocator extends AbstractScriptLocator<ScriptLocationAdap
                 // treat as context free query
                 nodes = this.searchService.selectNodes(this.nodeService.getRootNode(this.defaultStoreRef), locationValue, null,
                         this.namespaceService, true);
+            }
+
+            if (referencePropertyStr != null)
+            {
+                contentProp = QName.createQName(referencePropertyStr);
             }
         }
         else
@@ -115,11 +121,11 @@ public class XPathScriptLocator extends AbstractScriptLocator<ScriptLocationAdap
     }
 
     /**
-     * 
+     *
      * {@inheritDoc}
      */
     @Override
-    public ScriptLocationAdapter resolveLocation(final ScriptLocationAdapter referenceLocation, final String locationValue,
+    public ScriptLocationAdapter resolveLocation(final ReferenceScript referenceLocation, final String locationValue,
             final Map<String, Object> resolutionParameters)
     {
         // we currently don't support any parameters, so just pass to default implementation
@@ -130,7 +136,7 @@ public class XPathScriptLocator extends AbstractScriptLocator<ScriptLocationAdap
                     "Implementation does not support resolution parameters - resolution of path {} from reference location {1} will continue with default implementation",
                     locationValue, referenceLocation);
         }
-        return resolveLocation(referenceLocation, locationValue);
+        return this.resolveLocation(referenceLocation, locationValue);
     }
 
     /**

@@ -19,6 +19,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import org.alfresco.util.PropertyCheck;
+import org.nabucco.alfresco.enhScriptEnv.common.script.ReferenceScript;
 import org.nabucco.alfresco.enhScriptEnv.common.script.locator.AbstractRelativeResolvingScriptLocator;
 import org.springframework.extensions.webscripts.MultiScriptLoader;
 import org.springframework.extensions.webscripts.ScriptContent;
@@ -59,7 +60,7 @@ public class StoreScriptLocator extends AbstractRelativeResolvingScriptLocator<S
     }
 
     /**
-     * 
+     *
      * {@inheritDoc}
      */
     @Override
@@ -72,31 +73,31 @@ public class StoreScriptLocator extends AbstractRelativeResolvingScriptLocator<S
      * @param searchPath
      *            the searchPath to set
      */
-    public final void setSearchPath(SearchPath searchPath)
+    public final void setSearchPath(final SearchPath searchPath)
     {
         this.searchPath = searchPath;
     }
 
     /**
-     * 
+     *
      * {@inheritDoc}
      */
     @Override
-    protected String getReferencePath(final ScriptContentAdapter referenceLocation)
+    protected String getReferencePath(final ReferenceScript referenceLocation)
     {
         final String referencePath = referenceLocation.getReferencePath(SurfReferencePath.STORE);
         return referencePath;
     }
 
     /**
-     * 
+     *
      * {@inheritDoc}
      */
     @Override
     protected ScriptContentAdapter loadScript(final String absolutePath)
     {
         final ScriptContentAdapter result;
-        final ScriptContent scriptContent = getScript(absolutePath);
+        final ScriptContent scriptContent = this.getScript(absolutePath);
         if (scriptContent != null)
         {
             result = new ScriptContentAdapter(scriptContent, this.scriptLoader);

@@ -17,6 +17,9 @@
         <!-- The same as the path is already legal -->
         <messageBundle.rootId>${messageBundle.rootPath}</messageBundle.rootId>
         <basePackage>${project.artifactId}</basePackage>
+        
+        <webscript.jslint.custom.root.objects>importScript</webscript.jslint.custom.root.objects>
+        <webscript.jslint.custom.root.values>DESCRIPTOR</webscript.jslint.custom.root.values>
 
     </properties>
 
@@ -77,6 +80,11 @@
             <plugin>
                 <groupId>org.alfresco.maven.plugin</groupId>
                 <artifactId>alfresco-maven-plugin</artifactId>
+            </plugin>
+            
+            <plugin>
+                <groupId>com.googlecode.jslint4java</groupId>
+                <artifactId>jslint4java-maven-plugin</artifactId>
             </plugin>
 
             <plugin>

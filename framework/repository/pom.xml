@@ -17,7 +17,7 @@
         <!-- The same as the path is already legal -->
         <messageBundle.rootId>${messageBundle.rootPath}</messageBundle.rootId>
         <basePackage>${project.artifactId}</basePackage>
-
+        
     </properties>
 
     <dependencies>
@@ -36,12 +36,21 @@
             <scope>compile</scope>
         </dependency>
 
+        <!-- We know this is provided within the Repository -->
+        <dependency>
+            <groupId>asm</groupId>
+            <artifactId>asm</artifactId>
+            <version>3.1</version>
+            <scope>compile</scope>
+        </dependency>
+
         <dependency>
             <groupId>ch.qos.logback</groupId>
             <artifactId>logback-classic</artifactId>
             <version>1.0.11</version>
             <scope>runtime</scope>
         </dependency>
+
     </dependencies>
 
     <build>
@@ -95,6 +104,11 @@
             <plugin>
                 <groupId>net.alchim31.maven</groupId>
                 <artifactId>yuicompressor-maven-plugin</artifactId>
+            </plugin>
+
+            <plugin>
+                <groupId>com.googlecode.jslint4java</groupId>
+                <artifactId>jslint4java-maven-plugin</artifactId>
             </plugin>
 
             <plugin>

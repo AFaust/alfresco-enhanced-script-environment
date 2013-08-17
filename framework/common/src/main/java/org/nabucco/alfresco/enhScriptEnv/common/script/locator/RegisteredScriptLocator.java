@@ -64,7 +64,7 @@ public abstract class RegisteredScriptLocator<BaseScript, Script extends Referen
      * {@inheritDoc}
      */
     @Override
-    public final Script resolveLocation(final Script referenceLocation, final String locationValue)
+    public final Script resolveLocation(final ReferenceScript referenceLocation, final String locationValue)
     {
         final Script result;
 
@@ -78,7 +78,8 @@ public abstract class RegisteredScriptLocator<BaseScript, Script extends Referen
      * {@inheritDoc}
      */
     @Override
-    public Script resolveLocation(final Script referenceLocation, final String locationValue, final Map<String, Object> resolutionParameters)
+    public Script resolveLocation(final ReferenceScript referenceLocation, final String locationValue,
+            final Map<String, Object> resolutionParameters)
     {
         final Script script;
         // we currently don't support any parameters, so just pass to default implementation

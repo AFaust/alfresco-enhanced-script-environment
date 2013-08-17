@@ -20,8 +20,6 @@ import java.util.Arrays;
 import java.util.Collection;
 
 import org.nabucco.alfresco.enhScriptEnv.common.script.ReferenceScript;
-import org.nabucco.alfresco.enhScriptEnv.common.script.ReferenceScript.CommonReferencePath;
-import org.nabucco.alfresco.enhScriptEnv.common.script.ReferenceScript.ReferencePathType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.extensions.webscripts.ClassPathStore;
@@ -110,7 +108,23 @@ public class ScriptContentAdapter implements ScriptContent, ReferenceScript
     }
 
     /**
-     * 
+     *
+     * {@inheritDoc}
+     */
+    @Override
+    public String getName()
+    {
+        final String scriptName;
+
+        final String path = this.getPath();
+        final int i = path.lastIndexOf('/');
+        scriptName = i != -1 ? path.substring(i + 1) : path;
+
+        return scriptName;
+    }
+
+    /**
+     *
      * {@inheritDoc}
      */
     @Override
@@ -119,11 +133,11 @@ public class ScriptContentAdapter implements ScriptContent, ReferenceScript
         final String result;
         if (typeOfPath instanceof CommonReferencePath)
         {
-            result = determineCommonReferencePaths(typeOfPath);
+            result = this.determineCommonReferencePaths(typeOfPath);
         }
         else if (typeOfPath instanceof SurfReferencePath)
         {
-            result = determineSurfReferencePaths(typeOfPath);
+            result = this.determineSurfReferencePaths(typeOfPath);
         }
         else
         {
@@ -186,7 +200,7 @@ public class ScriptContentAdapter implements ScriptContent, ReferenceScript
         switch ((SurfReferencePath) typeOfPath)
         {
         case STORE:
-            result = determineStorePath();
+            result = this.determineStorePath();
             break;
 
         default:
@@ -209,7 +223,7 @@ public class ScriptContentAdapter implements ScriptContent, ReferenceScript
             final String path = this.getPath();
             final String pathDescription = this.getPathDescription();
             // resolution is guaranteed (how else would this script have been located in the first place?)
-            referencePath = determineStorePath(path, pathDescription);
+            referencePath = this.determineStorePath(path, pathDescription);
         }
         else
         {

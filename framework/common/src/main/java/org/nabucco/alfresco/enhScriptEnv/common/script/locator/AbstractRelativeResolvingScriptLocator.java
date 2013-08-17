@@ -23,7 +23,7 @@ import org.slf4j.LoggerFactory;
 /**
  * A script locator able to import scripts from the classpath of the web application. This implementation is able to resolve relative script
  * locations when supplied with a execution context.
- * 
+ *
  * @author Axel Faust, <a href="http://www.prodyna.com">PRODYNA AG</a>
  */
 public abstract class AbstractRelativeResolvingScriptLocator<Script extends ReferenceScript> extends AbstractScriptLocator<Script>
@@ -34,7 +34,7 @@ public abstract class AbstractRelativeResolvingScriptLocator<Script extends Refe
      * {@inheritDoc}
      */
     @Override
-    public final Script resolveLocation(final Script referenceLocation, final String locationValue)
+    public final Script resolveLocation(final ReferenceScript referenceLocation, final String locationValue)
     {
         final Script result;
         LOGGER.debug("Resolving {} from reference location {}", locationValue, referenceLocation);
@@ -54,7 +54,7 @@ public abstract class AbstractRelativeResolvingScriptLocator<Script extends Refe
                 }
                 else
                 {
-                    final String referencePath = getReferencePath(referenceLocation);
+                    final String referencePath = this.getReferencePath(referenceLocation);
                     if (referencePath != null)
                     {
                         final StringBuilder pathBuilder = new StringBuilder();
@@ -63,7 +63,7 @@ public abstract class AbstractRelativeResolvingScriptLocator<Script extends Refe
                             pathBuilder.append(referencePath.substring(referencePath.contains(":") ? referencePath.indexOf(':') + 1 : 0,
                                     referencePath.lastIndexOf('/') + 1));
                         }
-                        resolveRelativeLocation(locationValue, referencePath, pathBuilder);
+                        this.resolveRelativeLocation(locationValue, referencePath, pathBuilder);
 
                         absolutePath = pathBuilder.toString();
                     }
@@ -89,7 +89,7 @@ public abstract class AbstractRelativeResolvingScriptLocator<Script extends Refe
             }
             else
             {
-                result = loadScript(absolutePath);
+                result = this.loadScript(absolutePath);
             }
 
         }
@@ -105,11 +105,12 @@ public abstract class AbstractRelativeResolvingScriptLocator<Script extends Refe
     }
 
     /**
-     * 
+     *
      * {@inheritDoc}
      */
     @Override
-    public Script resolveLocation(final Script referenceLocation, final String locationValue, final Map<String, Object> resolutionParameters)
+    public Script resolveLocation(final ReferenceScript referenceLocation, final String locationValue,
+            final Map<String, Object> resolutionParameters)
     {
         // we currently don't support any parameters, so just pass to default implementation
         if (resolutionParameters != null)
@@ -118,10 +119,10 @@ public abstract class AbstractRelativeResolvingScriptLocator<Script extends Refe
                     "Implementation does not support resolution parameters - resolution of path {} from reference location {1} will continue with default implementation",
                     locationValue, referenceLocation);
         }
-        return resolveLocation(referenceLocation, locationValue);
+        return this.resolveLocation(referenceLocation, locationValue);
     }
 
-    protected abstract String getReferencePath(Script referenceLocation);
+    protected abstract String getReferencePath(ReferenceScript referenceLocation);
 
     protected abstract Script loadScript(String absolutePath);
 

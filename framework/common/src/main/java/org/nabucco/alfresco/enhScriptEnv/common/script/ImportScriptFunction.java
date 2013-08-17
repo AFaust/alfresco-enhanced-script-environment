@@ -35,7 +35,7 @@ import org.springframework.beans.factory.InitializingBean;
  * Import function to allow inclusion of other scripts in arbitrary contexts of a script in execution. This function utilizes the central
  * registry of script locators supplied by the Rhino script processor as well as its compilation / caching framework for constituent
  * scripts.
- * 
+ *
  * @author Axel Faust, <a href="http://www.prodyna.com">PRODYNA AG</a>
  */
 public class ImportScriptFunction<Script extends ReferenceScript> implements IdFunctionCall, ScriptLocatorRegistry<Script>,
@@ -66,7 +66,7 @@ public class ImportScriptFunction<Script extends ReferenceScript> implements IdF
     }
 
     /**
-     * 
+     *
      * {@inheritDoc}
      */
     @Override
@@ -78,7 +78,7 @@ public class ImportScriptFunction<Script extends ReferenceScript> implements IdF
         {
             if (f.methodId() == IMPORT_FUNC_ID)
             {
-                final Script referenceLocation = this.scriptProcessor.getContextScriptLocation();
+                final ReferenceScript referenceLocation = this.scriptProcessor.getContextScriptLocation();
 
                 final String locatorType = ScriptRuntime.toString(args, 0);
                 final String locationValue = ScriptRuntime.toString(args, 1);
@@ -92,14 +92,14 @@ public class ImportScriptFunction<Script extends ReferenceScript> implements IdF
                 // defaults to null
                 final Scriptable resolutionParams = ScriptRuntime.toObjectOrNull(cx, args.length > 3 ? args[3] : null);
                 final Object resolotionParamsJavaObj = this.valueConverter.convertValueForJava(resolutionParams);
-                
-                // TODO: Is Scriptable ok as base type for scope? Could be anything, even a function... 
+
+                // TODO: Is Scriptable ok as base type for scope? Could be anything, even a function...
                 final Scriptable executionScopeParam = ScriptRuntime.toObjectOrNull(cx, args.length > 4 ? args[4] : null);
 
                 final ScriptLocator<Script> scriptLocator = this.scriptLocators.get(locatorType);
                 if (scriptLocator != null)
                 {
-                    final Script location = resolveLocationImpl(referenceLocation, locationValue, resolotionParamsJavaObj, scriptLocator);
+                    final Script location = this.resolveLocationImpl(referenceLocation, locationValue, resolotionParamsJavaObj, scriptLocator);
 
                     if (location == null)
                     {
@@ -114,7 +114,7 @@ public class ImportScriptFunction<Script extends ReferenceScript> implements IdF
                     }
                     else
                     {
-                        importAndExecute(cx, scope, executionScopeParam, location);
+                        this.importAndExecute(cx, scope, executionScopeParam, location);
                         result = true;
                     }
                 }
@@ -170,7 +170,7 @@ public class ImportScriptFunction<Script extends ReferenceScript> implements IdF
 
     /**
      * Sets the scriptProcessor to given scriptProcessor.
-     * 
+     *
      * @param scriptProcessor
      *            the scriptProcessor to set
      */
@@ -181,7 +181,7 @@ public class ImportScriptFunction<Script extends ReferenceScript> implements IdF
 
     /**
      * Sets the valueConverter to given valueConverter.
-     * 
+     *
      * @param valueConverter
      *            the valueConverter to set
      */
@@ -221,7 +221,8 @@ public class ImportScriptFunction<Script extends ReferenceScript> implements IdF
         this.scriptProcessor.executeInScope(location, executionScope);
     }
 
-    protected Script resolveLocationImpl(final Script referenceLocation, final String locationValue, final Object resolutionParams,
+    protected Script resolveLocationImpl(final ReferenceScript referenceLocation, final String locationValue,
+            final Object resolutionParams,
             final ScriptLocator<Script> scriptLocator)
     {
         final Script location;

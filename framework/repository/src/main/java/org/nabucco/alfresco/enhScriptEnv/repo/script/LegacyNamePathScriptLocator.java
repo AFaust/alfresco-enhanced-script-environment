@@ -31,7 +31,7 @@ import org.alfresco.service.cmr.repository.NodeService;
 import org.alfresco.service.cmr.repository.StoreRef;
 import org.alfresco.service.cmr.search.SearchService;
 import org.alfresco.service.namespace.NamespaceService;
-import org.nabucco.alfresco.enhScriptEnv.common.script.ScriptImportException;
+import org.nabucco.alfresco.enhScriptEnv.common.script.ReferenceScript;
 import org.nabucco.alfresco.enhScriptEnv.common.script.locator.AbstractScriptLocator;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -57,7 +57,7 @@ public class LegacyNamePathScriptLocator extends AbstractScriptLocator<ScriptLoc
      * {@inheritDoc}
      */
     @Override
-    public ScriptLocationAdapter resolveLocation(final ScriptLocationAdapter referenceLocation, final String locationValue)
+    public ScriptLocationAdapter resolveLocation(final ReferenceScript referenceLocation, final String locationValue)
     {
         final ScriptLocationAdapter result;
         if (locationValue.startsWith("/"))
@@ -108,7 +108,7 @@ public class LegacyNamePathScriptLocator extends AbstractScriptLocator<ScriptLoc
      * {@inheritDoc}
      */
     @Override
-    public ScriptLocationAdapter resolveLocation(final ScriptLocationAdapter referenceLocation, final String locationValue,
+    public ScriptLocationAdapter resolveLocation(final ReferenceScript referenceLocation, final String locationValue,
             final Map<String, Object> resolutionParameters)
     {
         // we currently don't support any parameters, so just pass to default implementation
@@ -118,7 +118,7 @@ public class LegacyNamePathScriptLocator extends AbstractScriptLocator<ScriptLoc
                     "Implementation does not support resolution parameters - resolution of path {} from reference location {1} will continue with default implementation",
                     locationValue, referenceLocation);
         }
-        return resolveLocation(referenceLocation, locationValue);
+        return this.resolveLocation(referenceLocation, locationValue);
     }
 
     /**

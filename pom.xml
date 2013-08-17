@@ -46,14 +46,15 @@
                                 <rules>
                                     <requireJavaVersion>
                                         <version>[1.6.0,1.7.0)</version>
-                                        <message>Alfresco 4.0 / 4.1 require Java 6 and reusable modules must not make use of Java 7 to avoid incompatibilities</message>
+                                        <message>Alfresco 4.0 / 4.1 require Java 6 and reusable modules must not make use of Java 7 to avoid
+                                            incompatibilities</message>
                                     </requireJavaVersion>
                                 </rules>
                             </configuration>
                         </execution>
                     </executions>
                 </plugin>
-                
+
                 <plugin>
                     <artifactId>maven-compiler-plugin</artifactId>
                     <version>2.5.1</version>
@@ -74,6 +75,19 @@
                             </goals>
                         </execution>
                     </executions>
+                </plugin>
+
+                <plugin>
+                    <artifactId>maven-resources-plugin</artifactId>
+                    <version>2.6</version>
+                    <configuration>
+                        <nonFilteredFileExtensions>
+                            <nonFilteredFileExtension>ftl</nonFilteredFileExtension>
+                            <nonFilteredFileExtension>zip</nonFilteredFileExtension>
+                            <nonFilteredFileExtension>jar</nonFilteredFileExtension>
+                            <nonFilteredFileExtension>acp</nonFilteredFileExtension>
+                        </nonFilteredFileExtensions>
+                    </configuration>
                 </plugin>
 
                 <plugin>
@@ -107,7 +121,6 @@
                             <id>Check and Minify JS</id>
                             <phase>process-resources</phase>
                             <goals>
-                                <goal>jslint</goal>
                                 <goal>compress</goal>
                             </goals>
                             <configuration>
@@ -125,6 +138,12 @@
                 </plugin>
 
                 <plugin>
+                    <groupId>com.googlecode.jslint4java</groupId>
+                    <artifactId>jslint4java-maven-plugin</artifactId>
+                    <version>2.0.5</version>
+                </plugin>
+
+                <plugin>
                     <artifactId>maven-assembly-plugin</artifactId>
                     <version>2.3</version>
                     <configuration>
@@ -136,8 +155,8 @@
                     <dependencies>
                         <dependency>
                             <groupId>org.alfresco.maven.plugin</groupId>
-                            <artifactId>maven-amp-plugin</artifactId>
-                            <version>3.0.4</version>
+                            <artifactId>alfresco-maven-plugin</artifactId>
+                            <version>1.0.2</version>
                         </dependency>
                     </dependencies>
                     <executions>
@@ -173,6 +192,19 @@
                                         <ignore />
                                     </action>
                                 </pluginExecution>
+                                <pluginExecution>
+                                    <pluginExecutionFilter>
+                                        <groupId>org.alfresco.maven.plugin</groupId>
+                                        <artifactId>alfresco-maven-plugin</artifactId>
+                                        <versionRange>[1.0.2,)</versionRange>
+                                        <goals>
+                                            <goal>set-version</goal>
+                                        </goals>
+                                    </pluginExecutionFilter>
+                                    <action>
+                                        <ignore></ignore>
+                                    </action>
+                                </pluginExecution>
                             </pluginExecutions>
                         </lifecycleMappingMetadata>
                     </configuration>
@@ -204,9 +236,6 @@
 
         <profile>
             <id>publicRepositories</id>
-            <activation>
-                <activeByDefault>true</activeByDefault>
-            </activation>
 
             <repositories>
 
@@ -250,9 +279,6 @@
 
         <profile>
             <id>privateAlfrescoRepository</id>
-            <activation>
-                <activeByDefault>false</activeByDefault>
-            </activation>
 
             <repositories>
 
@@ -276,9 +302,6 @@
         <profile>
             <!-- This repository should contain the necessary JSDT dependencies, but unfortunately is incomplete in that regard -->
             <id>eclipseRepository</id>
-            <activation>
-                <activeByDefault>false</activeByDefault>
-            </activation>
 
             <repositories>
 
@@ -290,8 +313,393 @@
             </repositories>
         </profile>
 
+        <!-- JS / CSS Validation and Minification profiles -->
+
+        <profile>
+            <id>Has Webapp</id>
+            <activation>
+                <file>
+                    <exists>src/main/webapp</exists>
+                </file>
+            </activation>
+
+            <properties>
+                <webapp.jslint.failOnError>true</webapp.jslint.failOnError>
+
+                <webapp.jslint.root.objects>YAHOO,Alfresco</webapp.jslint.root.objects>
+                <webapp.jslint.custom.root.objects>PRODYNA</webapp.jslint.custom.root.objects>
+
+                <!-- Validation properties -->
+                <webapp.jslint.bitwise>true</webapp.jslint.bitwise>
+                <webapp.jslint.eqeq>true</webapp.jslint.eqeq>
+                <webapp.jslint.forin>true</webapp.jslint.forin>
+                <webapp.jslint.nomen>true</webapp.jslint.nomen>
+                <webapp.jslint.plusplus>true</webapp.jslint.plusplus>
+                <webapp.jslint.unparam>true</webapp.jslint.unparam>
+                <webapp.jslint.todo>true</webapp.jslint.todo>
+                <webapp.jslint.vars>false</webapp.jslint.vars>
+                <webapp.jslint.white>true</webapp.jslint.white>
+                <webapp.jslint.sub>true</webapp.jslint.sub>
+                <webapp.jslint.evil>false</webapp.jslint.evil>
+                <webapp.jslint.newcap>true</webapp.jslint.newcap>
+                <webapp.jslint.sloppy>true</webapp.jslint.sloppy>
+            </properties>
+
+            <build>
+                <pluginManagement>
+                    <plugins>
+                        <plugin>
+                            <groupId>com.googlecode.jslint4java</groupId>
+                            <artifactId>jslint4java-maven-plugin</artifactId>
+                            <executions>
+                                <execution>
+                                    <id>Validate Webapp</id>
+                                    <phase>initialize</phase>
+                                    <goals>
+                                        <goal>lint</goal>
+                                    </goals>
+                                    <configuration>
+                                        <sourceFolders>
+                                            <sourceFolder>src/main/webapp</sourceFolder>
+                                        </sourceFolders>
+                                        <options>
+                                            <browser>true</browser>
+                                            <node>false</node>
+                                            <rhino>false</rhino>
+                                            <closure>false</closure>
+                                            <windows>false</windows>
+                                            <devel>false</devel>
+
+                                            <bitwise>${webapp.jslint.bitwise}</bitwise>
+                                            <eqeq>${webapp.jslint.eqeq)</eqeq>
+                                            <forin>${webapp.jslint.forin}</forin>
+                                            <nomen>${webapp.jslint.nomen}</nomen>
+                                            <plusplus>${webapp.jslint.plusplus}</plusplus>
+                                            <unparam>${webapp.jslint.unparam}</unparam>
+                                            <todo>${webapp.jslint.todo}</todo>
+                                            <vars>${webapp.jslint.vars}</vars>
+                                            <white>${webapp.jslint.white}</white>
+                                            <sub>${webapp.jslint.sub}</sub>
+                                            <evil>${webapp.jslint.evil}</evil>
+                                            <newcap>${webapp.jslint.newcap}</newcap>
+                                            <sloppy>${webapp.jslint.sloppy}</sloppy>
+
+                                            <predef>${webapp.jslint.root.objects},${webapp.jslint.custom.root.objects}</predef>
+                                        </options>
+                                        <failOnError>${webapp.jslint.failOnError}</failOnError>
+                                    </configuration>
+                                </execution>
+                            </executions>
+                        </plugin>
+
+<!-- 
+                        <plugin>
+                            <groupId>com.samaxes.maven</groupId>
+                            <artifactId>minify-maven-plugin</artifactId>
+                            <executions>
+                                <execution>
+                                    <id>Minify Webapp</id>
+                                    <goals>
+                                        <goal>minify</goal>
+                                    </goals>
+                                    <configuration>
+                                        <charset>${project.build.sourceEncoding}</charset>
+                                        <jsSourceDir>webapp</jsSourceDir>
+                                        <jsTargetDir>web</jsTargetDir>
+                                        <jsSourceExcludes>
+                                            <jsSourceExclude>WEB-INF/**/*</jsSourceExclude>
+                                            <jsSourceExclude>**/*-min.js</jsSourceExclude>
+                                        </jsSourceExcludes>
+                                        <jsSourceIncludes>
+                                            <jsSourceInclude>**/*.js</jsSourceInclude>
+                                        </jsSourceIncludes>
+                                        <cssSourceDir>webapp</cssSourceDir>
+                                        <cssTargetDir>web</cssTargetDir>
+                                        <cssSourceExcludes>
+                                            <cssSourceExclude>WEB-INF/**/*</cssSourceExclude>
+                                            <cssSourceExclude>**/*-min.css</cssSourceExclude>
+                                        </cssSourceExcludes>
+                                        <cssSourceIncludes>
+                                            <cssSourceInclude>**/*.css</cssSourceInclude>
+                                        </cssSourceIncludes>
+                                        <webappSourceDir>${basedir}/src/main</webappSourceDir>
+                                        <webappTargetDir>${project.build.directory}</webappTargetDir>
+                                        <nomunge>true</nomunge>
+                                        <skipMerge>true</skipMerge>
+                                        <suffix>-min</suffix>
+                                    </configuration>
+                                </execution>
+                            </executions>
+                        </plugin>
+ -->
+                    </plugins>
+                </pluginManagement>
+            </build>
+        </profile>
+
+        <profile>
+            <id>Has Repository WebScripts</id>
+            <activation>
+                <file>
+                    <exists>src/main/webscripts</exists>
+                </file>
+            </activation>
+
+            <properties>
+
+                <webscript.jslint.failOnError>true</webscript.jslint.failOnError>
+
+                <webscript.jslint.root.objects>args,url,json,status,model,config,logger</webscript.jslint.root.objects>
+                <webscript.jslint.root.services>search,siteService,groups,people</webscript.jslint.root.services>
+                <webscript.jslint.custom.root.objects></webscript.jslint.custom.root.objects>
+
+                <webscript.jslint.root.values>companyhome,userhome</webscript.jslint.root.values>
+                <webscript.jslint.custom.root.values></webscript.jslint.custom.root.values>
+
+                <!-- Validation properties -->
+                <webscript.jslint.bitwise>true</webscript.jslint.bitwise>
+                <webscript.jslint.eqeq>true</webscript.jslint.eqeq>
+                <webscript.jslint.forin>true</webscript.jslint.forin>
+                <webscript.jslint.nomen>true</webscript.jslint.nomen>
+                <webscript.jslint.plusplus>true</webscript.jslint.plusplus>
+                <webscript.jslint.unparam>true</webscript.jslint.unparam>
+                <webscript.jslint.todo>true</webscript.jslint.todo>
+                <webscript.jslint.vars>false</webscript.jslint.vars>
+                <webscript.jslint.white>true</webscript.jslint.white>
+                <webscript.jslint.sub>true</webscript.jslint.sub>
+                <webscript.jslint.evil>false</webscript.jslint.evil>
+                <webscript.jslint.newcap>true</webscript.jslint.newcap>
+                <webscript.jslint.sloppy>true</webscript.jslint.sloppy>
+
+            </properties>
+
+            <build>
+                <pluginManagement>
+                    <plugins>
+                        <plugin>
+                            <groupId>com.googlecode.jslint4java</groupId>
+                            <artifactId>jslint4java-maven-plugin</artifactId>
+                            <executions>
+                                <execution>
+                                    <id>Validate WebScripts</id>
+                                    <phase>initialize</phase>
+                                    <goals>
+                                        <goal>lint</goal>
+                                    </goals>
+                                    <configuration>
+                                        <sourceFolders>
+                                            <sourceFolder>src/main/webscripts</sourceFolder>
+                                        </sourceFolders>
+                                        <options>
+                                            <browser>false</browser>
+                                            <node>false</node>
+                                            <rhino>true</rhino>
+                                            <closure>false</closure>
+                                            <windows>false</windows>
+                                            <devel>false</devel>
+
+                                            <bitwise>${webscript.jslint.bitwise}</bitwise>
+                                            <eqeq>${webscript.jslint.eqeq)</eqeq>
+                                            <forin>${webscript.jslint.forin}</forin>
+                                            <nomen>${webscript.jslint.nomen}</nomen>
+                                            <plusplus>${webscript.jslint.plusplus}</plusplus>
+                                            <unparam>${webscript.jslint.unparam}</unparam>
+                                            <todo>${webscript.jslint.todo}</todo>
+                                            <vars>${webscript.jslint.vars}</vars>
+                                            <white>${webscript.jslint.white}</white>
+                                            <sub>${webscript.jslint.sub}</sub>
+                                            <evil>${webscript.jslint.evil}</evil>
+                                            <newcap>${webscript.jslint.newcap}</newcap>
+                                            <sloppy>${webscript.jslint.sloppy}</sloppy>
+
+                                            <predef>${webscript.jslint.root.objects},${webscript.jslint.root.services},${webscript.jslint.root.values},${webscript.jslint.custom.root.objects},${webscript.jslint.custom.root.values}</predef>
+                                        </options>
+                                        <failOnError>${webscript.jslint.failOnError}</failOnError>
+                                    </configuration>
+                                </execution>
+                            </executions>
+                        </plugin>
+                    </plugins>
+                </pluginManagement>
+            </build>
+        </profile>
+
+        <profile>
+            <id>Has Surf WebScripts</id>
+            <activation>
+                <file>
+                    <exists>src/main/site-webscripts</exists>
+                </file>
+            </activation>
+
+            <properties>
+
+                <webscript.jslint.failOnError>true</webscript.jslint.failOnError>
+
+                <webscript.jslint.root.objects>args,url,json,status,model,config,args,logger,page,site</webscript.jslint.root.objects>
+                <webscript.jslint.root.services>remote</webscript.jslint.root.services>
+                <webscript.jslint.custom.root.objects></webscript.jslint.custom.root.objects>
+
+                <webscript.jslint.root.values></webscript.jslint.root.values>
+                <webscript.jslint.custom.root.values></webscript.jslint.custom.root.values>
+
+                <!-- Validation properties -->
+                <webscript.jslint.bitwise>true</webscript.jslint.bitwise>
+                <webscript.jslint.eqeq>true</webscript.jslint.eqeq>
+                <webscript.jslint.forin>true</webscript.jslint.forin>
+                <webscript.jslint.nomen>true</webscript.jslint.nomen>
+                <webscript.jslint.plusplus>true</webscript.jslint.plusplus>
+                <webscript.jslint.unparam>true</webscript.jslint.unparam>
+                <webscript.jslint.todo>true</webscript.jslint.todo>
+                <webscript.jslint.vars>false</webscript.jslint.vars>
+                <webscript.jslint.white>true</webscript.jslint.white>
+                <webscript.jslint.sub>true</webscript.jslint.sub>
+                <webscript.jslint.evil>false</webscript.jslint.evil>
+                <webscript.jslint.newcap>true</webscript.jslint.newcap>
+                <webscript.jslint.sloppy>true</webscript.jslint.sloppy>
+
+            </properties>
+
+            <build>
+                <pluginManagement>
+                    <plugins>
+                        <plugin>
+                            <groupId>com.googlecode.jslint4java</groupId>
+                            <artifactId>jslint4java-maven-plugin</artifactId>
+                            <executions>
+                                <execution>
+                                    <id>Validate Site WebScripts</id>
+                                    <phase>initialize</phase>
+                                    <goals>
+                                        <goal>lint</goal>
+                                    </goals>
+                                    <configuration>
+                                        <sourceFolders>
+                                            <sourceFolder>src/main/webscripts</sourceFolder>
+                                        </sourceFolders>
+                                        <options>
+                                            <browser>false</browser>
+                                            <node>false</node>
+                                            <rhino>true</rhino>
+                                            <closure>false</closure>
+                                            <windows>false</windows>
+                                            <devel>false</devel>
+
+                                            <bitwise>${webscript.jslint.bitwise}</bitwise>
+                                            <eqeq>${webscript.jslint.eqeq)</eqeq>
+                                            <forin>${webscript.jslint.forin}</forin>
+                                            <nomen>${webscript.jslint.nomen}</nomen>
+                                            <plusplus>${webscript.jslint.plusplus}</plusplus>
+                                            <unparam>${webscript.jslint.unparam}</unparam>
+                                            <todo>${webscript.jslint.todo}</todo>
+                                            <vars>${webscript.jslint.vars}</vars>
+                                            <white>${webscript.jslint.white}</white>
+                                            <sub>${webscript.jslint.sub}</sub>
+                                            <evil>${webscript.jslint.evil}</evil>
+                                            <newcap>${webscript.jslint.newcap}</newcap>
+                                            <sloppy>${webscript.jslint.sloppy}</sloppy>
+
+                                            <predef>${webscript.jslint.root.objects},${webscript.jslint.root.services},${webscript.jslint.root.values},${webscript.jslint.custom.root.objects},${webscript.jslint.custom.root.values}</predef>
+                                        </options>
+                                        <failOnError>${webscript.jslint.failOnError}</failOnError>
+                                    </configuration>
+                                </execution>
+                            </executions>
+                        </plugin>
+                    </plugins>
+                </pluginManagement>
+            </build>
+        </profile>
+
+        <profile>
+            <id>Has Surf Templates</id>
+            <activation>
+                <file>
+                    <exists>src/main/templates</exists>
+                </file>
+            </activation>
+
+            <properties>
+
+                <template.jslint.failOnError>true</template.jslint.failOnError>
+
+                <template.jslint.root.objects>args,url,json,status,model,config,args,logger,page,site</template.jslint.root.objects>
+                <template.jslint.root.services>remote</template.jslint.root.services>
+                <template.jslint.custom.root.objects></template.jslint.custom.root.objects>
+
+                <template.jslint.root.values></template.jslint.root.values>
+                <template.jslint.custom.root.values></template.jslint.custom.root.values>
+
+                <!-- Validation properties -->
+                <template.jslint.bitwise>true</template.jslint.bitwise>
+                <template.jslint.eqeq>true</template.jslint.eqeq>
+                <template.jslint.forin>true</template.jslint.forin>
+                <template.jslint.nomen>true</template.jslint.nomen>
+                <template.jslint.plusplus>true</template.jslint.plusplus>
+                <template.jslint.unparam>true</template.jslint.unparam>
+                <template.jslint.todo>true</template.jslint.todo>
+                <template.jslint.vars>false</template.jslint.vars>
+                <template.jslint.white>true</template.jslint.white>
+                <template.jslint.sub>true</template.jslint.sub>
+                <template.jslint.evil>false</template.jslint.evil>
+                <template.jslint.newcap>true</template.jslint.newcap>
+                <template.jslint.sloppy>true</template.jslint.sloppy>
+
+            </properties>
+
+            <build>
+                <pluginManagement>
+                    <plugins>
+                        <plugin>
+                            <groupId>com.googlecode.jslint4java</groupId>
+                            <artifactId>jslint4java-maven-plugin</artifactId>
+                            <executions>
+                                <execution>
+                                    <id>Validate Site WebScripts</id>
+                                    <phase>initialize</phase>
+                                    <goals>
+                                        <goal>lint</goal>
+                                    </goals>
+                                    <configuration>
+                                        <sourceFolders>
+                                            <sourceFolder>src/main/templates</sourceFolder>
+                                        </sourceFolders>
+                                        <options>
+                                            <browser>false</browser>
+                                            <node>false</node>
+                                            <rhino>true</rhino>
+                                            <closure>false</closure>
+                                            <windows>false</windows>
+                                            <devel>false</devel>
+
+                                            <bitwise>${template.jslint.bitwise}</bitwise>
+                                            <eqeq>${template.jslint.eqeq)</eqeq>
+                                            <forin>${template.jslint.forin}</forin>
+                                            <nomen>${template.jslint.nomen}</nomen>
+                                            <plusplus>${template.jslint.plusplus}</plusplus>
+                                            <unparam>${template.jslint.unparam}</unparam>
+                                            <todo>${template.jslint.todo}</todo>
+                                            <vars>${template.jslint.vars}</vars>
+                                            <white>${template.jslint.white}</white>
+                                            <sub>${template.jslint.sub}</sub>
+                                            <evil>${template.jslint.evil}</evil>
+                                            <newcap>${template.jslint.newcap}</newcap>
+                                            <sloppy>${template.jslint.sloppy}</sloppy>
+
+                                            <predef>${template.jslint.root.objects},${template.jslint.custom.root.objects},${template.jslint.root.values},${template.jslint.custom.root.values},${template.jslint.root.services}</predef>
+                                        </options>
+                                        <failOnError>${template.jslint.failOnError}</failOnError>
+                                    </configuration>
+                                </execution>
+                            </executions>
+                        </plugin>
+                    </plugins>
+                </pluginManagement>
+            </build>
+        </profile>
+
     </profiles>
-    
+
     <modules>
         <module>framework</module>
         <module>patch-modules</module>

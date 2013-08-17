@@ -16,6 +16,7 @@ package org.nabucco.alfresco.enhScriptEnv.repo.script;
 
 import java.io.InputStream;
 import java.io.Reader;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 
@@ -23,13 +24,8 @@ import org.alfresco.repo.jscript.ClasspathScriptLocation;
 import org.alfresco.repo.web.scripts.RepositoryScriptProcessor;
 import org.alfresco.service.cmr.repository.ScriptLocation;
 import org.nabucco.alfresco.enhScriptEnv.common.script.ReferenceScript;
-import org.nabucco.alfresco.enhScriptEnv.common.script.ReferenceScript.ReferencePathType;
-import org.nabucco.alfresco.enhScriptEnv.common.webscripts.processor.SurfReferencePath;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.extensions.webscripts.ClassPathStore;
-import org.springframework.extensions.webscripts.RemoteStore;
-import org.springframework.extensions.webscripts.ScriptContent;
 
 /**
  * @author Axel Faust, <a href="http://www.prodyna.com">PRODYNA AG</a>
@@ -112,14 +108,33 @@ public class ScriptLocationAdapter implements ScriptLocation, ReferenceScript
      * {@inheritDoc}
      */
     @Override
+    public String getName()
+    {
+        final String scriptName;
+
+        final String path = this.getPath();
+        final int i = path.lastIndexOf('/');
+        scriptName = i != -1 ? path.substring(i + 1) : path;
+
+        return scriptName;
+    }
+
+    /**
+     *
+     * {@inheritDoc}
+     */
+    @Override
     public String getReferencePath(final ReferencePathType typeOfPath)
     {
         final String result;
         if (typeOfPath instanceof CommonReferencePath)
         {
-            result = determineCommonReferencePaths(typeOfPath);
+            result = this.determineCommonReferencePaths((CommonReferencePath) typeOfPath);
         }
-        // TODO: Repository reference path types, i.e. XPath
+        else if (typeOfPath instanceof RepositoryReferencePath)
+        {
+            result = this.determineRepositoryReferencePaths((RepositoryReferencePath) typeOfPath);
+        }
         else
         {
             LOGGER.debug("Unsupported reference path type {}", typeOfPath);
@@ -136,13 +151,66 @@ public class ScriptLocationAdapter implements ScriptLocation, ReferenceScript
     @Override
     public Collection<ReferencePathType> getSupportedReferencePathTypes()
     {
-        return Arrays.<ReferencePathType> asList(CommonReferencePath.FILE, CommonReferencePath.CLASSPATH);
+        final Collection<ReferencePathType> supportedTypes = new ArrayList<ReferenceScript.ReferencePathType>(
+                Arrays.<ReferencePathType> asList(CommonReferencePath.FILE, CommonReferencePath.CLASSPATH));
+
+        final ScriptLocation scriptLocation = this.getScriptLocation();
+
+        if (scriptLocation instanceof NodeScriptLocation)
+        {
+            supportedTypes.add(RepositoryReferencePath.NODE_REF);
+            supportedTypes.add(RepositoryReferencePath.CONTENT_PROPERTY);
+        }
+
+        return supportedTypes;
     }
 
-    protected String determineCommonReferencePaths(final ReferencePathType typeOfPath)
+    protected String determineRepositoryReferencePaths(final RepositoryReferencePath typeOfPath)
     {
         final String result;
-        switch ((CommonReferencePath) typeOfPath)
+        switch (typeOfPath)
+        {
+        case NODE_REF:
+        {
+            final ScriptLocation scriptLocation = this.getScriptLocation();
+
+            if (scriptLocation instanceof NodeScriptLocation)
+            {
+                result = ((NodeScriptLocation) scriptLocation).getNode().toString();
+            }
+            else
+            {
+                result = null;
+            }
+        }
+            break;
+        case CONTENT_PROPERTY:
+        {
+            final ScriptLocation scriptLocation = this.getScriptLocation();
+
+            if (scriptLocation instanceof NodeScriptLocation)
+            {
+                result = ((NodeScriptLocation) scriptLocation).getContentProp().toString();
+            }
+            else
+            {
+                result = null;
+            }
+        }
+            break;
+        default:
+            LOGGER.warn("Unsupported (new?) reference path type {}", typeOfPath);
+            result = null;
+            break;
+        }
+
+        return result;
+    }
+
+    protected String determineCommonReferencePaths(final CommonReferencePath typeOfPath)
+    {
+        final String result;
+        switch (typeOfPath)
         {
         case FILE:
         {
@@ -158,7 +226,7 @@ public class ScriptLocationAdapter implements ScriptLocation, ReferenceScript
         }
             break;
         case CLASSPATH:
-            result = determineClasspath();
+            result = this.determineClasspath();
             break;
 
         default:
