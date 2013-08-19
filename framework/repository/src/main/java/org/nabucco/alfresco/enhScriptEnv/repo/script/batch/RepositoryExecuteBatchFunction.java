@@ -83,7 +83,7 @@ public class RepositoryExecuteBatchFunction extends AbstractExecuteBatchFunction
                         return work;
                     }
                 }, 2, batchSize, null, LogFactory.getLog(RepositoryExecuteBatchFunction.class), 10);
-        final ExecuteBatchWorker worker = new ExecuteBatchWorker(this, scope, thisObj, processCallback, beforeProcessCallback,
+        final RepositoryExecuteBatchWorker worker = new RepositoryExecuteBatchWorker(this, scope, thisObj, processCallback, beforeProcessCallback,
                 afterProcessCallback);
         batchProcessor.process(worker, true);
 
@@ -137,7 +137,7 @@ public class RepositoryExecuteBatchFunction extends AbstractExecuteBatchFunction
                         return nextWork;
                     }
                 }, 2, batchSize, null, LogFactory.getLog(RepositoryExecuteBatchFunction.class), 10);
-        final ExecuteBatchWorker worker = new ExecuteBatchWorker(this, scope, thisObj, processCallback, beforeProcessCallback,
+        final RepositoryExecuteBatchWorker worker = new RepositoryExecuteBatchWorker(this, scope, thisObj, processCallback, beforeProcessCallback,
                 afterProcessCallback);
         batchProcessor.process(worker, true);
 

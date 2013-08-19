@@ -3,7 +3,10 @@
  */
 package org.nabucco.alfresco.enhScriptEnv.repo.script.batch;
 
+import java.util.Locale;
+
 import org.alfresco.repo.batch.BatchProcessor.BatchProcessWorker;
+import org.alfresco.repo.security.authentication.AuthenticationUtil;
 import org.alfresco.util.Pair;
 import org.mozilla.javascript.BaseFunction;
 import org.mozilla.javascript.Context;
@@ -12,14 +15,20 @@ import org.mozilla.javascript.ScriptRuntime;
 import org.mozilla.javascript.Scriptable;
 import org.mozilla.javascript.ScriptableObject;
 import org.nabucco.alfresco.enhScriptEnv.common.script.batch.AbstractExecuteBatchWorker;
+import org.springframework.extensions.surf.util.I18NUtil;
 
 /**
  * @author <a href="mailto:axel.faust@prodyna.com">Axel Faust</a>, <a href="http://www.prodyna.com">PRODYNA AG</a>
  */
-public class ExecuteBatchWorker extends AbstractExecuteBatchWorker<RepositoryExecuteBatchFunction> implements BatchProcessWorker<Object>
+public class RepositoryExecuteBatchWorker extends AbstractExecuteBatchWorker<RepositoryExecuteBatchFunction> implements
+        BatchProcessWorker<Object>
 {
 
-    protected ExecuteBatchWorker(final RepositoryExecuteBatchFunction batchFunction, final Scriptable parentScope,
+    protected final String user = AuthenticationUtil.getFullyAuthenticatedUser();
+    protected final Locale locale = I18NUtil.getLocale();
+    protected final Locale contentLocale = I18NUtil.getContentLocaleOrNull();
+
+    protected RepositoryExecuteBatchWorker(final RepositoryExecuteBatchFunction batchFunction, final Scriptable parentScope,
             final Scriptable thisObj, final Pair<Scriptable, Function> processCallback,
             final Pair<Scriptable, Function> beforeProcessCallback, final Pair<Scriptable, Function> afterProcessCallback)
     {
@@ -84,6 +93,16 @@ public class ExecuteBatchWorker extends AbstractExecuteBatchWorker<RepositoryExe
     @Override
     public void beforeProcess() throws Throwable
     {
+        // prepare execution context
+        AuthenticationUtil.pushAuthentication();
+        AuthenticationUtil.setFullyAuthenticatedUser(this.user);
+
+        I18NUtil.setLocale(this.locale);
+        if (this.contentLocale != null)
+        {
+            I18NUtil.setContentLocale(this.contentLocale);
+        }
+
         super.doBeforeProcess();
     }
 
@@ -105,6 +124,13 @@ public class ExecuteBatchWorker extends AbstractExecuteBatchWorker<RepositoryExe
     public void afterProcess() throws Throwable
     {
         super.doAfterProcess();
+
+        // cleanup execution context
+        AuthenticationUtil.clearCurrentSecurityContext();
+        AuthenticationUtil.popAuthentication();
+
+        I18NUtil.setLocale(null);
+        I18NUtil.setContentLocale(null);
     }
 
 }
