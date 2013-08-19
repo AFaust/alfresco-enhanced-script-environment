@@ -80,11 +80,13 @@ public abstract class AbstractExecuteBatchFunction implements IdFunctionCall, Sc
                 // mandatory parameters
                 final Pair<Scriptable, Function> workProviderCallback = this.readCallbackArgument(cx, thisObj, args, 0);
                 final Pair<Scriptable, Function> processCallback = this.readCallbackArgument(cx, thisObj, args, 1);
-                final int batchSize = ScriptRuntime.toInt32(args, 2);
+
+                final int threadCount = ScriptRuntime.toInt32(args, 2);
+                final int batchSize = ScriptRuntime.toInt32(args, 3);
 
                 // optional parameters
-                final Pair<Scriptable, Function> beforeProcessCallback = this.readCallbackArgument(cx, thisObj, args, 3);
-                final Pair<Scriptable, Function> afterProcessCallback = this.readCallbackArgument(cx, thisObj, args, 4);
+                final Pair<Scriptable, Function> beforeProcessCallback = this.readCallbackArgument(cx, thisObj, args, 4);
+                final Pair<Scriptable, Function> afterProcessCallback = this.readCallbackArgument(cx, thisObj, args, 5);
 
                 if (processCallback.getSecond() == null)
                 {
@@ -116,8 +118,15 @@ public abstract class AbstractExecuteBatchFunction implements IdFunctionCall, Sc
 
                         if (!workItems.isEmpty())
                         {
-                            this.executeBatch(scope, thisObj, workItems, processCallback, batchSize, beforeProcessCallback,
-                                    afterProcessCallback);
+                            try
+                            {
+                                this.executeBatch(scope, thisObj, workItems, processCallback, threadCount, batchSize,
+                                        beforeProcessCallback, afterProcessCallback);
+                            }
+                            finally
+                            {
+                                ObjectFacadingDelegator.clearReferenceScope(scope);
+                            }
                         }
                         else
                         {
@@ -133,8 +142,15 @@ public abstract class AbstractExecuteBatchFunction implements IdFunctionCall, Sc
                 }
                 else
                 {
-                    this.executeBatch(scope, thisObj, workProviderCallback, processCallback, batchSize, beforeProcessCallback,
-                            afterProcessCallback);
+                    try
+                    {
+                        this.executeBatch(scope, thisObj, workProviderCallback, processCallback, threadCount, batchSize,
+                                beforeProcessCallback, afterProcessCallback);
+                    }
+                    finally
+                    {
+                        ObjectFacadingDelegator.clearReferenceScope(scope);
+                    }
                 }
             }
         }
@@ -179,12 +195,13 @@ public abstract class AbstractExecuteBatchFunction implements IdFunctionCall, Sc
     }
 
     protected abstract void executeBatch(final Scriptable scope, final Scriptable thisObj, final Collection<Object> workItems,
-            final Pair<Scriptable, Function> processCallback, final int batchSize, final Pair<Scriptable, Function> beforeProcessCallback,
-            final Pair<Scriptable, Function> afterProcessCallback);
+            final Pair<Scriptable, Function> processCallback, final int threadCount, final int batchSize,
+            final Pair<Scriptable, Function> beforeProcessCallback, final Pair<Scriptable, Function> afterProcessCallback);
 
     protected abstract void executeBatch(final Scriptable scope, final Scriptable thisObj,
-            final Pair<Scriptable, Function> workProviderCallback, final Pair<Scriptable, Function> processCallback, final int batchSize,
-            final Pair<Scriptable, Function> beforeProcessCallback, final Pair<Scriptable, Function> afterProcessCallback);
+            final Pair<Scriptable, Function> workProviderCallback, final Pair<Scriptable, Function> processCallback, final int threadCount,
+            final int batchSize, final Pair<Scriptable, Function> beforeProcessCallback,
+            final Pair<Scriptable, Function> afterProcessCallback);
 
     protected Collection<Object> doProvideNextWork(final Scriptable scope, final Pair<Scriptable, Function> workProviderCallback)
     {
@@ -236,11 +253,10 @@ public abstract class AbstractExecuteBatchFunction implements IdFunctionCall, Sc
         try
         {
             final Scriptable processScope = cx.newObject(parentScope);
-            processScope.setPrototype(parentScope);
+            processScope.setPrototype(ObjectFacadingDelegator.toFacadedObject(parentScope, parentScope, null));
             processScope.setParentScope(null);
 
-            // TODO: scope delegate / interceptor for synchronization
-            // TODO: update scope on Scopeable objects (managed in a ThreadLocal) - possibly via the same delegate / interceptor
+            // TODO: how to prevent / adapt scopeable objects leaking from processScope to parentScope
 
             // check for registerChildScope function on logger and register process scope if function is available
             final Object loggerValue = ScriptableObject.getProperty(parentScope, LogFunction.LOGGER_OBJ_NAME);
@@ -258,7 +274,9 @@ public abstract class AbstractExecuteBatchFunction implements IdFunctionCall, Sc
 
             if (beforeProcessCallback.getSecond() != null)
             {
-                final Scriptable beforeProcessCallScope = beforeProcessCallback.getFirst();
+                final Scriptable beforeProcessOriginalCallScope = beforeProcessCallback.getFirst();
+                final Scriptable beforeProcessCallScope = beforeProcessOriginalCallScope == parentScope ? processScope
+                        : ObjectFacadingDelegator.toFacadedObject(parentScope, beforeProcessOriginalCallScope, null);
                 final Function beforeProcessFn = beforeProcessCallback.getSecond();
                 beforeProcessFn.call(cx, processScope, beforeProcessCallScope, new Object[0]);
             }
@@ -279,7 +297,10 @@ public abstract class AbstractExecuteBatchFunction implements IdFunctionCall, Sc
         {
             if (afterProcessCallback.getSecond() != null)
             {
-                final Scriptable afterProcessCallScope = afterProcessCallback.getFirst();
+                final Scriptable parentScope = ((ObjectFacadingDelegator) processScope.getPrototype()).getDelegee();
+                final Scriptable afterProcessOriginalCallScope = afterProcessCallback.getFirst();
+                final Scriptable afterProcessCallScope = afterProcessOriginalCallScope == parentScope ? processScope
+                        : ObjectFacadingDelegator.toFacadedObject(parentScope, afterProcessOriginalCallScope, null);
                 final Function afterProcessFn = afterProcessCallback.getSecond();
                 afterProcessFn.call(cx, processScope, afterProcessCallScope, new Object[0]);
             }
@@ -287,6 +308,8 @@ public abstract class AbstractExecuteBatchFunction implements IdFunctionCall, Sc
         finally
         {
             Context.exit();
+            // clear thread-local facade mapping
+            ObjectFacadingDelegator.clearThread();
         }
     }
 

@@ -84,5 +84,6 @@
                 <bean class="org.nabucco.alfresco.enhScriptEnv.common.script.batch.NativeArrayConverter" />
             </list>
         </property>
+        <property name="maxThreads" value="${script.batch.maxThreads}" />
     </bean>
 </beans>

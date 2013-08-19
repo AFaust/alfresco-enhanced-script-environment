@@ -22,7 +22,91 @@ import org.nabucco.alfresco.enhScriptEnv.common.script.batch.AbstractExecuteBatc
 public class RepositoryExecuteBatchFunction extends AbstractExecuteBatchFunction
 {
 
+    private static final int DEFAULT_MAX_THREADS = 2;
+
+    protected static class CallbackBatchProcessWorkProvider implements BatchProcessWorkProvider<Object>
+    {
+        private final RepositoryExecuteBatchFunction batchFunction;
+        private final Scriptable scope;
+        private final Pair<Scriptable, Function> workProviderCallback;
+        private int fetched = -1;
+
+        protected CallbackBatchProcessWorkProvider(final RepositoryExecuteBatchFunction batchFunction, final Scriptable scope,
+                final Pair<Scriptable, Function> workProviderCallback)
+        {
+            super();
+            this.batchFunction = batchFunction;
+            this.scope = scope;
+            this.workProviderCallback = workProviderCallback;
+        }
+
+        /**
+         *
+         * {@inheritDoc}
+         */
+        @Override
+        public int getTotalEstimatedWorkSize()
+        {
+            return this.fetched;
+        }
+
+        /**
+         *
+         * {@inheritDoc}
+         */
+        @Override
+        public Collection<Object> getNextWork()
+        {
+            final Collection<Object> nextWork = this.batchFunction.doProvideNextWork(this.scope, this.workProviderCallback);
+            if (this.fetched == -1)
+            {
+                this.fetched = nextWork.size();
+            }
+            else
+            {
+                this.fetched += nextWork.size();
+            }
+            return nextWork;
+        }
+    }
+
+    protected static class CollectionBatchWorkProvider implements BatchProcessWorkProvider<Object>
+    {
+        private final Collection<Object> workItems;
+        private boolean first = true;
+
+        protected CollectionBatchWorkProvider(final Collection<Object> workItems)
+        {
+            super();
+            this.workItems = workItems;
+        }
+
+        /**
+         *
+         * {@inheritDoc}
+         */
+        @Override
+        public int getTotalEstimatedWorkSize()
+        {
+            return this.workItems.size();
+        }
+
+        /**
+         *
+         * {@inheritDoc}
+         */
+        @Override
+        public Collection<Object> getNextWork()
+        {
+            final Collection<Object> work = this.first ? this.workItems : Collections.emptySet();
+            this.first = false;
+            return work;
+        }
+    }
+
     protected TransactionService transactionService;
+
+    protected int maxThreads = DEFAULT_MAX_THREADS;
 
     /**
      *
@@ -45,46 +129,30 @@ public class RepositoryExecuteBatchFunction extends AbstractExecuteBatchFunction
     }
 
     /**
+     * @param maxThreads
+     *            the maxThreads to set
+     */
+    public final void setMaxThreads(final int maxThreads)
+    {
+        this.maxThreads = maxThreads;
+    }
+
+    /**
      * {@inheritDoc}
      */
     @Override
     protected void executeBatch(final Scriptable scope, final Scriptable thisObj, final Collection<Object> workItems,
-            final Pair<Scriptable, Function> processCallback, final int batchSize, final Pair<Scriptable, Function> beforeProcessCallback,
-            final Pair<Scriptable, Function> afterProcessCallback)
+            final Pair<Scriptable, Function> processCallback, final int threadCount, final int batchSize,
+            final Pair<Scriptable, Function> beforeProcessCallback, final Pair<Scriptable, Function> afterProcessCallback)
     {
-        // TODO: parameter (and max value) for threadCount
         // TODO: parameter for logging interval
         // TODO: Log implementation that logs to the script logger from the provided scope
 
         final BatchProcessor<Object> batchProcessor = new BatchProcessor<Object>("ScriptBatch",
-                this.transactionService.getRetryingTransactionHelper(), new BatchProcessWorkProvider<Object>()
-                {
-                    private boolean first = true;
-
-                    /**
-                     *
-                     * {@inheritDoc}
-                     */
-                    @Override
-                    public int getTotalEstimatedWorkSize()
-                    {
-                        return workItems.size();
-                    }
-
-                    /**
-                     *
-                     * {@inheritDoc}
-                     */
-                    @Override
-                    public Collection<Object> getNextWork()
-                    {
-                        final Collection<Object> work = this.first ? workItems : Collections.emptySet();
-                        this.first = false;
-                        return work;
-                    }
-                }, 2, batchSize, null, LogFactory.getLog(RepositoryExecuteBatchFunction.class), 10);
-        final RepositoryExecuteBatchWorker worker = new RepositoryExecuteBatchWorker(this, scope, thisObj, processCallback, beforeProcessCallback,
-                afterProcessCallback);
+                this.transactionService.getRetryingTransactionHelper(), new CollectionBatchWorkProvider(workItems), Math.min(threadCount,
+                        this.maxThreads), batchSize, null, LogFactory.getLog(RepositoryExecuteBatchFunction.class), 10);
+        final RepositoryExecuteBatchWorker worker = new RepositoryExecuteBatchWorker(this, scope, thisObj, processCallback,
+                beforeProcessCallback, afterProcessCallback);
         batchProcessor.process(worker, true);
 
         // TODO: result / status handling
@@ -95,50 +163,18 @@ public class RepositoryExecuteBatchFunction extends AbstractExecuteBatchFunction
      */
     @Override
     protected void executeBatch(final Scriptable scope, final Scriptable thisObj, final Pair<Scriptable, Function> workProviderCallback,
-            final Pair<Scriptable, Function> processCallback, final int batchSize, final Pair<Scriptable, Function> beforeProcessCallback,
-            final Pair<Scriptable, Function> afterProcessCallback)
+            final Pair<Scriptable, Function> processCallback, final int threadCount, final int batchSize,
+            final Pair<Scriptable, Function> beforeProcessCallback, final Pair<Scriptable, Function> afterProcessCallback)
     {
-        // TODO: parameter (and max value) for threadCount
         // TODO: parameter for logging interval
         // TODO: Log implementation that logs to the script logger from the provided scope
 
         final BatchProcessor<Object> batchProcessor = new BatchProcessor<Object>("ScriptBatch",
-                this.transactionService.getRetryingTransactionHelper(), new BatchProcessWorkProvider<Object>()
-                {
-                    private int fetched = -1;
-
-                    /**
-                     *
-                     * {@inheritDoc}
-                     */
-                    @Override
-                    public int getTotalEstimatedWorkSize()
-                    {
-                        return this.fetched;
-                    }
-
-                    /**
-                     *
-                     * {@inheritDoc}
-                     */
-                    @Override
-                    public Collection<Object> getNextWork()
-                    {
-                        final Collection<Object> nextWork = RepositoryExecuteBatchFunction.this.doProvideNextWork(scope,
-                                workProviderCallback);
-                        if (this.fetched == -1)
-                        {
-                            this.fetched = nextWork.size();
-                        }
-                        else
-                        {
-                            this.fetched += nextWork.size();
-                        }
-                        return nextWork;
-                    }
-                }, 2, batchSize, null, LogFactory.getLog(RepositoryExecuteBatchFunction.class), 10);
-        final RepositoryExecuteBatchWorker worker = new RepositoryExecuteBatchWorker(this, scope, thisObj, processCallback, beforeProcessCallback,
-                afterProcessCallback);
+                this.transactionService.getRetryingTransactionHelper(), new CallbackBatchProcessWorkProvider(this, scope,
+                        workProviderCallback), Math.min(threadCount, this.maxThreads), batchSize, null,
+                LogFactory.getLog(RepositoryExecuteBatchFunction.class), 10);
+        final RepositoryExecuteBatchWorker worker = new RepositoryExecuteBatchWorker(this, scope, thisObj, processCallback,
+                beforeProcessCallback, afterProcessCallback);
         batchProcessor.process(worker, true);
 
         // TODO: result / status handling

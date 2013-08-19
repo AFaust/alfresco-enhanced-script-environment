@@ -44,7 +44,9 @@ public abstract class AbstractExecuteBatchWorker<EBF extends AbstractExecuteBatc
         final Context cx = Context.enter();
         try
         {
-            final Scriptable processCallScope = this.processCallback.getFirst();
+            final Scriptable processOriginalCallScope = this.processCallback.getFirst();
+            final Scriptable processCallScope = processOriginalCallScope == this.parentScope ? this.processScope.get()
+                    : ObjectFacadingDelegator.toFacadedObject(this.parentScope, processOriginalCallScope, null);
             final Function processFn = this.processCallback.getSecond();
             processFn.call(cx, this.processScope.get(), processCallScope, new Object[] { element });
         }
