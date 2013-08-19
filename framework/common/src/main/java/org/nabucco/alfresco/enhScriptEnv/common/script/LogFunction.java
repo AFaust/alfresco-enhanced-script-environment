@@ -586,7 +586,8 @@ public class LogFunction implements IdFunctionCall, InitializingBean, ScopeContr
         final Scriptable parentScope = scopeParentPair == null || (scopeParentPair.getSecond() != parentScript) ? scope : scopeParentPair
                 .getFirst().get();
 
-        final LoggerData parentLoggerData = parentScope != null ? this.getLoggerData(parentScope, parentScript, false) : null;
+        final LoggerData parentLoggerData = parentScope != null && parentScript != null ? this.getLoggerData(parentScope, parentScript,
+                false) : null;
         final Collection<Logger> loggers;
         if (parentLoggerData == null || parentLoggerData.isInheritLoggerContext())
         {
