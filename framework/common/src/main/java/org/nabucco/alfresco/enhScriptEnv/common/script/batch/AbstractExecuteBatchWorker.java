@@ -3,6 +3,7 @@ package org.nabucco.alfresco.enhScriptEnv.common.script.batch;
 import org.alfresco.util.Pair;
 import org.mozilla.javascript.Context;
 import org.mozilla.javascript.Function;
+import org.mozilla.javascript.NativeFunction;
 import org.mozilla.javascript.Scriptable;
 
 public abstract class AbstractExecuteBatchWorker<EBF extends AbstractExecuteBatchFunction>
@@ -48,7 +49,30 @@ public abstract class AbstractExecuteBatchWorker<EBF extends AbstractExecuteBatc
             final Scriptable processCallScope = processOriginalCallScope == this.parentScope ? this.processScope.get()
                     : ObjectFacadingDelegator.toFacadedObject(this.parentScope, processOriginalCallScope, null);
             final Function processFn = this.processCallback.getSecond();
-            processFn.call(cx, this.processScope.get(), processCallScope, new Object[] { element });
+
+            if (processFn instanceof NativeFunction)
+            {
+                // native function has parent scope based on location in source code
+                // per batch function contract we need to execute it in our process scope
+                final NativeFunction nativeFn = (NativeFunction) processFn;
+
+                final ThreadLocalParentScope threadLocalParentScope = (ThreadLocalParentScope) nativeFn.getParentScope();
+                threadLocalParentScope.setDelegate(this.processScope.get());
+                try
+                {
+                    // execute with thread local parent scope
+                    nativeFn.call(cx, this.processScope.get(), processCallScope, new Object[] { element });
+                }
+                finally
+                {
+                    threadLocalParentScope.removeDelegate();
+                }
+            }
+            else
+            {
+                // not a native function, so has not associated scope - calling as-is
+                processFn.call(cx, this.processScope.get(), processCallScope, new Object[] { element });
+            }
         }
         finally
         {

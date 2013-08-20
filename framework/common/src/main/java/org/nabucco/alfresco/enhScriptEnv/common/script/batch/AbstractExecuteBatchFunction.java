@@ -16,7 +16,9 @@ package org.nabucco.alfresco.enhScriptEnv.common.script.batch;
 
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import org.alfresco.util.Pair;
 import org.alfresco.util.PropertyCheck;
@@ -24,6 +26,7 @@ import org.mozilla.javascript.Context;
 import org.mozilla.javascript.Function;
 import org.mozilla.javascript.IdFunctionCall;
 import org.mozilla.javascript.IdFunctionObject;
+import org.mozilla.javascript.NativeFunction;
 import org.mozilla.javascript.NativeObject;
 import org.mozilla.javascript.ScriptRuntime;
 import org.mozilla.javascript.Scriptable;
@@ -118,6 +121,8 @@ public abstract class AbstractExecuteBatchFunction implements IdFunctionCall, Sc
 
                         if (!workItems.isEmpty())
                         {
+                            final Map<Function, Scriptable> savepoint = this.adaptFunctionScopes(processCallback, beforeProcessCallback,
+                                    afterProcessCallback);
                             try
                             {
                                 this.executeBatch(scope, thisObj, workItems, processCallback, threadCount, batchSize,
@@ -125,6 +130,7 @@ public abstract class AbstractExecuteBatchFunction implements IdFunctionCall, Sc
                             }
                             finally
                             {
+                                this.restoreFunctionScopes(processCallback, beforeProcessCallback, afterProcessCallback, savepoint);
                                 ObjectFacadingDelegator.clearReferenceScope(scope);
                             }
                         }
@@ -142,6 +148,8 @@ public abstract class AbstractExecuteBatchFunction implements IdFunctionCall, Sc
                 }
                 else
                 {
+                    final Map<Function, Scriptable> savepoint = this.adaptFunctionScopes(processCallback, beforeProcessCallback,
+                            afterProcessCallback);
                     try
                     {
                         this.executeBatch(scope, thisObj, workProviderCallback, processCallback, threadCount, batchSize,
@@ -149,6 +157,7 @@ public abstract class AbstractExecuteBatchFunction implements IdFunctionCall, Sc
                     }
                     finally
                     {
+                        this.restoreFunctionScopes(processCallback, beforeProcessCallback, afterProcessCallback, savepoint);
                         ObjectFacadingDelegator.clearReferenceScope(scope);
                     }
                 }
@@ -192,6 +201,48 @@ public abstract class AbstractExecuteBatchFunction implements IdFunctionCall, Sc
     public final void setConverters(final List<ScriptValueToWorkItemCollectionConverter> converters)
     {
         this.converters = converters;
+    }
+
+    protected Map<Function, Scriptable> adaptFunctionScopes(final Pair<Scriptable, Function> processCallback,
+            final Pair<Scriptable, Function> beforeProcessCallback, final Pair<Scriptable, Function> afterProcessCallback)
+    {
+        final Map<Function, Scriptable> originalParentScopeByFunction = new HashMap<Function, Scriptable>();
+
+        this.adaptFunctionScope(processCallback, originalParentScopeByFunction, false);
+        this.adaptFunctionScope(beforeProcessCallback, originalParentScopeByFunction, false);
+        this.adaptFunctionScope(afterProcessCallback, originalParentScopeByFunction, false);
+
+        return originalParentScopeByFunction;
+    }
+
+    protected void restoreFunctionScopes(final Pair<Scriptable, Function> processCallback,
+            final Pair<Scriptable, Function> beforeProcessCallback, final Pair<Scriptable, Function> afterProcessCallback,
+            final Map<Function, Scriptable> originalParentScopeByFunction)
+    {
+        this.adaptFunctionScope(processCallback, originalParentScopeByFunction, true);
+        this.adaptFunctionScope(beforeProcessCallback, originalParentScopeByFunction, true);
+        this.adaptFunctionScope(afterProcessCallback, originalParentScopeByFunction, true);
+    }
+
+    protected void adaptFunctionScope(final Pair<Scriptable, Function> callback, final Map<Function, Scriptable> originalScopeByFunction,
+            final boolean restore)
+    {
+        if (callback != null)
+        {
+            final Function fn = callback.getSecond();
+            if (fn instanceof NativeFunction)
+            {
+                if (restore)
+                {
+                    fn.setParentScope(originalScopeByFunction.get(fn));
+                }
+                else
+                {
+                    originalScopeByFunction.put(fn, fn.getParentScope());
+                    fn.setParentScope(new ThreadLocalParentScope());
+                }
+            }
+        }
     }
 
     protected abstract void executeBatch(final Scriptable scope, final Scriptable thisObj, final Collection<Object> workItems,
@@ -256,8 +307,6 @@ public abstract class AbstractExecuteBatchFunction implements IdFunctionCall, Sc
             processScope.setPrototype(ObjectFacadingDelegator.toFacadedObject(parentScope, parentScope, null));
             processScope.setParentScope(null);
 
-            // TODO: how to prevent / adapt scopeable objects leaking from processScope to parentScope
-
             // check for registerChildScope function on logger and register process scope if function is available
             final Object loggerValue = ScriptableObject.getProperty(parentScope, LogFunction.LOGGER_OBJ_NAME);
             if (loggerValue instanceof Scriptable)
@@ -278,7 +327,30 @@ public abstract class AbstractExecuteBatchFunction implements IdFunctionCall, Sc
                 final Scriptable beforeProcessCallScope = beforeProcessOriginalCallScope == parentScope ? processScope
                         : ObjectFacadingDelegator.toFacadedObject(parentScope, beforeProcessOriginalCallScope, null);
                 final Function beforeProcessFn = beforeProcessCallback.getSecond();
-                beforeProcessFn.call(cx, processScope, beforeProcessCallScope, new Object[0]);
+
+                if (beforeProcessFn instanceof NativeFunction)
+                {
+                    // native function has parent scope based on location in source code
+                    // per batch function contract we need to execute it in our process scope
+                    final NativeFunction nativeFn = (NativeFunction) beforeProcessFn;
+
+                    final ThreadLocalParentScope threadLocalParentScope = (ThreadLocalParentScope) nativeFn.getParentScope();
+                    threadLocalParentScope.setDelegate(processScope);
+                    try
+                    {
+                        // execute with thread local parent scope
+                        nativeFn.call(cx, processScope, beforeProcessCallScope, new Object[0]);
+                    }
+                    finally
+                    {
+                        threadLocalParentScope.removeDelegate();
+                    }
+                }
+                else
+                {
+                    // not a native function, so has not associated scope - calling as-is
+                    beforeProcessFn.call(cx, processScope, beforeProcessCallScope, new Object[0]);
+                }
             }
 
             return processScope;
@@ -302,7 +374,30 @@ public abstract class AbstractExecuteBatchFunction implements IdFunctionCall, Sc
                 final Scriptable afterProcessCallScope = afterProcessOriginalCallScope == parentScope ? processScope
                         : ObjectFacadingDelegator.toFacadedObject(parentScope, afterProcessOriginalCallScope, null);
                 final Function afterProcessFn = afterProcessCallback.getSecond();
-                afterProcessFn.call(cx, processScope, afterProcessCallScope, new Object[0]);
+
+                if (afterProcessFn instanceof NativeFunction)
+                {
+                    // native function has parent scope based on location in source code
+                    // per batch function contract we need to execute it in our process scope
+                    final NativeFunction nativeFn = (NativeFunction) afterProcessFn;
+
+                    final ThreadLocalParentScope threadLocalParentScope = (ThreadLocalParentScope) nativeFn.getParentScope();
+                    threadLocalParentScope.setDelegate(processScope);
+                    try
+                    {
+                        // execute with thread local parent scope
+                        nativeFn.call(cx, processScope, afterProcessCallScope, new Object[0]);
+                    }
+                    finally
+                    {
+                        threadLocalParentScope.removeDelegate();
+                    }
+                }
+                else
+                {
+                    // not a native function, so has not associated scope - calling as-is
+                    afterProcessFn.call(cx, processScope, afterProcessCallScope, new Object[0]);
+                }
             }
         }
         finally
