@@ -17,7 +17,7 @@ import org.mozilla.javascript.Scriptable;
 import org.nabucco.alfresco.enhScriptEnv.common.script.batch.AbstractExecuteBatchFunction;
 
 /**
- * @author <a href="mailto:axel.faust@prodyna.com">Axel Faust</a>, <a href="http://www.prodyna.com">PRODYNA AG</a>
+ * @author Axel Faust, <a href="http://www.prodyna.com">PRODYNA AG</a>
  */
 public class RepositoryExecuteBatchFunction extends AbstractExecuteBatchFunction
 {
@@ -152,7 +152,7 @@ public class RepositoryExecuteBatchFunction extends AbstractExecuteBatchFunction
                 this.transactionService.getRetryingTransactionHelper(), new CollectionBatchWorkProvider(workItems), Math.min(threadCount,
                         this.maxThreads), batchSize, null, LogFactory.getLog(RepositoryExecuteBatchFunction.class), 10);
         final RepositoryExecuteBatchWorker worker = new RepositoryExecuteBatchWorker(this, scope, thisObj, processCallback,
-                beforeProcessCallback, afterProcessCallback);
+				beforeProcessCallback, afterProcessCallback, this.facadeFactory);
         batchProcessor.process(worker, true);
 
         // TODO: result / status handling
@@ -174,7 +174,7 @@ public class RepositoryExecuteBatchFunction extends AbstractExecuteBatchFunction
                         workProviderCallback), Math.min(threadCount, this.maxThreads), batchSize, null,
                 LogFactory.getLog(RepositoryExecuteBatchFunction.class), 10);
         final RepositoryExecuteBatchWorker worker = new RepositoryExecuteBatchWorker(this, scope, thisObj, processCallback,
-                beforeProcessCallback, afterProcessCallback);
+				beforeProcessCallback, afterProcessCallback, this.facadeFactory);
         batchProcessor.process(worker, true);
 
         // TODO: result / status handling
