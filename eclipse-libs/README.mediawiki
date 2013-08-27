@@ -1,0 +1,5 @@
+==Eclipse JSDT Bootstrap Project==
+
+This project is used to bootstrap necessary Eclipse JSDT libraries for embedding a Rhino debugger and talking to it via a remote transport protocol into a locally available artifact repository. This is necessary as none of these libraries are currently available in a publicly available artifact repository. 
+
+Both libraries fall under the Eclipse Public License 1.0 - see LICENCE for details or get a copy from http://www.eclipse.org/org/documents/epl-v10.html

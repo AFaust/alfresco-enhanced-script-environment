@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+    <parent>
+        <groupId>org.nabucco.alfresco</groupId>
+        <artifactId>org.nabucco.alfresco.enhScriptEnv</artifactId>
+        <version>0.0.1.0-SNAPSHOT</version>
+        <relativePath>../pom.xml</relativePath>
+    </parent>
+
+    <artifactId>org.nabucco.alfresco.enhScriptEnv-eclipse-libs</artifactId>
+    <name>Alfresco Enhanced Script Environment - Eclipse Library Bootstrap</name>
+    <packaging>pom</packaging>
+
+    <properties>
+
+    </properties>
+
+    <build>
+        <plugins>
+            <plugin>
+                <artifactId>maven-deploy-plugin</artifactId>
+                <configuration>
+                    <skip>true</skip>
+                </configuration>
+                <executions>
+                    <execution>
+                        <id>Deploy JSDT Rhino Debugger</id>
+                        <phase>deploy</phase>
+                        <goals>
+                            <goal>deploy-file</goal>
+                        </goals>
+                        <configuration>
+                            <groupId>org.eclipse.wst</groupId>
+                            <artifactId>org.eclipse.wst.jsdt.debug.rhino.debugger</artifactId>
+                            <version>1.0.301.v201208171701</version>
+                            <file>${project.basedir}/src/lib/org.eclipse.wst.jsdt.debug.rhino.debugger_1.0.301.v201208171701.jar</file>
+                            <repositoryId>${distribution.repo.release.id}</repositoryId>
+                            <url>${distribution.repo.release.url}</url>
+                            <skip>false</skip>
+                        </configuration>
+                    </execution>
+                    <execution>
+                        <id>Deploy JSDT Debugger Transport</id>
+                        <phase>deploy</phase>
+                        <goals>
+                            <goal>deploy-file</goal>
+                        </goals>
+                        <configuration>
+                            <groupId>org.eclipse.wst</groupId>
+                            <artifactId>org.eclipse.wst.jsdt.debug.transport</artifactId>
+                            <version>1.0.101.v201208171701</version>
+                            <file>${project.basedir}/src/lib/org.eclipse.wst.jsdt.debug.transport_1.0.101.v201208171701.jar</file>
+                            <repositoryId>${distribution.repo.release.id}</repositoryId>
+                            <url>${distribution.repo.release.url}</url>
+                            <skip>false</skip>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+    </build>
+
+</project>

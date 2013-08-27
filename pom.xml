@@ -405,46 +405,13 @@
                             </executions>
                         </plugin>
 
-<!-- 
-                        <plugin>
-                            <groupId>com.samaxes.maven</groupId>
-                            <artifactId>minify-maven-plugin</artifactId>
-                            <executions>
-                                <execution>
-                                    <id>Minify Webapp</id>
-                                    <goals>
-                                        <goal>minify</goal>
-                                    </goals>
-                                    <configuration>
-                                        <charset>${project.build.sourceEncoding}</charset>
-                                        <jsSourceDir>webapp</jsSourceDir>
-                                        <jsTargetDir>web</jsTargetDir>
-                                        <jsSourceExcludes>
-                                            <jsSourceExclude>WEB-INF/**/*</jsSourceExclude>
-                                            <jsSourceExclude>**/*-min.js</jsSourceExclude>
-                                        </jsSourceExcludes>
-                                        <jsSourceIncludes>
-                                            <jsSourceInclude>**/*.js</jsSourceInclude>
-                                        </jsSourceIncludes>
-                                        <cssSourceDir>webapp</cssSourceDir>
-                                        <cssTargetDir>web</cssTargetDir>
-                                        <cssSourceExcludes>
-                                            <cssSourceExclude>WEB-INF/**/*</cssSourceExclude>
-                                            <cssSourceExclude>**/*-min.css</cssSourceExclude>
-                                        </cssSourceExcludes>
-                                        <cssSourceIncludes>
-                                            <cssSourceInclude>**/*.css</cssSourceInclude>
-                                        </cssSourceIncludes>
-                                        <webappSourceDir>${basedir}/src/main</webappSourceDir>
-                                        <webappTargetDir>${project.build.directory}</webappTargetDir>
-                                        <nomunge>true</nomunge>
-                                        <skipMerge>true</skipMerge>
-                                        <suffix>-min</suffix>
-                                    </configuration>
-                                </execution>
-                            </executions>
-                        </plugin>
- -->
+                        <!-- <plugin> <groupId>com.samaxes.maven</groupId> <artifactId>minify-maven-plugin</artifactId> <executions> <execution> 
+                            <id>Minify Webapp</id> <goals> <goal>minify</goal> </goals> <configuration> <charset>${project.build.sourceEncoding}</charset> <jsSourceDir>webapp</jsSourceDir> 
+                            <jsTargetDir>web</jsTargetDir> <jsSourceExcludes> <jsSourceExclude>WEB-INF/**/*</jsSourceExclude> <jsSourceExclude>**/*-min.js</jsSourceExclude> 
+                            </jsSourceExcludes> <jsSourceIncludes> <jsSourceInclude>**/*.js</jsSourceInclude> </jsSourceIncludes> <cssSourceDir>webapp</cssSourceDir> <cssTargetDir>web</cssTargetDir> 
+                            <cssSourceExcludes> <cssSourceExclude>WEB-INF/**/*</cssSourceExclude> <cssSourceExclude>**/*-min.css</cssSourceExclude> </cssSourceExcludes> <cssSourceIncludes> 
+                            <cssSourceInclude>**/*.css</cssSourceInclude> </cssSourceIncludes> <webappSourceDir>${basedir}/src/main</webappSourceDir> <webappTargetDir>${project.build.directory}</webappTargetDir> 
+                            <nomunge>true</nomunge> <skipMerge>true</skipMerge> <suffix>-min</suffix> </configuration> </execution> </executions> </plugin> -->
                     </plugins>
                 </pluginManagement>
             </build>
@@ -711,10 +678,28 @@
             </build>
         </profile>
 
-    </profiles>
+        <profile>
+            <id>deployEclipseLibs</id>
+            <modules>
+                <module>eclipse-libs</module>
+            </modules>
+        </profile>
 
-    <modules>
-        <module>framework</module>
-        <module>patch-modules</module>
-    </modules>
+        <profile>
+            <id>DefaultModules</id>
+            
+            <!-- Just a dummy profile to have eclipse-libs ordered before actual implementation modules -->
+            <activation>
+                <file>
+                    <exists>LICENCE</exists>
+                </file>
+            </activation>
+            
+            <modules>
+                <module>framework</module>
+                <module>patch-modules</module>
+            </modules>
+        </profile>
+
+    </profiles>
 </project>

@@ -2,6 +2,10 @@
 .project
 target
 
+eclipse-libs/.settings
+eclipse-libs/.project
+eclipse-libs/target
+
 framework/.settings
 framework/.project
 framework/target
