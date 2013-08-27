@@ -6,4 +6,10 @@
     <!-- Note: All beans should be prefixed ${project.artifactId} in their ID in general -->
     <!-- Exceptions: service beans (unique name) and beans with name conventions (e.g. web scripts) -->
 
+    <!-- Bootstrap the script fragments into the registry -->
+    <bean id="${project.artifactId}-repo-webScriptFragmentsBootstrap" class="org.nabucco.alfresco.enhScriptEnv.repo.script.registry.RepositoryVersionRegisterableScriptClasspathScanner">
+        <property name="scriptRegistry" ref="javaScriptProcessor.scriptRegistry" />
+        <property name="rootResourcePattern" value="classpath*:alfresco/module/${project.artifactId}/registeredScripts" />
+    </bean>
+
 </beans>

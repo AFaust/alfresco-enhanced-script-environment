@@ -72,12 +72,13 @@ public class VersionRegisterableScriptAdapter<Script> implements VersionRegister
 
             if (result == 0)
             {
-                if (this.isForCommunity && !((VersionRegisterableScript<?>) o).isForCommunity())
+                if (Boolean.TRUE.equals(this.isForCommunity) && Boolean.FALSE.equals(((VersionRegisterableScript<?>) o).isForCommunity()))
                 {
                     // Community considered lower than Enterprise
                     result = -1;
                 }
-                else if (!this.isForCommunity && ((VersionRegisterableScript<?>) o).isForCommunity())
+                else if (Boolean.FALSE.equals(this.isForCommunity)
+                        && Boolean.TRUE.equals(((VersionRegisterableScript<?>) o).isForCommunity()))
                 {
                     // Community considered lower than Enterprise
                     result = 1;
@@ -239,6 +240,52 @@ public class VersionRegisterableScriptAdapter<Script> implements VersionRegister
     public final void setForCommunity(final Boolean isForCommunity)
     {
         this.isForCommunity = isForCommunity;
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public String toString()
+    {
+        final StringBuilder builder = new StringBuilder();
+        builder.append("VersionRegisterableScriptAdapter [");
+        if (this.adaptedScript != null)
+        {
+            builder.append("adaptedScript=");
+            builder.append(this.adaptedScript);
+            builder.append(", ");
+        }
+        if (this.version != null)
+        {
+            builder.append("version=");
+            builder.append(this.version);
+            builder.append(", ");
+        }
+        if (this.appliesFrom != null)
+        {
+            builder.append("appliesFrom=");
+            builder.append(this.appliesFrom);
+            builder.append(", ");
+        }
+        if (this.appliesTo != null)
+        {
+            builder.append("appliesTo=");
+            builder.append(this.appliesTo);
+            builder.append(", ");
+        }
+        builder.append("appliesFromExclusive=");
+        builder.append(this.appliesFromExclusive);
+        builder.append(", appliesToExclusive=");
+        builder.append(this.appliesToExclusive);
+        builder.append(", ");
+        if (this.isForCommunity != null)
+        {
+            builder.append("isForCommunity=");
+            builder.append(this.isForCommunity);
+        }
+        builder.append("]");
+        return builder.toString();
     }
 
 }
