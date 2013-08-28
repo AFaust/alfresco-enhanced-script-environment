@@ -123,14 +123,14 @@ var Filters =
             /*
              * result properties
              */
-            limitResults : limitResults,
+            limitResults : filterParams.limitResults,
             // clone to decouple from changes
             sort : [
             {
-                column : sort[0].column,
-                ascending : sort[0].ascending
+                column : filterParams.sort[0].column,
+                ascending : filterParams.sort[0].ascending
             } ],
-            query : null,
+            query : filterParams.query,
             variablePath : filterParams.variablePath
         }, filterImportVersionCondition =
         {
@@ -148,7 +148,7 @@ var Filters =
             filterImported = importScript("registry", filter + "@documentlibrary-v2-filters", false, filterImportVersionCondition,
                     filterContext);
 
-            if (!filerImported)
+            if (!filterImported)
             {
                 // default "path"
                 filterParams.variablePath = false;

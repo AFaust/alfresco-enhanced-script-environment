@@ -25,14 +25,13 @@ import org.alfresco.util.VersionNumber;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.InitializingBean;
-import org.springframework.context.ApplicationContext;
-import org.springframework.context.ApplicationContextAware;
 import org.springframework.core.io.Resource;
+import org.springframework.core.io.support.ResourcePatternResolver;
 
 /**
  * @author Axel Faust, <a href="http://www.prodyna.com">PRODYNA AG</a>
  */
-public abstract class VersionRegisterableScriptClasspathScanner<Script> implements InitializingBean, ApplicationContextAware
+public abstract class VersionRegisterableScriptClasspathScanner<Script> implements InitializingBean
 {
     private static final Logger LOGGER = LoggerFactory.getLogger(VersionRegisterableScriptClasspathScanner.class);
 
@@ -43,27 +42,18 @@ public abstract class VersionRegisterableScriptClasspathScanner<Script> implemen
 
     protected String rootResourcePattern;
 
-    protected ApplicationContext applicationContext;
+    protected ResourcePatternResolver resourcePatternResolver;
 
     protected ScriptRegistry<Script> scriptRegistry;
 
     @Override
     public void afterPropertiesSet() throws Exception
     {
-        PropertyCheck.mandatory(this, "applicationContext", this.applicationContext);
+        PropertyCheck.mandatory(this, "resourcePatternResolver", this.resourcePatternResolver);
         PropertyCheck.mandatory(this, "scriptRegistry", this.scriptRegistry);
         PropertyCheck.mandatory(this, "rootResourcePattern", this.rootResourcePattern);
 
         this.scan();
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public void setApplicationContext(final ApplicationContext applicationContext)
-    {
-        this.applicationContext = applicationContext;
     }
 
     /**
@@ -73,6 +63,15 @@ public abstract class VersionRegisterableScriptClasspathScanner<Script> implemen
     public final void setRootResourcePattern(final String rootResourcePattern)
     {
         this.rootResourcePattern = rootResourcePattern;
+    }
+
+    /**
+     * @param resourcePatternResolver
+     *            the resourcePatternResolver to set
+     */
+    public final void setResourcePatternResolver(final ResourcePatternResolver resourcePatternResolver)
+    {
+        this.resourcePatternResolver = resourcePatternResolver;
     }
 
     /**
@@ -95,7 +94,7 @@ public abstract class VersionRegisterableScriptClasspathScanner<Script> implemen
     protected void scanNextLevel(final String resourcePattern, final Collection<String> patternStack,
             final VersionRegisterableScriptAdapter<Script> versionDataContainer, final String subRegistry) throws IOException
     {
-        final Resource[] resources = this.applicationContext.getResources(resourcePattern + "/*");
+        final Resource[] resources = this.resourcePatternResolver.getResources(resourcePattern + "/*");
         for (final Resource resource : resources)
         {
             final String fileName = resource.getFilename();
@@ -150,7 +149,7 @@ public abstract class VersionRegisterableScriptClasspathScanner<Script> implemen
         }
     }
 
-    protected abstract RegisterableScript<Script> getScript(final Resource resource) throws IOException;
+    protected abstract RegisterableScript<Script> getScript(final String resourcePath) throws IOException;
 
     protected void matchSourceFile(final String resourcePattern, final Collection<String> patternStack,
             final VersionRegisterableScriptAdapter<Script> versionDataContainer, final String subRegistry, final Resource resource)
@@ -160,7 +159,7 @@ public abstract class VersionRegisterableScriptClasspathScanner<Script> implemen
 
         LOGGER.debug("Matched script file {}", scriptName);
 
-        final RegisterableScript<Script> script = this.getScript(resource);
+        final RegisterableScript<Script> script = this.getScript(resourcePattern + "/" + scriptName);
 
         if (script != null)
         {
@@ -168,11 +167,11 @@ public abstract class VersionRegisterableScriptClasspathScanner<Script> implemen
             // copy the script adapter
             final VersionRegisterableScriptAdapter<Script> scriptAdapter = new VersionRegisterableScriptAdapter<Script>();
             scriptAdapter.setForCommunity(versionDataContainer.isForCommunity());
-            scriptAdapter.setAppliesFrom(scriptAdapter.getAppliesFrom());
-            scriptAdapter.setAppliesTo(scriptAdapter.getAppliesTo());
-            scriptAdapter.setAppliesFromExclusive(scriptAdapter.isAppliesFromExclusive());
-            scriptAdapter.setAppliesToExclusive(scriptAdapter.isAppliesToExclusive());
-            scriptAdapter.setVersion(scriptAdapter.getVersion());
+            scriptAdapter.setAppliesFrom(versionDataContainer.getAppliesFrom());
+            scriptAdapter.setAppliesTo(versionDataContainer.getAppliesTo());
+            scriptAdapter.setAppliesFromExclusive(versionDataContainer.isAppliesFromExclusive());
+            scriptAdapter.setAppliesToExclusive(versionDataContainer.isAppliesToExclusive());
+            scriptAdapter.setVersion(versionDataContainer.getVersion());
 
             scriptAdapter.setAdaptedScript(script);
 

@@ -20,7 +20,6 @@ import org.nabucco.alfresco.enhScriptEnv.common.script.registry.VersionRegistera
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.core.io.ClassPathResource;
-import org.springframework.core.io.Resource;
 
 /**
  * @author <a href="mailto:axel.faust@prodyna.com">Axel Faust</a>, <a href="http://www.prodyna.com">PRODYNA AG</a>
@@ -34,18 +33,20 @@ public class RepositoryVersionRegisterableScriptClasspathScanner extends Version
      * {@inheritDoc}
      */
     @Override
-    protected RegisterableScript<ScriptLocation> getScript(final Resource resource)
+    protected RegisterableScript<ScriptLocation> getScript(final String resourcePath)
     {
         final RegisterableScript<ScriptLocation> result;
-        if (resource instanceof ClassPathResource)
+        if (resourcePath.matches("^(classpath(\\*)?:)+.*$"))
         {
             final ClasspathRegisterableScript script = new ClasspathRegisterableScript();
-            script.setScriptResource((ClassPathResource) resource);
+            final String simplePath = resourcePath.replaceAll("classpath(\\*)?:", "");
+            final ClassPathResource classpathResource = new ClassPathResource(simplePath);
+            script.setScriptResource(classpathResource);
             result = script;
         }
         else
         {
-            LOGGER.warn("Can't create script from {} - needs to be a classpath resource", resource);
+            LOGGER.warn("Can't create script from {} - needs to be a classpath resource", resourcePath);
             result = null;
         }
         return result;

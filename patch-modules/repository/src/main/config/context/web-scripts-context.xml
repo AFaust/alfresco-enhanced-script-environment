@@ -10,6 +10,7 @@
     <bean id="${project.artifactId}-repo-webScriptFragmentsBootstrap" class="org.nabucco.alfresco.enhScriptEnv.repo.script.registry.RepositoryVersionRegisterableScriptClasspathScanner">
         <property name="scriptRegistry" ref="javaScriptProcessor.scriptRegistry" />
         <property name="rootResourcePattern" value="classpath*:alfresco/module/${project.artifactId}/registeredScripts" />
+        <property name="resourcePatternResolver" ref="resourceFinder" />
     </bean>
 
 </beans>
