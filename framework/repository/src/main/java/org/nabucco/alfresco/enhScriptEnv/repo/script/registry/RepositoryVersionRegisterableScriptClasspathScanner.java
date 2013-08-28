@@ -22,7 +22,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.core.io.ClassPathResource;
 
 /**
- * @author <a href="mailto:axel.faust@prodyna.com">Axel Faust</a>, <a href="http://www.prodyna.com">PRODYNA AG</a>
+ * @author Axel Faust, <a href="http://www.prodyna.com">PRODYNA AG</a>
  */
 public class RepositoryVersionRegisterableScriptClasspathScanner extends VersionRegisterableScriptClasspathScanner<ScriptLocation>
 {
