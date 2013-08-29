@@ -26,48 +26,11 @@ This list is open for suggestions from the Alfresco community
 
 ===Building===
 
-To build this extension, run Maven install on the top-level POM, i.e.
-
- mvn install
+See the [https://github.com/AFaust/alfresco-enhanced-script-environment/wiki/Building|Building wiki page]
 
 ===Installing===
 
-To install this module into an Alfresco installation, use the Alfresco Module Management Tool (MMT).
-
- java -jar install org.nabucco.alfresco.enhScriptEnv.repo-<version>.jar alfresco.war
- java -jar install org.nabucco.alfresco.enhScriptEnv.share-<version>.jar share.war
-
-In order to have the module installed within a Maven build using the Alfresco Maven SDK or a custom WAR build with the maven-amp-plugin as an unarchiver, simply add the following dependencies in the respective POM for your alfresco.war / share.war build (please note: this requires you have run Maven install on the module beforehand):
-
- <dependency>
-    <groupId>org.nabucco.alfresco</groupId>
-    <artifactId>org.nabucco.alfresco.enhScriptEnv.repo</artifactId>
-    <version>0.0.1.0-SNAPSHOT</version>
-    </type>amp</type>
-    <exclusions>
-        <exclusion>
-            <groupId>*</groupId>
-            <artifactId>*</artifactId>
-        </exclusion>
-    </exclusions>
- </dependency>
-
-and
-
- <dependency>
-    <groupId>org.nabucco.alfresco</groupId>
-    <artifactId>org.nabucco.alfresco.enhScriptEnv.share</artifactId>
-    <version>0.0.1.0-SNAPSHOT</version>
-    </type>amp</type>
-    <exclusions>
-        <exclusion>
-            <groupId>*</groupId>
-            <artifactId>*</artifactId>
-        </exclusion>
-    </exclusions>
- </dependency>
-
-Please note that the exclusions are necessary to prevent the WAR build from including the dependent JAR files in the WEB-INF/lib directory and thus potentially override existing files. This is necessary since I've chosen to depend on other JARs with compile-scope for the sake of transitive dependency management (instead of a provided-scope, which is the default in the Alfresco Maven SDK).
+See the [https://github.com/AFaust/alfresco-enhanced-script-environment/wiki/Installing|Installing wiki page]
 
 ==Usage==
 

@@ -19,6 +19,41 @@
 
     <build>
         <plugins>
+        	<plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-install-plugin</artifactId>
+				<version>2.4</version>
+                <executions>
+                    <execution>
+                        <id>Install JSDT Rhino Debugger</id>
+                        <phase>install</phase>
+                        <goals>
+                            <goal>install-file</goal>
+                        </goals>
+                        <configuration>
+                            <groupId>org.eclipse.wst</groupId>
+                            <artifactId>org.eclipse.wst.jsdt.debug.rhino.debugger</artifactId>
+                            <version>1.0.301.v201208171701</version>
+                            <file>${project.basedir}/src/lib/org.eclipse.wst.jsdt.debug.rhino.debugger_1.0.301.v201208171701.jar</file>
+                            <packaging>jar</packaging>
+                        </configuration>
+                    </execution>
+                    <execution>
+                        <id>Install JSDT Debugger Transport</id>
+                        <phase>install</phase>
+                        <goals>
+                            <goal>install-file</goal>
+                        </goals>
+                        <configuration>
+                            <groupId>org.eclipse.wst</groupId>
+                            <artifactId>org.eclipse.wst.jsdt.debug.transport</artifactId>
+                            <version>1.0.101.v201208171701</version>
+                            <file>${project.basedir}/src/lib/org.eclipse.wst.jsdt.debug.transport_1.0.101.v201208171701.jar</file>
+                            <packaging>jar</packaging>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
             <plugin>
                 <artifactId>maven-deploy-plugin</artifactId>
                 <configuration>

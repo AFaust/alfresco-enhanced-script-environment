@@ -249,6 +249,11 @@
 
         <profile>
             <id>publicRepositories</id>
+            <activation>
+                <property>
+                    <name>!noPublicRepo</name>
+                </property>
+            </activation>
 
             <repositories>
 
