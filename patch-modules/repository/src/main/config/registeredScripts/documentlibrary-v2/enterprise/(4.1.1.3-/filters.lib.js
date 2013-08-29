@@ -1,7 +1,8 @@
 // load script for previous version
 importScript("registry", "filters.lib.js@documentlibrary-v2", true,
 {
-    version : "4.0.2"
+    // get the script from the previous version
+    version : "4.0.2.9"
 });
 
 // apply patch
