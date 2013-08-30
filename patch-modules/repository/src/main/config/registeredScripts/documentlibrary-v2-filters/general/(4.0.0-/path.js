@@ -1,2 +1,2 @@
 variablePath = false;
-query = '+PATH:"' + parsedArgs.pathNode.qnamePath + '/*"';
+query = '+PATH:"' + parsedArgs.pathNode.qnamePath + '/*"' + filterQueryDefaults;

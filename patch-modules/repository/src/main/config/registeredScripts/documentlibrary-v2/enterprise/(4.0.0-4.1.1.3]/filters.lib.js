@@ -135,16 +135,16 @@ var Filters =
         }, filterImportVersionCondition =
         {
             version : DESCRIPTOR.VERSION,
-            // filters are simple enough that they should be shareable by Community and Enterprise
-            community : null
+            // look for version specific variant first
+            community : DESCRIPTOR.IS_COMMUNITY
         };
 
         var filterImported = importScript("registry", filter + "@documentlibrary-v2-filters", false, filterImportVersionCondition,
                 filterContext);
         if (!filterImported)
         {
-            // the requested filter might be edition specific, try again with edition specific lookup
-            filterImportVersionCondition.community = DESCRIPTOR.IS_COMMUNITY;
+            // the requested filter might be edition agnostic, try again without edition specific lookup
+            filterImportVersionCondition.community = null;
             filterImported = importScript("registry", filter + "@documentlibrary-v2-filters", false, filterImportVersionCondition,
                     filterContext);
 
