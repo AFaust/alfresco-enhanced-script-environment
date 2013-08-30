@@ -12,7 +12,7 @@
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 
         <alfresco.groupId>org.alfresco</alfresco.groupId>
-        <alfresco.version>4.2.c</alfresco.version>
+        <alfresco.version>4.2.d</alfresco.version>
 
     </properties>
 
@@ -45,9 +45,9 @@
                             <configuration>
                                 <rules>
                                     <requireJavaVersion>
-                                        <version>[1.6.0,1.7.0)</version>
-                                        <message>Alfresco 4.0 / 4.1 require Java 6 and reusable modules must not make use of Java 7 to avoid
-                                            incompatibilities</message>
+                                        <version>[1.7.0,)</version>
+                                        <message>Alfresco 4.2 requires Java 7 - to cross-compile for Java 6 run Maven in Java 7 while activating
+                                            the Java6-crossCompile profile</message>
                                     </requireJavaVersion>
                                 </rules>
                             </configuration>
@@ -57,11 +57,7 @@
 
                 <plugin>
                     <artifactId>maven-compiler-plugin</artifactId>
-                    <version>2.5.1</version>
-                    <configuration>
-                        <source>1.6</source>
-                        <target>1.6</target>
-                    </configuration>
+                    <version>3.1</version>
                 </plugin>
 
                 <plugin>
@@ -692,18 +688,38 @@
 
         <profile>
             <id>DefaultModules</id>
-            
+
             <!-- Just a dummy profile to have eclipse-libs ordered before actual implementation modules -->
             <activation>
                 <file>
                     <exists>LICENCE</exists>
                 </file>
             </activation>
-            
+
             <modules>
                 <module>framework</module>
                 <module>patch-modules</module>
             </modules>
+        </profile>
+
+        <profile>
+            <id>Java6-crossCompile</id>
+            <build>
+                <pluginManagement>
+                    <plugins>
+                        <plugin>
+                            <artifactId>maven-compiler-plugin</artifactId>
+                            <configuration>
+                                <fork>true</fork>
+                                <source>1.6</source>
+                                <target>1.6</target>
+                                <ompilerVersion>1.6</ompilerVersion>
+                                <executable>${jdk6.executable}</executable>
+                            </configuration>
+                        </plugin>
+                    </plugins>
+                </pluginManagement>
+            </build>
         </profile>
 
     </profiles>
