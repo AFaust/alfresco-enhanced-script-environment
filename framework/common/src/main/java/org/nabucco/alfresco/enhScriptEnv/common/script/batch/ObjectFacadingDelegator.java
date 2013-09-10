@@ -14,9 +14,6 @@
  */
 package org.nabucco.alfresco.enhScriptEnv.common.script.batch;
 
-import java.util.Map;
-import java.util.WeakHashMap;
-
 import org.mozilla.javascript.Context;
 import org.mozilla.javascript.Delegator;
 import org.mozilla.javascript.Scriptable;
@@ -26,238 +23,218 @@ import org.mozilla.javascript.Scriptable;
  */
 public class ObjectFacadingDelegator extends Delegator
 {
-	protected static final ThreadLocal<Map<Scriptable, ObjectFacadingDelegator>> FACADE_BY_REAL_OBJECT = new ThreadLocal<Map<Scriptable, ObjectFacadingDelegator>>();
+    protected final Scriptable referenceScope;
 
-	protected static final Map<Scriptable, Map<Scriptable, ObjectFacadingDelegator>> FACADE_BY_REAL_OBJECT_AND_REFERENCE_SCOPE = new WeakHashMap<Scriptable, Map<Scriptable, ObjectFacadingDelegator>>();
+    protected final ObjectFacadeFactory facadeFactory;
 
-	protected final Scriptable referenceScope;
+    public ObjectFacadingDelegator(final Scriptable referenceScope, final Scriptable delegee, final ObjectFacadeFactory facadeFactory)
+    {
+        this.referenceScope = referenceScope;
+        this.setDelegee(delegee);
+        this.facadeFactory = facadeFactory;
+    }
 
-	protected final ObjectFacadeFactory facadeFactory;
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public Object get(final String name, final Scriptable start)
+    {
+        final Object result = super.get(name, this.toRealObject(start));
+        final Object realResult;
+        if (result instanceof Scriptable)
+        {
+            realResult = this.toFacadedObject((Scriptable) result);
+        }
+        else
+        {
+            realResult = result;
+        }
+        return realResult;
+    }
 
-	public static void clearThread()
-	{
-		FACADE_BY_REAL_OBJECT.remove();
-	}
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public Object get(final int index, final Scriptable start)
+    {
+        final Object result = super.get(index, start);
+        final Object realResult;
+        if (result instanceof Scriptable)
+        {
+            realResult = this.toFacadedObject((Scriptable) result);
+        }
+        else
+        {
+            realResult = result;
+        }
+        return realResult;
+    }
 
-	public static void clearReferenceScope(final Scriptable referenceScope)
-	{
-		synchronized (FACADE_BY_REAL_OBJECT_AND_REFERENCE_SCOPE)
-		{
-			FACADE_BY_REAL_OBJECT_AND_REFERENCE_SCOPE.remove(referenceScope);
-		}
-	}
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public boolean has(final String name, final Scriptable start)
+    {
+        return super.has(name, this.toRealObject(start));
+    }
 
-	public ObjectFacadingDelegator(final Scriptable referenceScope, final Scriptable delegee,
-			final ObjectFacadeFactory facadeFactory)
-	{
-		this.referenceScope = referenceScope;
-		this.setDelegee(delegee);
-		this.facadeFactory = facadeFactory;
-	}
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public boolean has(final int index, final Scriptable start)
+    {
+        return super.has(index, this.toRealObject(start));
+    }
 
-	/**
-	 * {@inheritDoc}
-	 */
-	@Override
-	public Object get(final String name, final Scriptable start)
-	{
-		final Object result = super.get(name, this.toRealObject(start));
-		final Object realResult;
-		if (result instanceof Scriptable)
-		{
-			realResult = this.toFacadedObject((Scriptable) result);
-		}
-		else
-		{
-			realResult = result;
-		}
-		return realResult;
-	}
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public void put(final String name, final Scriptable start, final Object value)
+    {
+        final Object realValue;
+        if (value instanceof Scriptable)
+        {
+            realValue = this.toRealObject((Scriptable) value);
+        }
+        else
+        {
+            realValue = value;
+        }
+        super.put(name, this.toRealObject(start), realValue);
+    }
 
-	/**
-	 * {@inheritDoc}
-	 */
-	@Override
-	public Object get(final int index, final Scriptable start)
-	{
-		final Object result = super.get(index, start);
-		final Object realResult;
-		if (result instanceof Scriptable)
-		{
-			realResult = this.toFacadedObject((Scriptable) result);
-		}
-		else
-		{
-			realResult = result;
-		}
-		return realResult;
-	}
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public void put(final int index, final Scriptable start, final Object value)
+    {
+        final Object realValue;
+        if (value instanceof Scriptable)
+        {
+            realValue = this.toRealObject((Scriptable) value);
+        }
+        else
+        {
+            realValue = value;
+        }
+        super.put(index, this.toRealObject(start), realValue);
+    }
 
-	/**
-	 * {@inheritDoc}
-	 */
-	@Override
-	public boolean has(final String name, final Scriptable start)
-	{
-		return super.has(name, this.toRealObject(start));
-	}
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public Scriptable getPrototype()
+    {
+        final Scriptable realResult = this.toFacadedObject(super.getPrototype());
+        return realResult;
+    }
 
-	/**
-	 * {@inheritDoc}
-	 */
-	@Override
-	public boolean has(final int index, final Scriptable start)
-	{
-		return super.has(index, this.toRealObject(start));
-	}
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public void setPrototype(final Scriptable prototype)
+    {
+        super.setPrototype(this.toRealObject(prototype));
+    }
 
-	/**
-	 * {@inheritDoc}
-	 */
-	@Override
-	public void put(final String name, final Scriptable start, final Object value)
-	{
-		final Object realValue;
-		if (value instanceof Scriptable)
-		{
-			realValue = this.toFacadedObject((Scriptable) value);
-		}
-		else
-		{
-			realValue = value;
-		}
-		super.put(name, this.toRealObject(start), realValue);
-	}
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public Scriptable getParentScope()
+    {
+        final Scriptable realResult = this.toFacadedObject(super.getParentScope());
+        return realResult;
+    }
 
-	/**
-	 * {@inheritDoc}
-	 */
-	@Override
-	public void put(final int index, final Scriptable start, final Object value)
-	{
-		final Object realValue;
-		if (value instanceof Scriptable)
-		{
-			realValue = this.toFacadedObject((Scriptable) value);
-		}
-		else
-		{
-			realValue = value;
-		}
-		super.put(index, this.toRealObject(start), realValue);
-	}
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public void setParentScope(final Scriptable parent)
+    {
+        super.setParentScope(this.toRealObject(parent));
+    }
 
-	/**
-	 * {@inheritDoc}
-	 */
-	@Override
-	public Scriptable getPrototype()
-	{
-		final Scriptable realResult = this.toFacadedObject(super.getPrototype());
-		return realResult;
-	}
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public boolean hasInstance(final Scriptable instance)
+    {
+        final Scriptable realInstance = instance instanceof ObjectFacadingDelegator ? ((ObjectFacadingDelegator) instance).getDelegee()
+                : instance;
+        return super.hasInstance(realInstance);
+    }
 
-	/**
-	 * {@inheritDoc}
-	 */
-	@Override
-	public void setPrototype(final Scriptable prototype)
-	{
-		super.setPrototype(this.toRealObject(prototype));
-	}
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public Object call(final Context cx, final Scriptable scope, final Scriptable thisObj, final Object[] args)
+    {
+        final Object[] realArgs = new Object[args.length];
+        System.arraycopy(args, 0, realArgs, 0, args.length);
+        for (int idx = 0; idx < realArgs.length; idx++)
+        {
+            if (realArgs[idx] instanceof Scriptable)
+            {
+                realArgs[idx] = this.toRealObject((Scriptable) realArgs[idx]);
+            }
+        }
 
-	/**
-	 * {@inheritDoc}
-	 */
-	@Override
-	public Scriptable getParentScope()
-	{
-		final Scriptable realResult = this.toFacadedObject(super.getParentScope());
-		return realResult;
-	}
+        final Object realResult = super.call(cx, this.toRealObject(scope), this.toRealObject(thisObj), realArgs);
 
-	/**
-	 * {@inheritDoc}
-	 */
-	@Override
-	public void setParentScope(final Scriptable parent)
-	{
-		super.setParentScope(this.toRealObject(parent));
-	}
+        final Object result;
+        if (realResult instanceof Scriptable)
+        {
+            result = this.toFacadedObject((Scriptable) realResult);
+        }
+        else
+        {
+            result = realResult;
+        }
+        return result;
+    }
 
-	/**
-	 * {@inheritDoc}
-	 */
-	@Override
-	public boolean hasInstance(final Scriptable instance)
-	{
-		final Scriptable realInstance = instance instanceof ObjectFacadingDelegator ? ((ObjectFacadingDelegator) instance)
-				.getDelegee()
-				: instance;
-		return super.hasInstance(realInstance);
-	}
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public Scriptable construct(final Context cx, final Scriptable scope, final Object[] args)
+    {
+        final Object[] realArgs = new Object[args.length];
+        System.arraycopy(args, 0, realArgs, 0, args.length);
+        for (int idx = 0; idx < realArgs.length; idx++)
+        {
+            if (realArgs[idx] instanceof Scriptable)
+            {
+                realArgs[idx] = this.toRealObject((Scriptable) realArgs[idx]);
+            }
+        }
 
-	/**
-	 * {@inheritDoc}
-	 */
-	@Override
-	public Object call(final Context cx, final Scriptable scope, final Scriptable thisObj, final Object[] args)
-	{
-		final Object[] realArgs = new Object[args.length];
-		System.arraycopy(args, 0, realArgs, 0, args.length);
-		for (int idx = 0; idx < realArgs.length; idx++)
-		{
-			if (realArgs[idx] instanceof Scriptable)
-			{
-				realArgs[idx] = this.toRealObject((Scriptable) realArgs[idx]);
-			}
-		}
+        final Scriptable realResult = super.construct(cx, this.toRealObject(scope), realArgs);
+        final Scriptable result = this.toFacadedObject(realResult);
+        return result;
+    }
 
-		final Object result = super.call(cx, this.toRealObject(scope), this.toRealObject(thisObj), realArgs);
+    protected Scriptable toRealObject(final Scriptable obj)
+    {
+        final Scriptable realObj = obj instanceof ObjectFacadingDelegator ? ((ObjectFacadingDelegator) obj).getDelegee() : obj;
+        return realObj;
+    }
 
-		final Object realResult;
-		if (result instanceof Scriptable)
-		{
-			realResult = this.toFacadedObject((Scriptable) result);
-		}
-		else
-		{
-			realResult = result;
-		}
-		return realResult;
-	}
-
-	/**
-	 * {@inheritDoc}
-	 */
-	@Override
-	public Scriptable construct(final Context cx, final Scriptable scope, final Object[] args)
-	{
-		final Object[] realArgs = new Object[args.length];
-		System.arraycopy(args, 0, realArgs, 0, args.length);
-		for (int idx = 0; idx < realArgs.length; idx++)
-		{
-			if (realArgs[idx] instanceof Scriptable)
-			{
-				realArgs[idx] = this.toRealObject((Scriptable) realArgs[idx]);
-			}
-		}
-
-		final Scriptable result = super.construct(cx, this.toRealObject(scope), realArgs);
-		final Scriptable realResult = this.toFacadedObject(result);
-		return realResult;
-	}
-
-	protected Scriptable toRealObject(final Scriptable obj)
-	{
-		final Scriptable realObj = obj instanceof ObjectFacadingDelegator ? ((ObjectFacadingDelegator) obj)
-				.getDelegee() : obj;
-		return realObj;
-	}
-
-	protected Scriptable toFacadedObject(final Scriptable obj)
-	{
-		final Scriptable facadedObject = this.facadeFactory.toFacadedObject(obj, this.referenceScope, this);
-		return facadedObject;
-	}
+    protected Scriptable toFacadedObject(final Scriptable obj)
+    {
+        final Scriptable facadedObject = this.facadeFactory.toFacadedObject(obj, this.referenceScope, this);
+        return facadedObject;
+    }
 }

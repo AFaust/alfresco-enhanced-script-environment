@@ -26,4 +26,8 @@ public interface ObjectFacadeFactory {
 	Scriptable toFacadedObject(Scriptable object, Scriptable referenceScope, Scriptable thisObj);
 
 	Scriptable toRealObject(Scriptable facadedObject, Scriptable referenceScope);
+
+    void clearThread();
+
+    void clearReferenceScope(Scriptable referenceScope);
 }

@@ -27,6 +27,18 @@
             <artifactId>alfresco-share</artifactId>
             <version>${alfresco.version}</version>
             <scope>compile</scope>
+            <exclusions>
+                <exclusion>
+                    <groupId>${alfresco.groupId}</groupId>
+                    <artifactId>alfresco-web-framework-commons</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+
+        <dependency>
+            <groupId>${alfresco.groupId}</groupId>
+            <artifactId>alfresco-web-framework-commons</artifactId>
+            <version>${alfresco.version}</version>
         </dependency>
 
         <dependency>
@@ -115,7 +127,7 @@
                 <groupId>net.alchim31.maven</groupId>
                 <artifactId>yuicompressor-maven-plugin</artifactId>
             </plugin>
-            
+
             <plugin>
                 <groupId>com.googlecode.jslint4java</groupId>
                 <artifactId>jslint4java-maven-plugin</artifactId>
