@@ -68,7 +68,7 @@ public class DefaultFacadeFactory implements ObjectFacadeFactory
      * {@inheritDoc}
      */
     @Override
-    public Scriptable toFacadedObject(final Scriptable obj, final Scriptable referenceScope, final Scriptable thisObj)
+    public Scriptable toFacadedObject(final Scriptable obj, final Scriptable referenceScope, final String accessName)
     {
         final Scriptable facadedObject;
 
@@ -111,7 +111,7 @@ public class DefaultFacadeFactory implements ObjectFacadeFactory
                         globalFacadedObject = facadeByRealObjectAndReferenceScope.get(obj);
                         if (globalFacadedObject == null)
                         {
-                            globalFacadedObject = this.toFacadedObjectImpl(obj, referenceScope, thisObj);
+                            globalFacadedObject = this.toFacadedObjectImpl(obj, referenceScope, accessName);
                             facadeByRealObjectAndReferenceScope.put(obj, globalFacadedObject);
                         }
                     }
@@ -134,7 +134,7 @@ public class DefaultFacadeFactory implements ObjectFacadeFactory
         return facadedObject;
     }
 
-    protected Scriptable toFacadedObjectImpl(final Scriptable obj, final Scriptable referenceScope, final Scriptable thisObj)
+    protected Scriptable toFacadedObjectImpl(final Scriptable obj, final Scriptable referenceScope, final String accessName)
     {
         Scriptable globalFacadedObject;
         if (obj instanceof NativeJavaObject)
@@ -156,14 +156,9 @@ public class DefaultFacadeFactory implements ObjectFacadeFactory
         }
         else if (obj instanceof Function)
         {
-            if (thisObj instanceof StateLockingDelegator)
-            {
-                globalFacadedObject = new StateLockingDelegator(referenceScope, obj, this, (StateLockingDelegator) thisObj);
-            }
-            else
-            {
-                globalFacadedObject = new StateLockingDelegator(referenceScope, obj, this);
-            }
+            globalFacadedObject = new StateLockingDelegator(referenceScope, obj, this);
+
+            ((StateLockingDelegator) globalFacadedObject).setMostRecentAccessName(accessName);
         }
         else
         {
@@ -178,8 +173,9 @@ public class DefaultFacadeFactory implements ObjectFacadeFactory
     @Override
     public Scriptable toRealObject(final Scriptable facadedObject, final Scriptable referenceScope)
     {
-        // TODO Auto-generated method stub
-        return null;
+        final Scriptable realObj = facadedObject instanceof ObjectFacadingDelegator ? ((ObjectFacadingDelegator) facadedObject)
+                .getDelegee() : facadedObject;
+        return realObj;
     }
 
 }

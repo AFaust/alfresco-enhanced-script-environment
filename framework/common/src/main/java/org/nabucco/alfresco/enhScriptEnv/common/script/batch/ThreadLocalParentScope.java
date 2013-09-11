@@ -22,27 +22,33 @@ import org.mozilla.javascript.Scriptable;
 public class ThreadLocalParentScope implements Scriptable
 {
 
-    private final Scriptable realParentScope;
+    private final Scriptable objectParentScope;
+
+    private final Scriptable globalScope;
 
     private final ObjectFacadeFactory facadeFactory;
 
     private final ThreadLocal<Scriptable> delegate = new ThreadLocal<Scriptable>();
 
-    public ThreadLocalParentScope(final Scriptable realParentScope, final ObjectFacadeFactory facadeFactory)
+    public ThreadLocalParentScope(final Scriptable objectParentScope, final Scriptable globalScope, final ObjectFacadeFactory facadeFactory)
     {
-        this.realParentScope = realParentScope;
+        this.objectParentScope = objectParentScope;
+        this.globalScope = globalScope;
         this.facadeFactory = facadeFactory;
     }
 
     public void setEffectiveParentScope(final Scriptable effectiveParentScope)
     {
-        effectiveParentScope.setPrototype(this.realParentScope);
+        final Scriptable parentScopePrototype = this.facadeFactory.toFacadedObject(this.objectParentScope, this.globalScope);
+        effectiveParentScope.setPrototype(parentScopePrototype);
+        effectiveParentScope.setParentScope(this.facadeFactory.toFacadedObject(this.objectParentScope.getParentScope(), this.globalScope));
         this.delegate.set(effectiveParentScope);
     }
 
     public void removeEffectiveParentScope()
     {
         this.delegate.get().setPrototype(null);
+        this.delegate.get().setParentScope(null);
         this.delegate.remove();
     }
 
@@ -51,7 +57,7 @@ public class ThreadLocalParentScope implements Scriptable
      */
     public final Scriptable getRealParentScope()
     {
-        return this.realParentScope;
+        return this.objectParentScope;
     }
 
     /**

@@ -121,7 +121,7 @@ public abstract class AbstractExecuteBatchFunction implements IdFunctionCall, Sc
 
                         if (!workItems.isEmpty())
                         {
-                            this.adaptFunctionScopes(processCallback, beforeProcessCallback, afterProcessCallback);
+                            this.adaptFunctionScopes(scope, processCallback, beforeProcessCallback, afterProcessCallback);
                             try
                             {
                                 this.executeBatch(scope, thisObj, workItems, processCallback, threadCount, batchSize,
@@ -147,7 +147,7 @@ public abstract class AbstractExecuteBatchFunction implements IdFunctionCall, Sc
                 }
                 else
                 {
-                    this.adaptFunctionScopes(processCallback, beforeProcessCallback, afterProcessCallback);
+                    this.adaptFunctionScopes(scope, processCallback, beforeProcessCallback, afterProcessCallback);
                     try
                     {
                         this.executeBatch(scope, thisObj, workProviderCallback, processCallback, threadCount, batchSize,
@@ -210,23 +210,23 @@ public abstract class AbstractExecuteBatchFunction implements IdFunctionCall, Sc
         this.facadeFactory = facadeFactory;
     }
 
-    protected void adaptFunctionScopes(final Pair<Scriptable, Function> processCallback,
+    protected void adaptFunctionScopes(final Scriptable globalScope, final Pair<Scriptable, Function> processCallback,
             final Pair<Scriptable, Function> beforeProcessCallback, final Pair<Scriptable, Function> afterProcessCallback)
     {
-        this.adaptFunctionScope(processCallback, false);
-        this.adaptFunctionScope(beforeProcessCallback, false);
-        this.adaptFunctionScope(afterProcessCallback, false);
+        this.adaptFunctionScope(processCallback, globalScope, false);
+        this.adaptFunctionScope(beforeProcessCallback, globalScope, false);
+        this.adaptFunctionScope(afterProcessCallback, globalScope, false);
     }
 
     protected void restoreFunctionScopes(final Pair<Scriptable, Function> processCallback,
             final Pair<Scriptable, Function> beforeProcessCallback, final Pair<Scriptable, Function> afterProcessCallback)
     {
-        this.adaptFunctionScope(processCallback, true);
-        this.adaptFunctionScope(beforeProcessCallback, true);
-        this.adaptFunctionScope(afterProcessCallback, true);
+        this.adaptFunctionScope(processCallback, null, true);
+        this.adaptFunctionScope(beforeProcessCallback, null, true);
+        this.adaptFunctionScope(afterProcessCallback, null, true);
     }
 
-    protected void adaptFunctionScope(final Pair<Scriptable, Function> callback, final boolean restore)
+    protected void adaptFunctionScope(final Pair<Scriptable, Function> callback, final Scriptable globalScope, final boolean restore)
     {
         if (callback != null)
         {
@@ -243,7 +243,7 @@ public abstract class AbstractExecuteBatchFunction implements IdFunctionCall, Sc
                 }
                 else
                 {
-                    fn.setParentScope(new ThreadLocalParentScope(fn.getParentScope(), this.facadeFactory));
+                    fn.setParentScope(new ThreadLocalParentScope(fn.getParentScope(), globalScope, this.facadeFactory));
                 }
             }
         }

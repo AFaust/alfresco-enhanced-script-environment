@@ -228,13 +228,19 @@ public class ObjectFacadingDelegator extends Delegator
 
     protected Scriptable toRealObject(final Scriptable obj)
     {
-        final Scriptable realObj = obj instanceof ObjectFacadingDelegator ? ((ObjectFacadingDelegator) obj).getDelegee() : obj;
+        final Scriptable realObj = this.facadeFactory.toRealObject(obj, this.referenceScope);
         return realObj;
     }
 
     protected Scriptable toFacadedObject(final Scriptable obj)
     {
-        final Scriptable facadedObject = this.facadeFactory.toFacadedObject(obj, this.referenceScope, this);
+        final Scriptable facadedObject = this.facadeFactory.toFacadedObject(obj, this.referenceScope);
+        return facadedObject;
+    }
+
+    protected Scriptable toFacadedObject(final Scriptable obj, final String accessName)
+    {
+        final Scriptable facadedObject = this.facadeFactory.toFacadedObject(obj, this.referenceScope, accessName);
         return facadedObject;
     }
 }

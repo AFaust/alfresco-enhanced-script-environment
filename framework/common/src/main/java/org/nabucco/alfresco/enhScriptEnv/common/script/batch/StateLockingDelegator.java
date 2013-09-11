@@ -14,7 +14,11 @@
  */
 package org.nabucco.alfresco.enhScriptEnv.common.script.batch;
 
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
 import java.util.WeakHashMap;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
@@ -32,23 +36,26 @@ import org.mozilla.javascript.Scriptable;
  */
 public class StateLockingDelegator extends ObjectFacadingDelegator
 {
+    private static final Set<String> TRIVIAL_READ_ONLY_FUNCTION_NAMES = Collections.unmodifiableSet(new HashSet<String>(Arrays.asList(
+            "get", "is", "has", "find", "toString", "search", "query")));
+
+    private static final Set<String> TRIVIAL_READ_ONLY_FUNCTION_PREFIXES = Collections.unmodifiableSet(new HashSet<String>(Arrays.asList(
+            "get", "is", "has", "find", "search", "query")));
+
     protected static final Map<Scriptable, Map<Scriptable, StateLockingDelegator>> DELEGATOR_MAP_BY_SCOPE_CONTEXT = new WeakHashMap<Scriptable, Map<Scriptable, StateLockingDelegator>>();
 
     protected final ReentrantReadWriteLock stateLock = new ReentrantReadWriteLock(true);
 
-    protected final StateLockingDelegator owner;
+    protected final ThreadLocal<String> mostRecentAccessName = new ThreadLocal<String>();
 
     public StateLockingDelegator(final Scriptable refereneScope, final Scriptable delegee, final ObjectFacadeFactory facadeFactory)
     {
         super(refereneScope, delegee, facadeFactory);
-        this.owner = null;
     }
 
-    public StateLockingDelegator(final Scriptable referenceScope, final Scriptable delegee, final ObjectFacadeFactory facadeFactory,
-            final StateLockingDelegator owner)
+    public void setMostRecentAccessName(final String accessName)
     {
-        super(referenceScope, delegee, facadeFactory);
-        this.owner = owner;
+        this.mostRecentAccessName.set(accessName);
     }
 
     /**
@@ -59,14 +66,14 @@ public class StateLockingDelegator extends ObjectFacadingDelegator
     {
         // since get operations need to iterate over slots, we need to read-lock to protected against concurrent
         // modification
-        this.stateLock.readLock().lock();
+        this.readLock();
         try
         {
             return super.get(name, start);
         }
         finally
         {
-            this.stateLock.readLock().unlock();
+            this.readUnlock();
         }
     }
 
@@ -78,14 +85,14 @@ public class StateLockingDelegator extends ObjectFacadingDelegator
     {
         // since get operations need to iterate over slots, we need to read-lock to protected against concurrent
         // modification
-        this.stateLock.readLock().lock();
+        this.readLock();
         try
         {
             return super.get(index, start);
         }
         finally
         {
-            this.stateLock.readLock().unlock();
+            this.readUnlock();
         }
     }
 
@@ -97,14 +104,14 @@ public class StateLockingDelegator extends ObjectFacadingDelegator
     {
         // since has operations need to iterate over slots, we need to read-lock to protected against concurrent
         // modification
-        this.stateLock.readLock().lock();
+        this.readLock();
         try
         {
             return super.has(name, start);
         }
         finally
         {
-            this.stateLock.readLock().unlock();
+            this.readUnlock();
         }
     }
 
@@ -116,14 +123,14 @@ public class StateLockingDelegator extends ObjectFacadingDelegator
     {
         // since has operations need to iterate over slots, we need to read-lock to protected against concurrent
         // modification
-        this.stateLock.readLock().lock();
+        this.readLock();
         try
         {
             return super.has(index, start);
         }
         finally
         {
-            this.stateLock.readLock().unlock();
+            this.readUnlock();
         }
     }
 
@@ -238,14 +245,14 @@ public class StateLockingDelegator extends ObjectFacadingDelegator
     public Scriptable getPrototype()
     {
         // getPrototype is atomic by nature, but our superclass executes non-atomic facading logic
-        this.stateLock.readLock().lock();
+        this.readLock();
         try
         {
             return super.getPrototype();
         }
         finally
         {
-            this.stateLock.readLock().unlock();
+            this.readUnlock();
         }
     }
 
@@ -256,14 +263,14 @@ public class StateLockingDelegator extends ObjectFacadingDelegator
     public Scriptable getParentScope()
     {
         // getParentScope is atomic by nature, but our superclass executes non-atomic facading logic
-        this.stateLock.readLock().lock();
+        this.readLock();
         try
         {
             return super.getParentScope();
         }
         finally
         {
-            this.stateLock.readLock().unlock();
+            this.readUnlock();
         }
     }
 
@@ -273,14 +280,14 @@ public class StateLockingDelegator extends ObjectFacadingDelegator
     @Override
     public Object[] getIds()
     {
-        this.stateLock.readLock().lock();
+        this.readLock();
         try
         {
             return super.getIds();
         }
         finally
         {
-            this.stateLock.readLock().unlock();
+            this.readUnlock();
         }
     }
 
@@ -290,25 +297,84 @@ public class StateLockingDelegator extends ObjectFacadingDelegator
     @Override
     public Object call(final Context cx, final Scriptable scope, final Scriptable thisObj, final Object[] args)
     {
-        // TODO: should we inspect method to determine modification probability, e.g. read-lock on get/find/search
-        // functions?
+        // TODO: can we consider functions / methods of processor extensions read-only?
+
+        final boolean presumedReadOnly;
+        final String mostRecentAccessName = this.mostRecentAccessName.get();
+
+        if (mostRecentAccessName == null)
+        {
+            presumedReadOnly = false;
+        }
+        else
+        {
+            if (TRIVIAL_READ_ONLY_FUNCTION_NAMES.contains(mostRecentAccessName))
+            {
+                presumedReadOnly = true;
+            }
+            else
+            {
+                boolean readOnlyMatchFound = false;
+                for (final String readOnlyNamePrefix : TRIVIAL_READ_ONLY_FUNCTION_PREFIXES)
+                {
+                    if (!readOnlyMatchFound && mostRecentAccessName.length() > readOnlyNamePrefix.length()
+                            && mostRecentAccessName.startsWith(readOnlyNamePrefix))
+                    {
+                        final String subString = mostRecentAccessName.substring(readOnlyNamePrefix.length(),
+                                readOnlyNamePrefix.length() + 1);
+                        final String upperCasedSubString = subString.toUpperCase();
+                        if (subString.equals(upperCasedSubString))
+                        {
+                            readOnlyMatchFound = true;
+                        }
+                    }
+                }
+
+                // TODO: improve detection of potential read-only functions
+
+                presumedReadOnly = readOnlyMatchFound;
+            }
+
+        }
 
         // assume execution can modify function state
-        this.writeLock();
+        if (presumedReadOnly)
+        {
+            this.readLock();
+        }
+        else
+        {
+            this.writeLock();
+        }
         try
         {
             Object result;
-            // assume execution can modify owner state
-            if (this.owner != null)
+            // assume execution can modify state of thisObj
+            if (thisObj instanceof StateLockingDelegator)
             {
-                this.owner.writeLock();
+                final StateLockingDelegator thisObjDelegator = (StateLockingDelegator) thisObj;
+                if (presumedReadOnly)
+                {
+                    thisObjDelegator.readLock();
+                }
+                else
+                {
+                    thisObjDelegator.writeLock();
+                }
                 try
                 {
                     result = super.call(cx, scope, thisObj, args);
                 }
                 finally
                 {
-                    this.owner.writeUnlock();
+                    if (presumedReadOnly)
+                    {
+                        thisObjDelegator.readUnlock();
+                    }
+                    else
+                    {
+                        thisObjDelegator.writeUnlock();
+                    }
                 }
             }
             else
@@ -320,7 +386,14 @@ public class StateLockingDelegator extends ObjectFacadingDelegator
         }
         finally
         {
-            this.writeUnlock();
+            if (presumedReadOnly)
+            {
+                this.readUnlock();
+            }
+            else
+            {
+                this.writeUnlock();
+            }
         }
     }
 
@@ -330,33 +403,16 @@ public class StateLockingDelegator extends ObjectFacadingDelegator
     @Override
     public Scriptable construct(final Context cx, final Scriptable scope, final Object[] args)
     {
-        // assume execution can modify function state
-        this.writeLock();
+        // assume execution only uses function state to construct new instances
+        this.readLock();
         try
         {
-            final Scriptable constructed;
-            // assume execution can modify owner state
-            if (this.owner != null)
-            {
-                this.owner.writeLock();
-                try
-                {
-                    constructed = super.construct(cx, scope, args);
-                }
-                finally
-                {
-                    this.owner.writeUnlock();
-                }
-            }
-            else
-            {
-                constructed = super.construct(cx, scope, args);
-            }
+            final Scriptable constructed = super.construct(cx, scope, args);
             return constructed;
         }
         finally
         {
-            this.writeUnlock();
+            this.readUnlock();
         }
 
     }
@@ -369,5 +425,15 @@ public class StateLockingDelegator extends ObjectFacadingDelegator
     protected void writeUnlock()
     {
         this.stateLock.writeLock().unlock();
+    }
+
+    protected void readLock()
+    {
+        this.stateLock.readLock().lock();
+    }
+
+    protected void readUnlock()
+    {
+        this.stateLock.readLock().unlock();
     }
 }

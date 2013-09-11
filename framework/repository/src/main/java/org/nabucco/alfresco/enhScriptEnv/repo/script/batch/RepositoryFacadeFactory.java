@@ -18,37 +18,45 @@ import org.alfresco.repo.jscript.BaseScopableProcessorExtension;
 import org.mozilla.javascript.NativeJavaObject;
 import org.mozilla.javascript.Scriptable;
 import org.nabucco.alfresco.enhScriptEnv.common.script.batch.DefaultFacadeFactory;
+import org.nabucco.alfresco.enhScriptEnv.common.script.batch.ObjectFacadingDelegator;
 
 /**
  * @author Axel Faust, <a href="http://www.prodyna.com">PRODYNA AG</a>
  *
  *
  */
-public class RepositoryFacadeFactory extends DefaultFacadeFactory {
+public class RepositoryFacadeFactory extends DefaultFacadeFactory
+{
 
-	@Override
-	protected Scriptable toFacadedObjectImpl(final Scriptable obj, final Scriptable referenceScope,
-			final Scriptable thisObj) {
-		Scriptable globalFacadedObject;
-		if (obj instanceof NativeJavaObject)
-		{
-			final NativeJavaObject nativeJavaObj = (NativeJavaObject) obj;
-			final Object javaObj = nativeJavaObj.unwrap();
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public Scriptable toFacadedObject(final Scriptable obj, final Scriptable referenceScope, final String accessName)
+    {
+        final Scriptable facadedObject = super.toFacadedObject(obj, referenceScope, accessName);
 
-			// we know scopeable processor extensions keep their scope in a ThreadLocal which we may have to
-			// lazily-initialize for a worker thread
-			if (javaObj instanceof BaseScopableProcessorExtension)
-			{
-				final BaseScopableProcessorExtension scopeable = (BaseScopableProcessorExtension) javaObj;
-				if (scopeable.getScope() == null)
-				{
-					scopeable.setScope(referenceScope);
-				}
-			}
-		}
+        if (facadedObject instanceof ObjectFacadingDelegator)
+        {
+            final Scriptable delegee = ((ObjectFacadingDelegator) facadedObject).getDelegee();
+            if (delegee instanceof NativeJavaObject)
+            {
+                final NativeJavaObject nativeJavaObj = (NativeJavaObject) delegee;
+                final Object javaObj = nativeJavaObj.unwrap();
 
-		globalFacadedObject = super.toFacadedObjectImpl(obj, referenceScope, thisObj);
-		return globalFacadedObject;
-	}
+                // we know scopeable processor extensions keep their scope in a ThreadLocal which we may have to
+                // lazily-initialize for a worker thread
+                if (javaObj instanceof BaseScopableProcessorExtension)
+                {
+                    final BaseScopableProcessorExtension scopeable = (BaseScopableProcessorExtension) javaObj;
+                    if (scopeable.getScope() == null)
+                    {
+                        scopeable.setScope(referenceScope);
+                    }
+                }
+            }
+        }
+        return facadedObject;
+    }
 
 }
