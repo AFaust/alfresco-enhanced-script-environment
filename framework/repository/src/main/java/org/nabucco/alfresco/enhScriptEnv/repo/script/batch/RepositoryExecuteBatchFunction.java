@@ -11,10 +11,13 @@ import org.alfresco.repo.batch.BatchProcessor;
 import org.alfresco.service.transaction.TransactionService;
 import org.alfresco.util.Pair;
 import org.alfresco.util.PropertyCheck;
+import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.mozilla.javascript.Function;
 import org.mozilla.javascript.Scriptable;
+import org.mozilla.javascript.ScriptableObject;
 import org.nabucco.alfresco.enhScriptEnv.common.script.batch.AbstractExecuteBatchFunction;
+import org.nabucco.alfresco.enhScriptEnv.common.util.ScriptLoggerLog;
 
 /**
  * @author Axel Faust, <a href="http://www.prodyna.com">PRODYNA AG</a>
@@ -146,13 +149,30 @@ public class RepositoryExecuteBatchFunction extends AbstractExecuteBatchFunction
             final Pair<Scriptable, Function> beforeProcessCallback, final Pair<Scriptable, Function> afterProcessCallback)
     {
         // TODO: parameter for logging interval
-        // TODO: Log implementation that logs to the script logger from the provided scope
+
+        final Log log;
+        if (ScriptableObject.hasProperty(scope, "logger"))
+        {
+            final Object object = ScriptableObject.getProperty(scope, "logger");
+            if (object instanceof Scriptable)
+            {
+                log = new ScriptLoggerLog((Scriptable) object);
+            }
+            else
+            {
+                log = LogFactory.getLog(RepositoryExecuteBatchFunction.class);
+            }
+        }
+        else
+        {
+            log = LogFactory.getLog(RepositoryExecuteBatchFunction.class);
+        }
 
         final BatchProcessor<Object> batchProcessor = new BatchProcessor<Object>("ScriptBatch",
                 this.transactionService.getRetryingTransactionHelper(), new CollectionBatchWorkProvider(workItems), Math.min(threadCount,
-                        this.maxThreads), batchSize, null, LogFactory.getLog(RepositoryExecuteBatchFunction.class), 10);
+                        this.maxThreads), batchSize, null, log, 10);
         final RepositoryExecuteBatchWorker worker = new RepositoryExecuteBatchWorker(this, scope, thisObj, processCallback,
-				beforeProcessCallback, afterProcessCallback, this.facadeFactory);
+                beforeProcessCallback, afterProcessCallback, this.facadeFactory);
         batchProcessor.process(worker, true);
 
         // TODO: result / status handling
@@ -167,14 +187,30 @@ public class RepositoryExecuteBatchFunction extends AbstractExecuteBatchFunction
             final Pair<Scriptable, Function> beforeProcessCallback, final Pair<Scriptable, Function> afterProcessCallback)
     {
         // TODO: parameter for logging interval
-        // TODO: Log implementation that logs to the script logger from the provided scope
+
+        final Log log;
+        if (ScriptableObject.hasProperty(scope, "logger"))
+        {
+            final Object object = ScriptableObject.getProperty(scope, "logger");
+            if (object instanceof Scriptable)
+            {
+                log = new ScriptLoggerLog((Scriptable) object);
+            }
+            else
+            {
+                log = LogFactory.getLog(RepositoryExecuteBatchFunction.class);
+            }
+        }
+        else
+        {
+            log = LogFactory.getLog(RepositoryExecuteBatchFunction.class);
+        }
 
         final BatchProcessor<Object> batchProcessor = new BatchProcessor<Object>("ScriptBatch",
                 this.transactionService.getRetryingTransactionHelper(), new CallbackBatchProcessWorkProvider(this, scope,
-                        workProviderCallback), Math.min(threadCount, this.maxThreads), batchSize, null,
-                LogFactory.getLog(RepositoryExecuteBatchFunction.class), 10);
+                        workProviderCallback), Math.min(threadCount, this.maxThreads), batchSize, null, log, 10);
         final RepositoryExecuteBatchWorker worker = new RepositoryExecuteBatchWorker(this, scope, thisObj, processCallback,
-				beforeProcessCallback, afterProcessCallback, this.facadeFactory);
+                beforeProcessCallback, afterProcessCallback, this.facadeFactory);
         batchProcessor.process(worker, true);
 
         // TODO: result / status handling
