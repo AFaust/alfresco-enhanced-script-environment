@@ -180,6 +180,10 @@ public class RepositoryExecuteBatchFunction extends AbstractExecuteBatchFunction
         // TODO: result / status handling
     }
 
+    /**
+     *
+     * {@inheritDoc}
+     */
     @Override
     protected Collection<Object> doProvideNextWork(final Scriptable scope, final Pair<Scriptable, Function> workProviderCallback)
     {

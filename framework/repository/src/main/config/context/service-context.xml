@@ -81,7 +81,8 @@
         <property name="transactionService" ref="TransactionService" />
         <property name="converters">
             <list>
-                <bean class="org.nabucco.alfresco.enhScriptEnv.common.script.batch.NativeArrayConverter" />
+                <bean class="org.nabucco.alfresco.enhScriptEnv.common.script.batch.converters.NativeArrayConverter" />
+                <bean class="org.nabucco.alfresco.enhScriptEnv.common.script.batch.converters.WrappedJavaCollectionConverter" />
             </list>
         </property>
         <property name="facadeFactory">
