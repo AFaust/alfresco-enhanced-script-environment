@@ -29,6 +29,7 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
 import org.alfresco.util.Pair;
 import org.alfresco.util.ParameterCheck;
 import org.alfresco.util.PropertyCheck;
+import org.mozilla.javascript.Callable;
 import org.mozilla.javascript.Context;
 import org.mozilla.javascript.IdFunctionCall;
 import org.mozilla.javascript.IdFunctionObject;
@@ -153,7 +154,7 @@ public class LogFunction implements IdFunctionCall, InitializingBean, ScopeContr
             {
                 this.handleLogging(cx, scope, thisObj, args, methodId);
 
-                result = null;
+                result = Undefined.instance;
             }
             else if (methodId >= TRACE_ENABLED_FUNC_ID && methodId <= ERROR_ENABLED_FUNC_ID)
             {
@@ -163,19 +164,19 @@ public class LogFunction implements IdFunctionCall, InitializingBean, ScopeContr
             {
                 this.handleSetLogger(scope, args);
 
-                result = null;
+                result = Undefined.instance;
             }
             else if (methodId == SET_INHERIT_LOGGER_CTX_FUNC_ID)
             {
                 this.handleSetLoggerInheritance(scope, args);
 
-                result = null;
+                result = Undefined.instance;
             }
             else if (methodId == REGISTER_CHILD_SCOPE_FUNC_ID)
             {
                 this.handleRegisterChildScope(scope, args);
 
-                result = null;
+                result = Undefined.instance;
             }
             else if (methodId == GET_SYSTEM_FUNC_ID)
             {
@@ -185,13 +186,13 @@ public class LogFunction implements IdFunctionCall, InitializingBean, ScopeContr
             {
                 this.handleOut(cx, scope, thisObj, args);
 
-                result = null;
+                result = Undefined.instance;
             }
             else if (methodId == SET_SCRIPT_LOGGER_FUNC_ID)
             {
                 this.handleSetScriptLogger(cx, scope, thisObj, args);
 
-                result = null;
+                result = Undefined.instance;
             }
             else
             {
@@ -205,6 +206,100 @@ public class LogFunction implements IdFunctionCall, InitializingBean, ScopeContr
 
         return result;
     }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public void contributeToScope(final Scriptable scope, final boolean trustworthyScript, final boolean mutableScope)
+    {
+        final NativeObject loggerObj = new NativeObject();
+
+        this.exportFunction(DEBUG_FUNC_ID, DEBUG_FUNC_NAME, 1, loggerObj);
+        this.exportFunction(DEBUG_FUNC_ID, LOG_FUNC_NAME, 1, loggerObj);
+        this.exportFunction(TRACE_FUNC_ID, TRACE_FUNC_NAME, 1, loggerObj);
+        this.exportFunction(INFO_FUNC_ID, INFO_FUNC_NAME, 1, loggerObj);
+        this.exportFunction(WARN_FUNC_ID, WARN_FUNC_NAME, 1, loggerObj);
+        this.exportFunction(ERROR_FUNC_ID, ERROR_FUNC_NAME, 1, loggerObj);
+
+        this.exportFunction(DEBUG_ENABLED_FUNC_ID, DEBUG_ENABLED_FUNC_NAME, 0, loggerObj);
+        this.exportFunction(DEBUG_ENABLED_FUNC_ID, DEBUG_LOGGING_ENABLED_FUNC_NAME, 0, loggerObj);
+        this.exportFunction(DEBUG_ENABLED_FUNC_ID, LOGGING_ENABLED_FUNC_NAME, 0, loggerObj);
+
+        this.exportFunction(TRACE_ENABLED_FUNC_ID, TRACE_ENABLED_FUNC_NAME, 0, loggerObj);
+
+        this.exportFunction(DEBUG_ENABLED_FUNC_ID, INFO_ENABLED_FUNC_NAME, 0, loggerObj);
+        this.exportFunction(DEBUG_ENABLED_FUNC_ID, INFO_LOGGING_ENABLED_FUNC_NAME, 0, loggerObj);
+
+        this.exportFunction(WARN_ENABLED_FUNC_ID, WARN_ENABLED_FUNC_NAME, 0, loggerObj);
+        this.exportFunction(WARN_ENABLED_FUNC_ID, WARN_LOGGING_ENABLED_FUNC_NAME, 0, loggerObj);
+
+        this.exportFunction(ERROR_ENABLED_FUNC_ID, ERROR_ENABLED_FUNC_NAME, 0, loggerObj);
+        this.exportFunction(ERROR_ENABLED_FUNC_ID, ERROR_LOGGING_ENABLED_FUNC_NAME, 0, loggerObj);
+
+        this.exportFunction(REGISTER_CHILD_SCOPE_FUNC_ID, REGISTER_CHILD_SCOPE_FUNC_NAME, 1, loggerObj);
+        this.exportFunction(SET_LOGGER_FUNC_ID, SET_LOGGER_FUNC_NAME, 1, loggerObj);
+        this.exportFunction(SET_INHERIT_LOGGER_CTX_FUNC_ID, SET_INHERIT_LOGGER_CTX_FUNC_NAME, 1, loggerObj);
+
+        this.exportFunction(GET_SYSTEM_FUNC_ID, GET_SYSTEM_FUNC_NAME, 0, loggerObj);
+
+        this.exportFunction(SET_SCRIPT_LOGGER_FUNC_ID, SET_SCRIPT_LOGGER_FUNC_NAME, 1, loggerObj);
+
+        // define system object
+        final NativeObject systemObj = new NativeObject();
+        this.exportFunction(OUT_FUNC_ID, OUT_FUNC_NAME, 1, systemObj);
+        systemObj.sealObject();
+
+        ScriptableObject.defineProperty(loggerObj, SYSTEM_PROP_NAME, systemObj, ScriptableObject.PERMANENT | ScriptableObject.READONLY);
+
+        loggerObj.sealObject();
+
+        // export as undeleteable property of the scope
+        ScriptableObject.defineProperty(scope, LOGGER_OBJ_NAME, loggerObj, ScriptableObject.PERMANENT);
+
+        // custom setter so the logger can't overridden, but any attempts will attach a legacy script logger to the current context
+        if (scope instanceof ScriptableObject)
+        {
+            ((ScriptableObject) scope).setGetterOrSetter(LOGGER_OBJ_NAME, 0, new SetLoggerCallable(), true);
+        }
+    }
+
+    /**
+     * @param legacyLoggerName
+     *            the legacyLoggerName to set
+     */
+    public final void setLegacyLoggerName(final String legacyLoggerName)
+    {
+        this.legacyLoggerName = legacyLoggerName;
+    }
+
+    /**
+     * @param defaultLoggerPrefix
+     *            the defaultLoggerPrefix to set
+     */
+    public final void setDefaultLoggerPrefix(final String defaultLoggerPrefix)
+    {
+        this.defaultLoggerPrefix = defaultLoggerPrefix;
+    }
+
+    /**
+     * @param scriptProcessor
+     *            the scriptProcessor to set
+     */
+    public final void setScriptProcessor(final EnhancedScriptProcessor scriptProcessor)
+    {
+        this.scriptProcessor = scriptProcessor;
+    }
+
+    /**
+     * @param valueConverter
+     *            the valueConverter to set
+     */
+    public final void setValueConverter(final ValueConverter valueConverter)
+    {
+        this.valueConverter = valueConverter;
+    }
+
 
     protected void handleRegisterChildScope(final Scriptable scope, final Object[] args)
     {
@@ -399,93 +494,6 @@ public class LogFunction implements IdFunctionCall, InitializingBean, ScopeContr
         {
             throw new IllegalArgumentException("Parameter scriptLogger is missing");
         }
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public void contributeToScope(final Scriptable scope, final boolean trustworthyScript, final boolean mutableScope)
-    {
-        final NativeObject loggerObj = new NativeObject();
-
-        this.exportFunction(DEBUG_FUNC_ID, DEBUG_FUNC_NAME, 1, loggerObj);
-        this.exportFunction(DEBUG_FUNC_ID, LOG_FUNC_NAME, 1, loggerObj);
-        this.exportFunction(TRACE_FUNC_ID, TRACE_FUNC_NAME, 1, loggerObj);
-        this.exportFunction(INFO_FUNC_ID, INFO_FUNC_NAME, 1, loggerObj);
-        this.exportFunction(WARN_FUNC_ID, WARN_FUNC_NAME, 1, loggerObj);
-        this.exportFunction(ERROR_FUNC_ID, ERROR_FUNC_NAME, 1, loggerObj);
-
-        this.exportFunction(DEBUG_ENABLED_FUNC_ID, DEBUG_ENABLED_FUNC_NAME, 0, loggerObj);
-        this.exportFunction(DEBUG_ENABLED_FUNC_ID, DEBUG_LOGGING_ENABLED_FUNC_NAME, 0, loggerObj);
-        this.exportFunction(DEBUG_ENABLED_FUNC_ID, LOGGING_ENABLED_FUNC_NAME, 0, loggerObj);
-
-        this.exportFunction(TRACE_ENABLED_FUNC_ID, TRACE_ENABLED_FUNC_NAME, 0, loggerObj);
-
-        this.exportFunction(DEBUG_ENABLED_FUNC_ID, INFO_ENABLED_FUNC_NAME, 0, loggerObj);
-        this.exportFunction(DEBUG_ENABLED_FUNC_ID, INFO_LOGGING_ENABLED_FUNC_NAME, 0, loggerObj);
-
-        this.exportFunction(WARN_ENABLED_FUNC_ID, WARN_ENABLED_FUNC_NAME, 0, loggerObj);
-        this.exportFunction(WARN_ENABLED_FUNC_ID, WARN_LOGGING_ENABLED_FUNC_NAME, 0, loggerObj);
-
-        this.exportFunction(ERROR_ENABLED_FUNC_ID, ERROR_ENABLED_FUNC_NAME, 0, loggerObj);
-        this.exportFunction(ERROR_ENABLED_FUNC_ID, ERROR_LOGGING_ENABLED_FUNC_NAME, 0, loggerObj);
-
-        this.exportFunction(REGISTER_CHILD_SCOPE_FUNC_ID, REGISTER_CHILD_SCOPE_FUNC_NAME, 1, loggerObj);
-        this.exportFunction(SET_LOGGER_FUNC_ID, SET_LOGGER_FUNC_NAME, 1, loggerObj);
-        this.exportFunction(SET_INHERIT_LOGGER_CTX_FUNC_ID, SET_INHERIT_LOGGER_CTX_FUNC_NAME, 1, loggerObj);
-
-        this.exportFunction(GET_SYSTEM_FUNC_ID, GET_SYSTEM_FUNC_NAME, 0, loggerObj);
-
-        this.exportFunction(SET_SCRIPT_LOGGER_FUNC_ID, SET_SCRIPT_LOGGER_FUNC_NAME, 1, loggerObj);
-
-        // define system object
-        final NativeObject systemObj = new NativeObject();
-        this.exportFunction(OUT_FUNC_ID, OUT_FUNC_NAME, 1, systemObj);
-        systemObj.sealObject();
-
-        ScriptableObject.defineProperty(loggerObj, SYSTEM_PROP_NAME, systemObj, ScriptableObject.PERMANENT | ScriptableObject.READONLY);
-
-        loggerObj.sealObject();
-
-        // export as read-only and undeleteable property of the scope
-        ScriptableObject.defineProperty(scope, LOGGER_OBJ_NAME, loggerObj, ScriptableObject.PERMANENT | ScriptableObject.READONLY);
-    }
-
-    /**
-     * @param legacyLoggerName
-     *            the legacyLoggerName to set
-     */
-    public final void setLegacyLoggerName(final String legacyLoggerName)
-    {
-        this.legacyLoggerName = legacyLoggerName;
-    }
-
-    /**
-     * @param defaultLoggerPrefix
-     *            the defaultLoggerPrefix to set
-     */
-    public final void setDefaultLoggerPrefix(final String defaultLoggerPrefix)
-    {
-        this.defaultLoggerPrefix = defaultLoggerPrefix;
-    }
-
-    /**
-     * @param scriptProcessor
-     *            the scriptProcessor to set
-     */
-    public final void setScriptProcessor(final EnhancedScriptProcessor scriptProcessor)
-    {
-        this.scriptProcessor = scriptProcessor;
-    }
-
-    /**
-     * @param valueConverter
-     *            the valueConverter to set
-     */
-    public final void setValueConverter(final ValueConverter valueConverter)
-    {
-        this.valueConverter = valueConverter;
     }
 
     protected void exportFunction(final int methodId, final String name, final int arity, final Scriptable scope)
@@ -842,6 +850,18 @@ public class LogFunction implements IdFunctionCall, InitializingBean, ScopeContr
         {
             ScriptableObject.callMethod(scriptLogger, methodName, new Object[] { message });
         }
+    }
+
+    protected class SetLoggerCallable implements Callable
+    {
+
+        @Override
+        public Object call(final Context cx, final Scriptable scope, final Scriptable thisObj, final Object[] args)
+        {
+            LogFunction.this.handleSetScriptLogger(cx, scope, thisObj, args);
+            return Undefined.instance;
+        }
+
     }
 
     protected static class LoggerData
