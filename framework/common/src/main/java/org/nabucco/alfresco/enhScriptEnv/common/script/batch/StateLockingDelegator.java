@@ -24,6 +24,7 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 import org.mozilla.javascript.Context;
 import org.mozilla.javascript.Function;
+import org.mozilla.javascript.NativeJavaObject;
 import org.mozilla.javascript.Scriptable;
 
 /**
@@ -37,7 +38,7 @@ import org.mozilla.javascript.Scriptable;
 public class StateLockingDelegator extends ObjectFacadingDelegator
 {
     private static final Set<String> TRIVIAL_READ_ONLY_FUNCTION_NAMES = Collections.unmodifiableSet(new HashSet<String>(Arrays.asList(
-            "get", "is", "has", "find", "toString", "search", "query")));
+            "get", "is", "has", "find", "toString", "search", "query", "equals", "hashCode", "compareTo")));
 
     private static final Set<String> TRIVIAL_READ_ONLY_FUNCTION_PREFIXES = Collections.unmodifiableSet(new HashSet<String>(Arrays.asList(
             "get", "is", "has", "find", "search", "query")));
@@ -297,17 +298,27 @@ public class StateLockingDelegator extends ObjectFacadingDelegator
     @Override
     public Object call(final Context cx, final Scriptable scope, final Scriptable thisObj, final Object[] args)
     {
-        // TODO: can we consider functions / methods of processor extensions read-only?
-
+        final boolean noLocking;
         final boolean presumedReadOnly;
         final String mostRecentAccessName = this.mostRecentAccessName.get();
 
-        if (mostRecentAccessName == null)
+        final Scriptable realObject = this.toRealObject(thisObj);
+        if (realObject instanceof NativeJavaObject
+                && (((NativeJavaObject) realObject).unwrap() instanceof org.alfresco.processor.ProcessorExtension || ((NativeJavaObject) realObject)
+                        .unwrap() instanceof org.springframework.extensions.surf.core.processor.ProcessorExtension))
         {
+            // we expect processor extensions to be thread-safe so we perform no locking
+            noLocking = true;
+            presumedReadOnly = false;
+        }
+        else if (mostRecentAccessName == null)
+        {
+            noLocking = false;
             presumedReadOnly = false;
         }
         else
         {
+            noLocking = false;
             if (TRIVIAL_READ_ONLY_FUNCTION_NAMES.contains(mostRecentAccessName))
             {
                 presumedReadOnly = true;
@@ -337,14 +348,17 @@ public class StateLockingDelegator extends ObjectFacadingDelegator
 
         }
 
-        // assume execution can modify function state
-        if (presumedReadOnly)
+        if (!noLocking)
         {
-            this.readLock();
-        }
-        else
-        {
-            this.writeLock();
+            // assume execution can modify function state
+            if (presumedReadOnly)
+            {
+                this.readLock();
+            }
+            else
+            {
+                this.writeLock();
+            }
         }
         try
         {
@@ -353,13 +367,16 @@ public class StateLockingDelegator extends ObjectFacadingDelegator
             if (thisObj instanceof StateLockingDelegator)
             {
                 final StateLockingDelegator thisObjDelegator = (StateLockingDelegator) thisObj;
-                if (presumedReadOnly)
+                if (!noLocking)
                 {
-                    thisObjDelegator.readLock();
-                }
-                else
-                {
-                    thisObjDelegator.writeLock();
+                    if (presumedReadOnly)
+                    {
+                        thisObjDelegator.readLock();
+                    }
+                    else
+                    {
+                        thisObjDelegator.writeLock();
+                    }
                 }
                 try
                 {
@@ -367,13 +384,16 @@ public class StateLockingDelegator extends ObjectFacadingDelegator
                 }
                 finally
                 {
-                    if (presumedReadOnly)
+                    if (!noLocking)
                     {
-                        thisObjDelegator.readUnlock();
-                    }
-                    else
-                    {
-                        thisObjDelegator.writeUnlock();
+                        if (presumedReadOnly)
+                        {
+                            thisObjDelegator.readUnlock();
+                        }
+                        else
+                        {
+                            thisObjDelegator.writeUnlock();
+                        }
                     }
                 }
             }
@@ -386,13 +406,16 @@ public class StateLockingDelegator extends ObjectFacadingDelegator
         }
         finally
         {
-            if (presumedReadOnly)
+            if (!noLocking)
             {
-                this.readUnlock();
-            }
-            else
-            {
-                this.writeUnlock();
+                if (presumedReadOnly)
+                {
+                    this.readUnlock();
+                }
+                else
+                {
+                    this.writeUnlock();
+                }
             }
         }
     }
