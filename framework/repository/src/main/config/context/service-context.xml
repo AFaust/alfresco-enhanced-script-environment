@@ -79,6 +79,7 @@
     <bean id="javaScriptProcessor.executeBatchFunction" class="${basePackage}.script.batch.RepositoryExecuteBatchFunction">
         <property name="scriptProcessor" ref="javaScriptProcessor" />
         <property name="transactionService" ref="TransactionService" />
+        <property name="transactionManager" ref="transactionManager" />
         <property name="converters">
             <list>
                 <bean class="org.nabucco.alfresco.enhScriptEnv.common.script.batch.converters.NativeArrayConverter" />

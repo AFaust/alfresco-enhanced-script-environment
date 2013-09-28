@@ -111,6 +111,7 @@
             </includes>
             <useProjectArtifact>false</useProjectArtifact>
             <scope>compile</scope>
+            <outputFileNameMapping>${artifact.artifactId}-${artifact.baseVersion}.${artifact.extension}</outputFileNameMapping>
         </dependencySet>
         <!-- Included because Share by default does not include it (same version as used in Repository) -->
         <dependencySet>
@@ -120,6 +121,7 @@
             </includes>
             <useProjectArtifact>false</useProjectArtifact>
             <scope>compile</scope>
+            <outputFileNameMapping>${artifact.artifactId}-${artifact.baseVersion}.${artifact.extension}</outputFileNameMapping>
         </dependencySet>
         <dependencySet>
             <outputDirectory>lib</outputDirectory>
@@ -128,6 +130,7 @@
             </includes>
             <useProjectArtifact>false</useProjectArtifact>
             <scope>runtime</scope>
+            <outputFileNameMapping>${artifact.artifactId}-${artifact.baseVersion}.${artifact.extension}</outputFileNameMapping>
         </dependencySet>
     </dependencySets>
 </assembly>

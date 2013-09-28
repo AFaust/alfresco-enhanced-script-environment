@@ -93,6 +93,7 @@
             </includes>
             <useProjectArtifact>false</useProjectArtifact>
             <scope>compile</scope>
+            <outputFileNameMapping>${artifact.artifactId}-${artifact.baseVersion}.${artifact.extension}</outputFileNameMapping>
         </dependencySet>
     </dependencySets>
 </assembly>

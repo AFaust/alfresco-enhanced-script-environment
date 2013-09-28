@@ -30,6 +30,7 @@ import org.mozilla.javascript.ScriptRuntime;
 import org.mozilla.javascript.Scriptable;
 import org.mozilla.javascript.ScriptableObject;
 import org.mozilla.javascript.Undefined;
+import org.mozilla.javascript.WrappedException;
 import org.nabucco.alfresco.enhScriptEnv.common.script.EnhancedScriptProcessor;
 import org.nabucco.alfresco.enhScriptEnv.common.script.LogFunction;
 import org.nabucco.alfresco.enhScriptEnv.common.script.ScopeContributor;
@@ -289,7 +290,7 @@ public abstract class AbstractExecuteBatchFunction implements IdFunctionCall, Sc
             if (!supported)
             {
                 LOGGER.error("Work provider callback returned unsupported work item(s): {}", workValue);
-                throw new RuntimeException("Work provider callback returned unsuppored work item(s)");
+                throw new RuntimeException("Work provider callback returned unsupported work item(s)");
             }
         }
         else
@@ -358,6 +359,15 @@ public abstract class AbstractExecuteBatchFunction implements IdFunctionCall, Sc
 
             return processScope;
         }
+        catch (final WrappedException ex)
+        {
+            final Throwable wrappedException = ex.getWrappedException();
+            if (wrappedException instanceof RuntimeException)
+            {
+                throw (RuntimeException) wrappedException;
+            }
+            throw ex;
+        }
         finally
         {
             Context.exit();
@@ -400,6 +410,15 @@ public abstract class AbstractExecuteBatchFunction implements IdFunctionCall, Sc
                     afterProcessFn.call(cx, processScope, afterProcessCallScope, new Object[0]);
                 }
             }
+        }
+        catch (final WrappedException ex)
+        {
+            final Throwable wrappedException = ex.getWrappedException();
+            if (wrappedException instanceof RuntimeException)
+            {
+                throw (RuntimeException) wrappedException;
+            }
+            throw ex;
         }
         finally
         {

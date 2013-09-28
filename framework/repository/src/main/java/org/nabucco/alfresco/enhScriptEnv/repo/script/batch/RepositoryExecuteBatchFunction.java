@@ -18,6 +18,7 @@ import org.mozilla.javascript.Scriptable;
 import org.mozilla.javascript.ScriptableObject;
 import org.nabucco.alfresco.enhScriptEnv.common.script.batch.AbstractExecuteBatchFunction;
 import org.nabucco.alfresco.enhScriptEnv.common.util.ScriptLoggerLog;
+import org.springframework.transaction.PlatformTransactionManager;
 
 /**
  * @author Axel Faust, <a href="http://www.prodyna.com">PRODYNA AG</a>
@@ -109,6 +110,8 @@ public class RepositoryExecuteBatchFunction extends AbstractExecuteBatchFunction
 
     protected TransactionService transactionService;
 
+    protected PlatformTransactionManager transactionManager;
+
     protected int maxThreads = DEFAULT_MAX_THREADS;
 
     /**
@@ -129,6 +132,15 @@ public class RepositoryExecuteBatchFunction extends AbstractExecuteBatchFunction
     public final void setTransactionService(final TransactionService transactionService)
     {
         this.transactionService = transactionService;
+    }
+
+    /**
+     * @param transactionManager
+     *            the transactionManager to set
+     */
+    public final void setTransactionManager(final PlatformTransactionManager transactionManager)
+    {
+        this.transactionManager = transactionManager;
     }
 
     /**
@@ -172,7 +184,7 @@ public class RepositoryExecuteBatchFunction extends AbstractExecuteBatchFunction
                 this.transactionService.getRetryingTransactionHelper(), new CollectionBatchWorkProvider(workItems), Math.min(threadCount,
                         this.maxThreads), batchSize, null, log, 10);
         final RepositoryExecuteBatchWorker worker = new RepositoryExecuteBatchWorker(this, scope, thisObj, processCallback,
-                beforeProcessCallback, afterProcessCallback, this.facadeFactory);
+                beforeProcessCallback, afterProcessCallback, this.facadeFactory, this.transactionManager);
         batchProcessor.process(worker, true);
 
         // TODO: result / status handling
@@ -210,7 +222,7 @@ public class RepositoryExecuteBatchFunction extends AbstractExecuteBatchFunction
                 this.transactionService.getRetryingTransactionHelper(), new CallbackBatchProcessWorkProvider(this, scope,
                         workProviderCallback), Math.min(threadCount, this.maxThreads), batchSize, null, log, 10);
         final RepositoryExecuteBatchWorker worker = new RepositoryExecuteBatchWorker(this, scope, thisObj, processCallback,
-                beforeProcessCallback, afterProcessCallback, this.facadeFactory);
+                beforeProcessCallback, afterProcessCallback, this.facadeFactory, this.transactionManager);
         batchProcessor.process(worker, true);
 
         // TODO: result / status handling

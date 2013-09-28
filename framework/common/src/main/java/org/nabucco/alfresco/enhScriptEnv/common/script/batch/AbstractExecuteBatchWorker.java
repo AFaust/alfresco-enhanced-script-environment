@@ -5,6 +5,7 @@ import org.mozilla.javascript.Context;
 import org.mozilla.javascript.Function;
 import org.mozilla.javascript.NativeFunction;
 import org.mozilla.javascript.Scriptable;
+import org.mozilla.javascript.WrappedException;
 
 public abstract class AbstractExecuteBatchWorker<EBF extends AbstractExecuteBatchFunction>
 {
@@ -78,6 +79,15 @@ public abstract class AbstractExecuteBatchWorker<EBF extends AbstractExecuteBatc
                 // not a native function, so has not associated scope - calling as-is
                 processFn.call(cx, this.processScope.get(), processCallScope, new Object[] { element });
             }
+        }
+        catch (final WrappedException ex)
+        {
+            final Throwable wrappedException = ex.getWrappedException();
+            if (wrappedException instanceof RuntimeException)
+            {
+                throw (RuntimeException) wrappedException;
+            }
+            throw ex;
         }
         finally
         {
