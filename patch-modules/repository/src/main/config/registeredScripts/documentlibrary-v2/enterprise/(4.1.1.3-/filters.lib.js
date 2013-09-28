@@ -1,5 +1,5 @@
 // load script for previous version
-importScript("registry", "filters.lib.js@documentlibrary-v2", true,
+importScript("registry", "filters.lib@documentlibrary-v2", true,
 {
     // get the script from the previous version
     version : "4.0.2.9"

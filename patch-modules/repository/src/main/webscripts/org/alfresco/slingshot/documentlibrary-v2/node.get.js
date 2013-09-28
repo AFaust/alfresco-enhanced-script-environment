@@ -1,4 +1,4 @@
 var importVersionCondition = {
     version : DESCRIPTOR.VERSION
 };
-importScript("registry", "node.get.js@documentlibrary-v2", true, importVersionCondition);
+importScript("registry", "node.get@documentlibrary-v2", true, importVersionCondition);
