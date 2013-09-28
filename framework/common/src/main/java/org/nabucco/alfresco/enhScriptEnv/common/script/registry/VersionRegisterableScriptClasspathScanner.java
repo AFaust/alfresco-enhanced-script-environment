@@ -156,6 +156,7 @@ public abstract class VersionRegisterableScriptClasspathScanner<Script> implemen
             throws IOException
     {
         final String scriptName = resource.getFilename();
+        final String simpleScriptName = scriptName.endsWith(".js") ? scriptName.substring(0, scriptName.length() - 3) : scriptName;
 
         LOGGER.debug("Matched script file {}", scriptName);
 
@@ -177,12 +178,12 @@ public abstract class VersionRegisterableScriptClasspathScanner<Script> implemen
 
             if (subRegistry == null || subRegistry.trim().length() == 0)
             {
-                this.scriptRegistry.registerScript(scriptName, scriptAdapter);
+                this.scriptRegistry.registerScript(simpleScriptName, scriptAdapter);
                 LOGGER.info("Registered script {} into script registry {}", scriptAdapter, this.scriptRegistry);
             }
             else
             {
-                this.scriptRegistry.registerScript(scriptName, subRegistry, scriptAdapter);
+                this.scriptRegistry.registerScript(simpleScriptName, subRegistry, scriptAdapter);
                 LOGGER.info("Registered script {} into sub-registry {} of script registry {}", new Object[] { scriptAdapter, subRegistry,
                         this.scriptRegistry });
             }
