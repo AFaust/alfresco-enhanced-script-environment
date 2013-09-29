@@ -15,6 +15,7 @@
 package org.nabucco.alfresco.enhScriptEnv.common.script;
 
 import java.lang.ref.WeakReference;
+import java.lang.reflect.Method;
 import java.text.MessageFormat;
 import java.util.Collection;
 import java.util.Collections;
@@ -29,7 +30,6 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
 import org.alfresco.util.Pair;
 import org.alfresco.util.ParameterCheck;
 import org.alfresco.util.PropertyCheck;
-import org.mozilla.javascript.Callable;
 import org.mozilla.javascript.Context;
 import org.mozilla.javascript.IdFunctionCall;
 import org.mozilla.javascript.IdFunctionObject;
@@ -254,13 +254,26 @@ public class LogFunction implements IdFunctionCall, InitializingBean, ScopeContr
 
         loggerObj.sealObject();
 
-        // export as undeleteable property of the scope
-        ScriptableObject.defineProperty(scope, LOGGER_OBJ_NAME, loggerObj, ScriptableObject.PERMANENT);
-
-        // custom setter so the logger can't overridden, but any attempts will attach a legacy script logger to the current context
         if (scope instanceof ScriptableObject)
         {
-            ((ScriptableObject) scope).setGetterOrSetter(LOGGER_OBJ_NAME, 0, new SetLoggerCallable(), true);
+            // use a Java accessor with getter / setter as these don't require a top level call scope when being invoked e.g. as part of
+            // model scope initialization
+            final LoggerAccessor accessor = new LoggerAccessor(scope, loggerObj);
+            try
+            {
+                final Method getter = LoggerAccessor.class.getMethod("get", new Class[] { ScriptableObject.class });
+                final Method setter = LoggerAccessor.class.getMethod("set", new Class[] { ScriptableObject.class, Scriptable.class });
+                ((ScriptableObject) scope).defineProperty(LOGGER_OBJ_NAME, accessor, getter, setter, ScriptableObject.PERMANENT);
+            }
+            catch (final NoSuchMethodException ex)
+            {
+                LOGGER.error("Can not register log function accessor due to unexpected exception", ex);
+            }
+        }
+        else
+        {
+            // export as undeleteable property of the scope
+            ScriptableObject.defineProperty(scope, LOGGER_OBJ_NAME, loggerObj, ScriptableObject.PERMANENT | ScriptableObject.READONLY);
         }
     }
 
@@ -299,7 +312,6 @@ public class LogFunction implements IdFunctionCall, InitializingBean, ScopeContr
     {
         this.valueConverter = valueConverter;
     }
-
 
     protected void handleRegisterChildScope(final Scriptable scope, final Object[] args)
     {
@@ -485,10 +497,8 @@ public class LogFunction implements IdFunctionCall, InitializingBean, ScopeContr
             {
                 throw new IllegalStateException("ScriptLogger has already been set - not allowed to replace it once set");
             }
-            else
-            {
-                loggerData.setScriptLogger(scriptLogger);
-            }
+
+            loggerData.setScriptLogger(scriptLogger);
         }
         else
         {
@@ -852,16 +862,26 @@ public class LogFunction implements IdFunctionCall, InitializingBean, ScopeContr
         }
     }
 
-    protected class SetLoggerCallable implements Callable
+    protected class LoggerAccessor
     {
+        private final Scriptable scope;
+        private final NativeObject logger;
 
-        @Override
-        public Object call(final Context cx, final Scriptable scope, final Scriptable thisObj, final Object[] args)
+        protected LoggerAccessor(final Scriptable scope, final NativeObject logger)
         {
-            LogFunction.this.handleSetScriptLogger(cx, scope, thisObj, args);
-            return Undefined.instance;
+            this.scope = scope;
+            this.logger = logger;
         }
 
+        public Scriptable get(final ScriptableObject thisObj)
+        {
+            return this.logger;
+        }
+
+        public void set(final ScriptableObject thisObj, final Scriptable logger)
+        {
+            LogFunction.this.handleSetScriptLogger(Context.getCurrentContext(), this.scope, thisObj, new Object[] { logger });
+        }
     }
 
     protected static class LoggerData
