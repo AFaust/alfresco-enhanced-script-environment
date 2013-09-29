@@ -168,7 +168,7 @@ public class RepositoryExecuteBatchFunction extends AbstractExecuteBatchFunction
             final Object object = ScriptableObject.getProperty(scope, "logger");
             if (object instanceof Scriptable)
             {
-                log = new ScriptLoggerLog((Scriptable) object);
+                log = new ScriptLoggerLog((Scriptable) object, this.scriptProcessor);
             }
             else
             {
@@ -184,7 +184,7 @@ public class RepositoryExecuteBatchFunction extends AbstractExecuteBatchFunction
                 this.transactionService.getRetryingTransactionHelper(), new CollectionBatchWorkProvider(workItems), Math.min(threadCount,
                         this.maxThreads), batchSize, null, log, 10);
         final RepositoryExecuteBatchWorker worker = new RepositoryExecuteBatchWorker(this, scope, thisObj, processCallback,
-                beforeProcessCallback, afterProcessCallback, this.facadeFactory, this.transactionManager);
+                beforeProcessCallback, afterProcessCallback, this.transactionManager);
         batchProcessor.process(worker, true);
 
         // TODO: result / status handling
@@ -206,7 +206,7 @@ public class RepositoryExecuteBatchFunction extends AbstractExecuteBatchFunction
             final Object object = ScriptableObject.getProperty(scope, "logger");
             if (object instanceof Scriptable)
             {
-                log = new ScriptLoggerLog((Scriptable) object);
+                log = new ScriptLoggerLog((Scriptable) object, this.scriptProcessor);
             }
             else
             {
@@ -222,7 +222,7 @@ public class RepositoryExecuteBatchFunction extends AbstractExecuteBatchFunction
                 this.transactionService.getRetryingTransactionHelper(), new CallbackBatchProcessWorkProvider(this, scope,
                         workProviderCallback), Math.min(threadCount, this.maxThreads), batchSize, null, log, 10);
         final RepositoryExecuteBatchWorker worker = new RepositoryExecuteBatchWorker(this, scope, thisObj, processCallback,
-                beforeProcessCallback, afterProcessCallback, this.facadeFactory, this.transactionManager);
+                beforeProcessCallback, afterProcessCallback, this.transactionManager);
         batchProcessor.process(worker, true);
 
         // TODO: result / status handling

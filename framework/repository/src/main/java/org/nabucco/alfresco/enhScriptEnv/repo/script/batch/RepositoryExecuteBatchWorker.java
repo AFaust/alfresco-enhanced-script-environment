@@ -17,8 +17,7 @@ import org.mozilla.javascript.ScriptRuntime;
 import org.mozilla.javascript.Scriptable;
 import org.mozilla.javascript.ScriptableObject;
 import org.mozilla.javascript.WrappedException;
-import org.nabucco.alfresco.enhScriptEnv.common.script.batch.AbstractExecuteBatchWorker;
-import org.nabucco.alfresco.enhScriptEnv.common.script.batch.ObjectFacadeFactory;
+import org.nabucco.alfresco.enhScriptEnv.common.script.batch.BaseExecuteBatchWorker;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.extensions.surf.util.I18NUtil;
@@ -30,7 +29,7 @@ import org.springframework.transaction.interceptor.RuleBasedTransactionAttribute
 /**
  * @author Axel Faust, <a href="http://www.prodyna.com">PRODYNA AG</a>
  */
-public class RepositoryExecuteBatchWorker extends AbstractExecuteBatchWorker<RepositoryExecuteBatchFunction> implements
+public class RepositoryExecuteBatchWorker extends BaseExecuteBatchWorker<RepositoryExecuteBatchFunction> implements
         BatchProcessWorker<Object>
 {
     private static final Logger LOGGER = LoggerFactory.getLogger(RepositoryExecuteBatchWorker.class);
@@ -44,9 +43,9 @@ public class RepositoryExecuteBatchWorker extends AbstractExecuteBatchWorker<Rep
     protected RepositoryExecuteBatchWorker(final RepositoryExecuteBatchFunction batchFunction, final Scriptable parentScope,
             final Scriptable thisObj, final Pair<Scriptable, Function> processCallback,
             final Pair<Scriptable, Function> beforeProcessCallback, final Pair<Scriptable, Function> afterProcessCallback,
-            final ObjectFacadeFactory facadeFactory, final PlatformTransactionManager txnManager)
+            final PlatformTransactionManager txnManager)
     {
-        super(batchFunction, parentScope, thisObj, processCallback, beforeProcessCallback, afterProcessCallback, facadeFactory);
+        super(batchFunction, parentScope, thisObj, processCallback, beforeProcessCallback, afterProcessCallback);
         this.txnManager = txnManager;
     }
 

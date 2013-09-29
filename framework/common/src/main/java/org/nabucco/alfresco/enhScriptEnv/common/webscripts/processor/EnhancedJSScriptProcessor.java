@@ -25,6 +25,7 @@ import java.util.LinkedHashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.WeakHashMap;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
@@ -96,8 +97,8 @@ public class EnhancedJSScriptProcessor extends BaseRegisterableScriptProcessor i
     // reuse existing implementation
     private static final WrapFactory WRAP_FACTORY = new PresentationWrapFactory();
 
-    protected final ThreadLocal<List<ReferenceScript>> activeScriptContentChain = new ThreadLocal<List<ReferenceScript>>();
-    protected final ThreadLocal<List<List<ReferenceScript>>> recursionScriptContentChains = new ThreadLocal<List<List<ReferenceScript>>>();
+    protected final Map<Context, List<ReferenceScript>> activeScriptContentChain = new WeakHashMap<Context, List<ReferenceScript>>();
+    protected final Map<Context, List<List<ReferenceScript>>> recursionScriptContentChains = new WeakHashMap<Context, List<List<ReferenceScript>>>();
 
     protected boolean shareScopes = true;
 
@@ -207,57 +208,68 @@ public class EnhancedJSScriptProcessor extends BaseRegisterableScriptProcessor i
 
         LOGGER.info("{} Start", debugScriptName);
 
-        List<ReferenceScript> currentChain = this.activeScriptContentChain.get();
-        boolean newChain = false;
-        if (currentChain == null)
-        {
-            this.updateContentChainsBeforeExceution();
-            currentChain = this.activeScriptContentChain.get();
-            newChain = true;
-        }
-        // else: assume the original script chain is continued
-        currentChain.add(new ReferenceScript.DynamicScript(debugScriptName));
-
         final long startTime = System.currentTimeMillis();
         final Context cx = Context.enter();
         try
         {
-
-            final Scriptable realScope;
-            if (scope == null)
+            List<ReferenceScript> currentChain = this.activeScriptContentChain.get(cx);
+            boolean newChain = false;
+            if (currentChain == null)
             {
-                if (this.shareScopes)
+                this.updateContentChainsBeforeExceution();
+                currentChain = this.activeScriptContentChain.get(cx);
+                newChain = true;
+            }
+            // else: assume the original script chain is continued
+            currentChain.add(new ReferenceScript.DynamicScript(debugScriptName));
+
+            try
+            {
+
+                final Scriptable realScope;
+                if (scope == null)
                 {
-                    final Scriptable sharedScope = this.restrictedShareableScope;
-                    realScope = cx.newObject(sharedScope);
-                    realScope.setPrototype(sharedScope);
-                    realScope.setParentScope(null);
+                    if (this.shareScopes)
+                    {
+                        final Scriptable sharedScope = this.restrictedShareableScope;
+                        realScope = cx.newObject(sharedScope);
+                        realScope.setPrototype(sharedScope);
+                        realScope.setParentScope(null);
+                    }
+                    else
+                    {
+                        realScope = this.setupScope(cx, false, false);
+                    }
+                }
+                else if (!(scope instanceof Scriptable))
+                {
+                    realScope = new NativeJavaObject(null, scope, scope.getClass());
+                    if (this.shareScopes)
+                    {
+                        final Scriptable sharedScope = this.restrictedShareableScope;
+                        realScope.setPrototype(sharedScope);
+                    }
+                    else
+                    {
+                        final Scriptable baseScope = this.setupScope(cx, false, false);
+                        realScope.setPrototype(baseScope);
+                    }
                 }
                 else
                 {
-                    realScope = this.setupScope(cx, false, false);
+                    realScope = (Scriptable) scope;
                 }
-            }
-            else if (!(scope instanceof Scriptable))
-            {
-                realScope = new NativeJavaObject(null, scope, scope.getClass());
-                if (this.shareScopes)
-                {
-                    final Scriptable sharedScope = this.restrictedShareableScope;
-                    realScope.setPrototype(sharedScope);
-                }
-                else
-                {
-                    final Scriptable baseScope = this.setupScope(cx, false, false);
-                    realScope.setPrototype(baseScope);
-                }
-            }
-            else
-            {
-                realScope = (Scriptable) scope;
-            }
 
-            this.executeScriptInScopeImpl(script, realScope);
+                this.executeScriptInScopeImpl(script, realScope);
+            }
+            finally
+            {
+                currentChain.remove(currentChain.size() - 1);
+                if (newChain)
+                {
+                    this.updateContentChainsAfterReturning();
+                }
+            }
         }
         catch (final Exception ex)
         {
@@ -268,12 +280,6 @@ public class EnhancedJSScriptProcessor extends BaseRegisterableScriptProcessor i
         finally
         {
             Context.exit();
-
-            currentChain.remove(currentChain.size() - 1);
-            if (newChain)
-            {
-                this.updateContentChainsAfterReturning();
-            }
 
             final long endTime = System.currentTimeMillis();
             LOGGER.info("{} End {} msg", debugScriptName, Long.valueOf(endTime - startTime));
@@ -294,57 +300,68 @@ public class EnhancedJSScriptProcessor extends BaseRegisterableScriptProcessor i
 
         LOGGER.info("{} Start", debugScriptName);
 
-        List<ReferenceScript> currentChain = this.activeScriptContentChain.get();
-        boolean newChain = false;
-        if (currentChain == null)
-        {
-            this.updateContentChainsBeforeExceution();
-            currentChain = this.activeScriptContentChain.get();
-            newChain = true;
-        }
-        // else: assume the original script chain is continued
-        currentChain.add(content);
-
         final long startTime = System.currentTimeMillis();
         final Context cx = Context.enter();
         try
         {
-
-            final Scriptable realScope;
-            if (scope == null)
+            List<ReferenceScript> currentChain = this.activeScriptContentChain.get(cx);
+            boolean newChain = false;
+            if (currentChain == null)
             {
-                if (this.shareScopes)
+                this.updateContentChainsBeforeExceution();
+                currentChain = this.activeScriptContentChain.get(cx);
+                newChain = true;
+            }
+            // else: assume the original script chain is continued
+            currentChain.add(content);
+
+            try
+            {
+
+                final Scriptable realScope;
+                if (scope == null)
                 {
-                    final Scriptable sharedScope = content.isSecure() ? this.unrestrictedShareableScope : this.restrictedShareableScope;
-                    realScope = cx.newObject(sharedScope);
-                    realScope.setPrototype(sharedScope);
-                    realScope.setParentScope(null);
+                    if (this.shareScopes)
+                    {
+                        final Scriptable sharedScope = content.isSecure() ? this.unrestrictedShareableScope : this.restrictedShareableScope;
+                        realScope = cx.newObject(sharedScope);
+                        realScope.setPrototype(sharedScope);
+                        realScope.setParentScope(null);
+                    }
+                    else
+                    {
+                        realScope = this.setupScope(cx, content.isSecure(), false);
+                    }
+                }
+                else if (!(scope instanceof Scriptable))
+                {
+                    realScope = new NativeJavaObject(null, scope, scope.getClass());
+                    if (this.shareScopes)
+                    {
+                        final Scriptable sharedScope = content.isSecure() ? this.unrestrictedShareableScope : this.restrictedShareableScope;
+                        realScope.setPrototype(sharedScope);
+                    }
+                    else
+                    {
+                        final Scriptable baseScope = this.setupScope(cx, content.isSecure(), false);
+                        realScope.setPrototype(baseScope);
+                    }
                 }
                 else
                 {
-                    realScope = this.setupScope(cx, content.isSecure(), false);
+                    realScope = (Scriptable) scope;
                 }
-            }
-            else if (!(scope instanceof Scriptable))
-            {
-                realScope = new NativeJavaObject(null, scope, scope.getClass());
-                if (this.shareScopes)
-                {
-                    final Scriptable sharedScope = content.isSecure() ? this.unrestrictedShareableScope : this.restrictedShareableScope;
-                    realScope.setPrototype(sharedScope);
-                }
-                else
-                {
-                    final Scriptable baseScope = this.setupScope(cx, content.isSecure(), false);
-                    realScope.setPrototype(baseScope);
-                }
-            }
-            else
-            {
-                realScope = (Scriptable) scope;
-            }
 
-            this.executeScriptInScopeImpl(script, realScope);
+                this.executeScriptInScopeImpl(script, realScope);
+            }
+            finally
+            {
+                currentChain.remove(currentChain.size() - 1);
+                if (newChain)
+                {
+                    this.updateContentChainsAfterReturning();
+                }
+            }
         }
         catch (final Exception ex)
         {
@@ -355,12 +372,6 @@ public class EnhancedJSScriptProcessor extends BaseRegisterableScriptProcessor i
         finally
         {
             Context.exit();
-
-            currentChain.remove(currentChain.size() - 1);
-            if (newChain)
-            {
-                this.updateContentChainsAfterReturning();
-            }
 
             final long endTime = System.currentTimeMillis();
             LOGGER.info("{} End {} msg", debugScriptName, Long.valueOf(endTime - startTime));
@@ -407,7 +418,7 @@ public class EnhancedJSScriptProcessor extends BaseRegisterableScriptProcessor i
     @Override
     public ReferenceScript getContextScriptLocation()
     {
-        final List<ReferenceScript> currentChain = this.activeScriptContentChain.get();
+        final List<ReferenceScript> currentChain = this.activeScriptContentChain.get(Context.getCurrentContext());
         final ReferenceScript result;
         if (currentChain != null && !currentChain.isEmpty())
         {
@@ -427,7 +438,7 @@ public class EnhancedJSScriptProcessor extends BaseRegisterableScriptProcessor i
     @Override
     public List<ReferenceScript> getScriptCallChain()
     {
-        final List<ReferenceScript> currentChain = this.activeScriptContentChain.get();
+        final List<ReferenceScript> currentChain = this.activeScriptContentChain.get(Context.getCurrentContext());
         final List<ReferenceScript> result;
         if (currentChain != null)
         {
@@ -438,6 +449,32 @@ public class EnhancedJSScriptProcessor extends BaseRegisterableScriptProcessor i
             result = null;
         }
         return result;
+    }
+
+    /**
+     *
+     * {@inheritDoc}
+     */
+    @Override
+    public void inheritCallChain(final Object parentContext)
+    {
+        ParameterCheck.mandatory("parentContext", parentContext);
+
+        final Context currentContext = Context.getCurrentContext();
+        List<ReferenceScript> activeChain = this.activeScriptContentChain.get(currentContext);
+        if (activeChain != null)
+        {
+            throw new IllegalStateException("Context call chain has already been initialized");
+        }
+
+        final List<ReferenceScript> parentChain = this.activeScriptContentChain.get(parentContext);
+        if (parentChain == null)
+        {
+            throw new IllegalArgumentException("Parent context has no call chain associated with it");
+        }
+
+        activeChain = new ArrayList<ReferenceScript>(parentChain);
+        this.activeScriptContentChain.put(currentContext, activeChain);
     }
 
     /**
@@ -521,15 +558,23 @@ public class EnhancedJSScriptProcessor extends BaseRegisterableScriptProcessor i
         final ScriptContentAdapter contentAdapter = new ScriptContentAdapter(content, this.standardScriptLoader);
         final String debugScriptName = contentAdapter.getName();
 
-        this.updateContentChainsBeforeExceution();
-        this.activeScriptContentChain.get().add(contentAdapter);
+        final Context cx = Context.enter();
         try
         {
-            return this.executeScriptImpl(script, model, contentAdapter.isSecure(), debugScriptName);
+            this.updateContentChainsBeforeExceution();
+            this.activeScriptContentChain.get(cx).add(contentAdapter);
+            try
+            {
+                return this.executeScriptImpl(script, model, contentAdapter.isSecure(), debugScriptName);
+            }
+            finally
+            {
+                this.updateContentChainsAfterReturning();
+            }
         }
         finally
         {
-            this.updateContentChainsAfterReturning();
+            Context.exit();
         }
     }
 
@@ -911,33 +956,35 @@ public class EnhancedJSScriptProcessor extends BaseRegisterableScriptProcessor i
 
     protected void updateContentChainsBeforeExceution()
     {
-        final List<ReferenceScript> activeChain = this.activeScriptContentChain.get();
+        final Context currentContext = Context.getCurrentContext();
+        final List<ReferenceScript> activeChain = this.activeScriptContentChain.get(currentContext);
         if (activeChain != null)
         {
-            List<List<ReferenceScript>> recursionChains = this.recursionScriptContentChains.get();
+            List<List<ReferenceScript>> recursionChains = this.recursionScriptContentChains.get(currentContext);
             if (recursionChains == null)
             {
                 recursionChains = new LinkedList<List<ReferenceScript>>();
-                this.recursionScriptContentChains.set(recursionChains);
+                this.recursionScriptContentChains.put(currentContext, recursionChains);
             }
 
             recursionChains.add(0, activeChain);
         }
-        this.activeScriptContentChain.set(new LinkedList<ReferenceScript>());
+        this.activeScriptContentChain.put(currentContext, new LinkedList<ReferenceScript>());
     }
 
     protected void updateContentChainsAfterReturning()
     {
-        this.activeScriptContentChain.remove();
-        final List<List<ReferenceScript>> recursionChains = this.recursionScriptContentChains.get();
+        final Context currentContext = Context.getCurrentContext();
+        this.activeScriptContentChain.remove(currentContext);
+        final List<List<ReferenceScript>> recursionChains = this.recursionScriptContentChains.get(currentContext);
         if (recursionChains != null)
         {
             final List<ReferenceScript> previousChain = recursionChains.remove(0);
             if (recursionChains.isEmpty())
             {
-                this.recursionScriptContentChains.remove();
+                this.recursionScriptContentChains.remove(currentContext);
             }
-            this.activeScriptContentChain.set(previousChain);
+            this.activeScriptContentChain.put(currentContext, previousChain);
         }
     }
 

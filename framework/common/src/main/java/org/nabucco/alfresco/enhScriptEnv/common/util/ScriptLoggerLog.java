@@ -18,6 +18,7 @@ import org.apache.commons.logging.Log;
 import org.mozilla.javascript.Context;
 import org.mozilla.javascript.Scriptable;
 import org.mozilla.javascript.ScriptableObject;
+import org.nabucco.alfresco.enhScriptEnv.common.script.EnhancedScriptProcessor;
 import org.nabucco.alfresco.enhScriptEnv.common.script.LogFunction;
 import org.springframework.extensions.webscripts.ScriptLogger;
 
@@ -64,9 +65,14 @@ public class ScriptLoggerLog implements Log
 
     private final Scriptable scriptLogger;
 
-    public ScriptLoggerLog(final Scriptable scriptLogger)
+    private final EnhancedScriptProcessor scriptProcessor;
+
+    private final Context parentContext = Context.getCurrentContext();
+
+    public ScriptLoggerLog(final Scriptable scriptLogger, final EnhancedScriptProcessor scriptProcessor)
     {
         this.scriptLogger = scriptLogger;
+        this.scriptProcessor = scriptProcessor;
     }
 
     /**
@@ -276,9 +282,18 @@ public class ScriptLoggerLog implements Log
 
     protected void doLog(final Level level, final String message)
     {
-        Context.enter();
+        final Context currentContext = Context.getCurrentContext();
+        if (currentContext == null)
+        {
+            Context.enter();
+        }
         try
         {
+            if (currentContext == null)
+            {
+                this.scriptProcessor.inheritCallChain(this.parentContext);
+            }
+
             if (ScriptableObject.hasProperty(this.scriptLogger, level.getLogMethod()))
             {
                 ScriptableObject.callMethod(this.scriptLogger, level.getLogMethod(), new Object[] { message });
@@ -286,15 +301,27 @@ public class ScriptLoggerLog implements Log
         }
         finally
         {
-            Context.exit();
+            if (currentContext == null)
+            {
+                Context.exit();
+            }
         }
     }
 
     protected void doLog(final Level level, final String message, final Throwable t)
     {
-        Context.enter();
+        final Context currentContext = Context.getCurrentContext();
+        if (currentContext == null)
+        {
+            Context.enter();
+        }
         try
         {
+            if (currentContext == null)
+            {
+                this.scriptProcessor.inheritCallChain(this.parentContext);
+            }
+
             if (ScriptableObject.hasProperty(this.scriptLogger, level.getLogMethod()))
             {
                 ScriptableObject.callMethod(this.scriptLogger, level.getLogMethod(), new Object[] { message, t });
@@ -302,15 +329,27 @@ public class ScriptLoggerLog implements Log
         }
         finally
         {
-            Context.exit();
+            if (currentContext == null)
+            {
+                Context.exit();
+            }
         }
     }
 
     protected boolean checkLevelEnabled(final Level level)
     {
-        Context.enter();
+        final Context currentContext = Context.getCurrentContext();
+        if (currentContext == null)
+        {
+            Context.enter();
+        }
         try
         {
+            if (currentContext == null)
+            {
+                this.scriptProcessor.inheritCallChain(this.parentContext);
+            }
+
             final Boolean isEnabled;
 
             if (ScriptableObject.hasProperty(this.scriptLogger, level.getEnablementCheckMethod()))
@@ -327,7 +366,10 @@ public class ScriptLoggerLog implements Log
         }
         finally
         {
-            Context.exit();
+            if (currentContext == null)
+            {
+                Context.exit();
+            }
         }
     }
 

@@ -261,8 +261,8 @@ public class LogFunction implements IdFunctionCall, InitializingBean, ScopeContr
             final LoggerAccessor accessor = new LoggerAccessor(scope, loggerObj);
             try
             {
-                final Method getter = LoggerAccessor.class.getMethod("get", new Class[] { ScriptableObject.class });
-                final Method setter = LoggerAccessor.class.getMethod("set", new Class[] { ScriptableObject.class, Scriptable.class });
+                final Method getter = LoggerAccessor.class.getMethod("get", new Class[] { Scriptable.class });
+                final Method setter = LoggerAccessor.class.getMethod("set", new Class[] { Scriptable.class, Scriptable.class });
                 ((ScriptableObject) scope).defineProperty(LOGGER_OBJ_NAME, accessor, getter, setter, ScriptableObject.PERMANENT);
             }
             catch (final NoSuchMethodException ex)
@@ -873,12 +873,12 @@ public class LogFunction implements IdFunctionCall, InitializingBean, ScopeContr
             this.logger = logger;
         }
 
-        public Scriptable get(final ScriptableObject thisObj)
+        public Scriptable get(final Scriptable thisObj)
         {
             return this.logger;
         }
 
-        public void set(final ScriptableObject thisObj, final Scriptable logger)
+        public void set(final Scriptable thisObj, final Scriptable logger)
         {
             LogFunction.this.handleSetScriptLogger(Context.getCurrentContext(), this.scope, thisObj, new Object[] { logger });
         }

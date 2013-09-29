@@ -26,6 +26,7 @@ import java.util.LinkedHashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.WeakHashMap;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
@@ -121,8 +122,8 @@ public class EnhancedRhinoScriptProcessor extends BaseProcessor implements Enhan
 
     private static final int DEFAULT_MAX_SCRIPT_CACHE_SIZE = 200;
 
-    protected final ThreadLocal<List<ReferenceScript>> activeScriptLocationChain = new ThreadLocal<List<ReferenceScript>>();
-    protected final ThreadLocal<List<List<ReferenceScript>>> recursionScriptLocationChains = new ThreadLocal<List<List<ReferenceScript>>>();
+    protected final Map<Context, List<ReferenceScript>> activeScriptLocationChain = new WeakHashMap<Context, List<ReferenceScript>>();
+    protected final Map<Context, List<List<ReferenceScript>>> recursionScriptLocationChains = new WeakHashMap<Context, List<List<ReferenceScript>>>();
 
     protected WrapFactory wrapFactory = DEFAULT_WRAP_FACTORY;
 
@@ -206,15 +207,23 @@ public class EnhancedRhinoScriptProcessor extends BaseProcessor implements Enhan
             debugScriptName = i != -1 ? path.substring(i + 1) : path;
         }
 
-        this.updateLocationChainsBeforeExceution();
-        this.activeScriptLocationChain.get().add(new ScriptLocationAdapter(location));
+        final Context cx = Context.enter();
         try
         {
-            return this.executeScriptImpl(script, model, location.isSecure(), debugScriptName);
+            this.updateLocationChainsBeforeExceution();
+            this.activeScriptLocationChain.get(cx).add(new ScriptLocationAdapter(location));
+            try
+            {
+                return this.executeScriptImpl(script, model, location.isSecure(), debugScriptName);
+            }
+            finally
+            {
+                this.updateLocationChainsAfterReturning();
+            }
         }
         finally
         {
-            this.updateLocationChainsAfterReturning();
+            Context.exit();
         }
     }
 
@@ -283,19 +292,27 @@ public class EnhancedRhinoScriptProcessor extends BaseProcessor implements Enhan
             debugScriptName = "string://Cached-DynamicJS-" + digest;
         }
 
-        this.updateLocationChainsBeforeExceution();
-        this.activeScriptLocationChain.get().add(new ReferenceScript.DynamicScript(debugScriptName));
+        final Context cx = Context.enter();
         try
         {
-            return this.executeScriptImpl(script, model, true, debugScriptName);
-        }
-        catch (final Throwable err)
-        {
-            throw new ScriptException("Failed to execute supplied script: " + err.getMessage(), err);
+            this.updateLocationChainsBeforeExceution();
+            this.activeScriptLocationChain.get(cx).add(new ReferenceScript.DynamicScript(debugScriptName));
+            try
+            {
+                return this.executeScriptImpl(script, model, true, debugScriptName);
+            }
+            catch (final Throwable err)
+            {
+                throw new ScriptException("Failed to execute supplied script: " + err.getMessage(), err);
+            }
+            finally
+            {
+                this.updateLocationChainsAfterReturning();
+            }
         }
         finally
         {
-            this.updateLocationChainsAfterReturning();
+            Context.exit();
         }
     }
 
@@ -374,57 +391,67 @@ public class EnhancedRhinoScriptProcessor extends BaseProcessor implements Enhan
         LOGGER.info("{} Start", debugScriptName);
         LEGACY_CALL_LOGGER.debug("{} Start", debugScriptName);
 
-        List<ReferenceScript> currentChain = this.activeScriptLocationChain.get();
-        boolean newChain = false;
-        if (currentChain == null)
-        {
-            this.updateLocationChainsBeforeExceution();
-            currentChain = this.activeScriptLocationChain.get();
-            newChain = true;
-        }
-        // else: assume the original script chain is continued
-        currentChain.add(new ReferenceScript.DynamicScript(debugScriptName));
-
         final long startTime = System.currentTimeMillis();
         final Context cx = Context.enter();
         try
         {
-
-            final Scriptable realScope;
-            if (scope == null)
+            List<ReferenceScript> currentChain = this.activeScriptLocationChain.get(cx);
+            boolean newChain = false;
+            if (currentChain == null)
             {
-                if (this.shareScopes)
+                this.updateLocationChainsBeforeExceution();
+                currentChain = this.activeScriptLocationChain.get(cx);
+                newChain = true;
+            }
+            // else: assume the original script chain is continued
+            currentChain.add(new ReferenceScript.DynamicScript(debugScriptName));
+
+            try
+            {
+                final Scriptable realScope;
+                if (scope == null)
                 {
-                    final Scriptable sharedScope = this.restrictedShareableScope;
-                    realScope = cx.newObject(sharedScope);
-                    realScope.setPrototype(sharedScope);
-                    realScope.setParentScope(null);
+                    if (this.shareScopes)
+                    {
+                        final Scriptable sharedScope = this.restrictedShareableScope;
+                        realScope = cx.newObject(sharedScope);
+                        realScope.setPrototype(sharedScope);
+                        realScope.setParentScope(null);
+                    }
+                    else
+                    {
+                        realScope = this.setupScope(cx, false, false);
+                    }
+                }
+                else if (!(scope instanceof Scriptable))
+                {
+                    realScope = new NativeJavaObject(null, scope, scope.getClass());
+                    if (this.shareScopes)
+                    {
+                        final Scriptable sharedScope = this.restrictedShareableScope;
+                        realScope.setPrototype(sharedScope);
+                    }
+                    else
+                    {
+                        final Scriptable baseScope = this.setupScope(cx, false, false);
+                        realScope.setPrototype(baseScope);
+                    }
                 }
                 else
                 {
-                    realScope = this.setupScope(cx, false, false);
+                    realScope = (Scriptable) scope;
                 }
-            }
-            else if (!(scope instanceof Scriptable))
-            {
-                realScope = new NativeJavaObject(null, scope, scope.getClass());
-                if (this.shareScopes)
-                {
-                    final Scriptable sharedScope = this.restrictedShareableScope;
-                    realScope.setPrototype(sharedScope);
-                }
-                else
-                {
-                    final Scriptable baseScope = this.setupScope(cx, false, false);
-                    realScope.setPrototype(baseScope);
-                }
-            }
-            else
-            {
-                realScope = (Scriptable) scope;
-            }
 
-            this.executeScriptInScopeImpl(script, realScope);
+                this.executeScriptInScopeImpl(script, realScope);
+            }
+            finally
+            {
+                currentChain.remove(currentChain.size() - 1);
+                if (newChain)
+                {
+                    this.updateLocationChainsAfterReturning();
+                }
+            }
         }
         catch (final Exception ex)
         {
@@ -436,12 +463,6 @@ public class EnhancedRhinoScriptProcessor extends BaseProcessor implements Enhan
         finally
         {
             Context.exit();
-
-            currentChain.remove(currentChain.size() - 1);
-            if (newChain)
-            {
-                this.updateLocationChainsAfterReturning();
-            }
 
             final long endTime = System.currentTimeMillis();
             LOGGER.info("{} End {} ms", debugScriptName, Long.valueOf(endTime - startTime));
@@ -463,57 +484,69 @@ public class EnhancedRhinoScriptProcessor extends BaseProcessor implements Enhan
         LOGGER.info("{} Start", debugScriptName);
         LEGACY_CALL_LOGGER.debug("{} Start", debugScriptName);
 
-        List<ReferenceScript> currentChain = this.activeScriptLocationChain.get();
-        boolean newChain = false;
-        if (currentChain == null)
-        {
-            this.updateLocationChainsBeforeExceution();
-            currentChain = this.activeScriptLocationChain.get();
-            newChain = true;
-        }
-        // else: assume the original script chain is continued
-        currentChain.add(location);
-
         final long startTime = System.currentTimeMillis();
         final Context cx = Context.enter();
         try
         {
-
-            final Scriptable realScope;
-            if (scope == null)
+            List<ReferenceScript> currentChain = this.activeScriptLocationChain.get(cx);
+            boolean newChain = false;
+            if (currentChain == null)
             {
-                if (this.shareScopes)
+                this.updateLocationChainsBeforeExceution();
+                currentChain = this.activeScriptLocationChain.get(cx);
+                newChain = true;
+            }
+            // else: assume the original script chain is continued
+            currentChain.add(location);
+            try
+            {
+
+                final Scriptable realScope;
+                if (scope == null)
                 {
-                    final Scriptable sharedScope = location.isSecure() ? this.unrestrictedShareableScope : this.restrictedShareableScope;
-                    realScope = cx.newObject(sharedScope);
-                    realScope.setPrototype(sharedScope);
-                    realScope.setParentScope(null);
+                    if (this.shareScopes)
+                    {
+                        final Scriptable sharedScope = location.isSecure() ? this.unrestrictedShareableScope
+                                : this.restrictedShareableScope;
+                        realScope = cx.newObject(sharedScope);
+                        realScope.setPrototype(sharedScope);
+                        realScope.setParentScope(null);
+                    }
+                    else
+                    {
+                        realScope = this.setupScope(cx, location.isSecure(), false);
+                    }
+                }
+                else if (!(scope instanceof Scriptable))
+                {
+                    realScope = new NativeJavaObject(null, scope, scope.getClass());
+                    if (this.shareScopes)
+                    {
+                        final Scriptable sharedScope = location.isSecure() ? this.unrestrictedShareableScope
+                                : this.restrictedShareableScope;
+                        realScope.setPrototype(sharedScope);
+                    }
+                    else
+                    {
+                        final Scriptable baseScope = this.setupScope(cx, location.isSecure(), false);
+                        realScope.setPrototype(baseScope);
+                    }
                 }
                 else
                 {
-                    realScope = this.setupScope(cx, location.isSecure(), false);
+                    realScope = (Scriptable) scope;
                 }
-            }
-            else if (!(scope instanceof Scriptable))
-            {
-                realScope = new NativeJavaObject(null, scope, scope.getClass());
-                if (this.shareScopes)
-                {
-                    final Scriptable sharedScope = location.isSecure() ? this.unrestrictedShareableScope : this.restrictedShareableScope;
-                    realScope.setPrototype(sharedScope);
-                }
-                else
-                {
-                    final Scriptable baseScope = this.setupScope(cx, location.isSecure(), false);
-                    realScope.setPrototype(baseScope);
-                }
-            }
-            else
-            {
-                realScope = (Scriptable) scope;
-            }
 
-            this.executeScriptInScopeImpl(script, realScope);
+                this.executeScriptInScopeImpl(script, realScope);
+            }
+            finally
+            {
+                currentChain.remove(currentChain.size() - 1);
+                if (newChain)
+                {
+                    this.updateLocationChainsAfterReturning();
+                }
+            }
         }
         catch (final Exception ex)
         {
@@ -525,12 +558,6 @@ public class EnhancedRhinoScriptProcessor extends BaseProcessor implements Enhan
         finally
         {
             Context.exit();
-
-            currentChain.remove(currentChain.size() - 1);
-            if (newChain)
-            {
-                this.updateLocationChainsAfterReturning();
-            }
 
             final long endTime = System.currentTimeMillis();
             LOGGER.info("{} End {} ms", debugScriptName, Long.valueOf(endTime - startTime));
@@ -577,7 +604,7 @@ public class EnhancedRhinoScriptProcessor extends BaseProcessor implements Enhan
     @Override
     public ReferenceScript getContextScriptLocation()
     {
-        final List<ReferenceScript> currentChain = this.activeScriptLocationChain.get();
+        final List<ReferenceScript> currentChain = this.activeScriptLocationChain.get(Context.getCurrentContext());
         final ReferenceScript result;
         if (currentChain != null && !currentChain.isEmpty())
         {
@@ -597,7 +624,7 @@ public class EnhancedRhinoScriptProcessor extends BaseProcessor implements Enhan
     @Override
     public List<ReferenceScript> getScriptCallChain()
     {
-        final List<ReferenceScript> currentChain = this.activeScriptLocationChain.get();
+        final List<ReferenceScript> currentChain = this.activeScriptLocationChain.get(Context.getCurrentContext());
         final List<ReferenceScript> result;
         if (currentChain != null)
         {
@@ -608,6 +635,32 @@ public class EnhancedRhinoScriptProcessor extends BaseProcessor implements Enhan
             result = null;
         }
         return result;
+    }
+
+    /**
+     *
+     * {@inheritDoc}
+     */
+    @Override
+    public void inheritCallChain(final Object parentContext)
+    {
+        ParameterCheck.mandatory("parentContext", parentContext);
+
+        final Context currentContext = Context.getCurrentContext();
+        List<ReferenceScript> activeChain = this.activeScriptLocationChain.get(currentContext);
+        if (activeChain != null)
+        {
+            throw new IllegalStateException("Context call chain has already been initialized");
+        }
+
+        final List<ReferenceScript> parentChain = this.activeScriptLocationChain.get(parentContext);
+        if (parentChain == null)
+        {
+            throw new IllegalArgumentException("Parent context has no call chain associated with it");
+        }
+
+        activeChain = new ArrayList<ReferenceScript>(parentChain);
+        this.activeScriptLocationChain.put(currentContext, activeChain);
     }
 
     /**
@@ -699,33 +752,35 @@ public class EnhancedRhinoScriptProcessor extends BaseProcessor implements Enhan
 
     protected void updateLocationChainsBeforeExceution()
     {
-        final List<ReferenceScript> activeChain = this.activeScriptLocationChain.get();
+        final Context currentContext = Context.getCurrentContext();
+        final List<ReferenceScript> activeChain = this.activeScriptLocationChain.get(currentContext);
         if (activeChain != null)
         {
-            List<List<ReferenceScript>> recursionChains = this.recursionScriptLocationChains.get();
+            List<List<ReferenceScript>> recursionChains = this.recursionScriptLocationChains.get(currentContext);
             if (recursionChains == null)
             {
                 recursionChains = new LinkedList<List<ReferenceScript>>();
-                this.recursionScriptLocationChains.set(recursionChains);
+                this.recursionScriptLocationChains.put(currentContext, recursionChains);
             }
 
             recursionChains.add(0, activeChain);
         }
-        this.activeScriptLocationChain.set(new LinkedList<ReferenceScript>());
+        this.activeScriptLocationChain.put(currentContext, new LinkedList<ReferenceScript>());
     }
 
     protected void updateLocationChainsAfterReturning()
     {
-        this.activeScriptLocationChain.remove();
-        final List<List<ReferenceScript>> recursionChains = this.recursionScriptLocationChains.get();
+        final Context currentContext = Context.getCurrentContext();
+        this.activeScriptLocationChain.remove(currentContext);
+        final List<List<ReferenceScript>> recursionChains = this.recursionScriptLocationChains.get(currentContext);
         if (recursionChains != null)
         {
             final List<ReferenceScript> previousChain = recursionChains.remove(0);
             if (recursionChains.isEmpty())
             {
-                this.recursionScriptLocationChains.remove();
+                this.recursionScriptLocationChains.remove(currentContext);
             }
-            this.activeScriptLocationChain.set(previousChain);
+            this.activeScriptLocationChain.put(currentContext, previousChain);
         }
     }
 
