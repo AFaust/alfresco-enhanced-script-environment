@@ -64,7 +64,7 @@ function doclist_main()
          requestTotalCountMax = skip + REQUEST_MAX;
          var pagedResult = parentNode.childFileFolders(
             true, true, filterParams.ignoreTypes.concat(filterParams.ignoreAspects),
-            skip, max, requestTotalCountMax, sortField, sortAsc, "")
+            skip, max, requestTotalCountMax, sortField, sortAsc, "");
 
          allNodes = pagedResult.page;
          totalRecords = pagedResult.totalResultCountUpper;

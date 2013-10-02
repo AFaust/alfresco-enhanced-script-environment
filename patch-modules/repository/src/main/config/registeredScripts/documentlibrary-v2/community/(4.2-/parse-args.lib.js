@@ -85,15 +85,27 @@ var Common =
     * @method getLocation
     * @param node {ScriptNode} Node to generate location for
     * @param libraryRoot {ScriptNode} Optional node to work out relative location from.
+    * @param parent {ScriptNode} Optional parent to use instead of assuming primary parent path
     * @return {object} Location object literal.
     */
-   getLocation: function Common_getLocation(node, libraryRoot)
+   getLocation: function Common_getLocation(node, libraryRoot, parent)
    {
       try
       {
          var location = null,
+             qnamePaths,
+             displayPaths;
+         
+         if (parent)
+         {
+            qnamePaths = (parent.qnamePath + "/_").split("/");
+            displayPaths = (parent.displayPath + "/" + parent.name).split("/");
+         }
+         else
+         {
             qnamePaths = node.qnamePath.split("/"),
             displayPaths = node.displayPath.split("/");
+         }
 
          if (libraryRoot == undefined && qnamePaths[2] != TYPE_SITES)
          {
@@ -168,8 +180,8 @@ var Common =
 
       try
       {
-         isLiked = ratingService.getRating(node, LIKES_SCHEME) !== -1;
          totalLikes = ratingService.getRatingsCount(node, LIKES_SCHEME);
+         isLiked = totalLikes === 0 ? false : ratingService.getRating(node, LIKES_SCHEME) !== -1;
       }
       catch (e) {}
       
@@ -247,29 +259,14 @@ var ParseArgs =
          rootNode = siteNode.getContainer(containerId);
          if (rootNode === null)
          {
-            rootNode = siteNode.createContainer(containerId, containerType || "cm:folder");
+            rootNode = siteNode.aquireContainer(containerId, containerType || "cm:folder", {"cm:description": "Document Library"});
             if (rootNode === null)
             {
                status.setCode(status.STATUS_GONE, "Document Library container '" + containerId + "' not found in '" + siteId + "'. (No permission?)");
                return null;
             }
-            
-            rootNode.properties["cm:description"] = "Document Library";
-
-            /**
-             * MOB-593: Add email alias on documentLibrary container creation
-             *
-            rootNode.addAspect("emailserver:aliasable");
-            var emailAlias = siteId;
-            if (containerId != "documentLibrary")
-            {
-               emailAlias += "-" + containerId;
             }
-            rootNode.properties["emailserver:alias"] = emailAlias;
-            */
-            rootNode.save();
          }
-      }
 
       // Path input?
       path = url.templateArgs.path || "";
@@ -281,7 +278,14 @@ var ParseArgs =
       }
 
       // Parent location parameter adjustment
-      location = Common.getLocation(pathNode, libraryRoot);
+      var parentNode = null;
+      if (path.length > 0)
+      {
+         var p = path.split("/");
+         p.pop();
+         parentNode = rootNode.childByNamePath(p.join("/"));
+      }
+      location = Common.getLocation(pathNode, libraryRoot, parentNode);
       if (location === null)
       {
          status.setCode(status.STATUS_GONE, "Location is 'null'. (No permission?)");
@@ -355,6 +359,10 @@ var ParseArgs =
          else if (reference == "alfresco://sites/home")
          {
             node = companyhome.childrenByXPath("st:sites")[0];
+         }
+         else if (reference == "alfresco://shared")
+         {
+            node = companyhome.childrenByXPath("app:shared")[0];
          }
          else if (reference.indexOf("://") > 0)
          {

@@ -17,6 +17,7 @@ package org.nabucco.alfresco.enhScriptEnv.common.script.registry;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -40,7 +41,7 @@ public abstract class VersionRegisterableScriptClasspathScanner<Script> implemen
     protected static final String EDITION_PATTERN = "(enterprise|general|community)";
     protected static final String SOURCE_FILE_PATTERN = "([^.:|<>/\"*?]+\\.)+js";
 
-    protected String rootResourcePattern;
+    protected List<String> rootResourcePatterns;
 
     protected ResourcePatternResolver resourcePatternResolver;
 
@@ -51,18 +52,18 @@ public abstract class VersionRegisterableScriptClasspathScanner<Script> implemen
     {
         PropertyCheck.mandatory(this, "resourcePatternResolver", this.resourcePatternResolver);
         PropertyCheck.mandatory(this, "scriptRegistry", this.scriptRegistry);
-        PropertyCheck.mandatory(this, "rootResourcePattern", this.rootResourcePattern);
+        PropertyCheck.mandatory(this, "rootResourcePatterns", this.rootResourcePatterns);
 
         this.scan();
     }
 
     /**
-     * @param rootResourcePattern
-     *            the rootResourcePattern to set
+     * @param rootResourcePatterns
+     *            the rootResourcePatterns to set
      */
-    public final void setRootResourcePattern(final String rootResourcePattern)
+    public final void setRootResourcePatterns(final List<String> rootResourcePatterns)
     {
-        this.rootResourcePattern = rootResourcePattern;
+        this.rootResourcePatterns = rootResourcePatterns;
     }
 
     /**
@@ -83,14 +84,37 @@ public abstract class VersionRegisterableScriptClasspathScanner<Script> implemen
         this.scriptRegistry = scriptRegistry;
     }
 
+    /**
+     * Performs a source file scan operation over the configured root resource patterns
+     *
+     * @throws IOException
+     *             if any exception occurs handling the resources
+     */
     protected void scan() throws IOException
     {
         final Collection<String> patternStack = new ArrayList<String>();
         final VersionRegisterableScriptAdapter<Script> dataContainer = new VersionRegisterableScriptAdapter<Script>();
 
-        this.scanNextLevel(this.rootResourcePattern, patternStack, dataContainer, null);
+        for (final String rootResourcePattern : this.rootResourcePatterns)
+        {
+            this.scanNextLevel(rootResourcePattern, patternStack, dataContainer, null);
+        }
     }
 
+    /**
+     * Scans the next level in a resource path for script source files
+     *
+     * @param resourcePattern
+     *            the root resource pattern
+     * @param patternStack
+     *            the stack of evaluated token patterns
+     * @param versionDataContainer
+     *            the container of collected version data
+     * @param subRegistry
+     *            the sub-registry to register the script in or {@code null} if no sub-registry is to be used
+     * @throws IOException
+     *             if any exception occurs handling the resource
+     */
     protected void scanNextLevel(final String resourcePattern, final Collection<String> patternStack,
             final VersionRegisterableScriptAdapter<Script> versionDataContainer, final String subRegistry) throws IOException
     {
@@ -149,8 +173,33 @@ public abstract class VersionRegisterableScriptClasspathScanner<Script> implemen
         }
     }
 
+    /**
+     * Constructs an environment specific script instance from a resource path
+     *
+     * @param resourcePath
+     *            the path to the script source file
+     * @return the script instance
+     * @throws IOException
+     *             if any exception occurs handling the resource
+     */
     protected abstract RegisterableScript<Script> getScript(final String resourcePath) throws IOException;
 
+    /**
+     * Matches and processes an actual source file
+     *
+     * @param resourcePattern
+     *            the resource pattern for the current level
+     * @param patternStack
+     *            the stack of patterns evaluated thus far
+     * @param versionDataContainer
+     *            the container for collection version information
+     * @param subRegistry
+     *            the sub-registry to register the script in or {@code null} if no sub-registry is to be used
+     * @param resource
+     *            the resource representing the source file
+     * @throws IOException
+     *             if any exception occurs handling the resource
+     */
     protected void matchSourceFile(final String resourcePattern, final Collection<String> patternStack,
             final VersionRegisterableScriptAdapter<Script> versionDataContainer, final String subRegistry, final Resource resource)
             throws IOException
@@ -179,17 +228,33 @@ public abstract class VersionRegisterableScriptClasspathScanner<Script> implemen
             if (subRegistry == null || subRegistry.trim().length() == 0)
             {
                 this.scriptRegistry.registerScript(simpleScriptName, scriptAdapter);
-                LOGGER.info("Registered script {} into script registry {}", scriptAdapter, this.scriptRegistry);
+                LOGGER.debug("Registered script {} into script registry {}", scriptAdapter, this.scriptRegistry);
             }
             else
             {
                 this.scriptRegistry.registerScript(simpleScriptName, subRegistry, scriptAdapter);
-                LOGGER.info("Registered script {} into sub-registry {} of script registry {}", new Object[] { scriptAdapter, subRegistry,
+                LOGGER.debug("Registered script {} into sub-registry {} of script registry {}", new Object[] { scriptAdapter, subRegistry,
                         this.scriptRegistry });
             }
         }
     }
 
+    /**
+     * Matches and processes a folder level defining a specific edition of alfresco a script is applicable to.
+     *
+     * @param resourcePattern
+     *            the resource pattern for the current level
+     * @param patternStack
+     *            the stack of patterns evaluated thus far
+     * @param versionDataContainer
+     *            the container for collection version information
+     * @param subRegistry
+     *            the sub-registry to register the script in or {@code null} if no sub-registry is to be used
+     * @param fileName
+     *            the name of the file currently evaluated
+     * @throws IOException
+     *             if any exception occurs handling the resource
+     */
     protected void matchEdition(final String resourcePattern, final Collection<String> patternStack,
             final VersionRegisterableScriptAdapter<Script> versionDataContainer, final String subRegistry, final String fileName)
             throws IOException
@@ -224,6 +289,22 @@ public abstract class VersionRegisterableScriptClasspathScanner<Script> implemen
         }
     }
 
+    /**
+     * Matches and processes a folder level defining a version a script is provided in.
+     *
+     * @param resourcePattern
+     *            the resource pattern for the current level
+     * @param patternStack
+     *            the stack of patterns evaluated thus far
+     * @param versionDataContainer
+     *            the container for collection version information
+     * @param subRegistry
+     *            the sub-registry to register the script in or {@code null} if no sub-registry is to be used
+     * @param fileName
+     *            the name of the file currently evaluated
+     * @throws IOException
+     *             if any exception occurs handling the resource
+     */
     protected void matchVersion(final String resourcePattern, final Collection<String> patternStack,
             final VersionRegisterableScriptAdapter<Script> versionDataContainer, final String subRegistry, final String fileName)
             throws IOException
@@ -245,6 +326,22 @@ public abstract class VersionRegisterableScriptClasspathScanner<Script> implemen
         }
     }
 
+    /**
+     * Matches and processes a folder level defining a range of versions a script is applicable to.
+     *
+     * @param resourcePattern
+     *            the resource pattern for the current level
+     * @param patternStack
+     *            the stack of patterns evaluated thus far
+     * @param versionDataContainer
+     *            the container for collection version information
+     * @param subRegistry
+     *            the sub-registry to register the script in or {@code null} if no sub-registry is to be used
+     * @param fileName
+     *            the name of the file currently evaluated
+     * @throws IOException
+     *             if any exception occurs handling the resource
+     */
     protected void matchVersionRange(final String resourcePattern, final Collection<String> patternStack,
             final VersionRegisterableScriptAdapter<Script> versionDataContainer, final String subRegistry, final String fileName)
             throws IOException

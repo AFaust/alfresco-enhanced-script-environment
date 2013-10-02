@@ -1,6 +1,5 @@
 <?xml version='1.0' encoding='UTF-8'?>
-<beans xmlns="http://www.springframework.org/schema/beans" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-    xsi:schemaLocation="
+<beans xmlns="http://www.springframework.org/schema/beans" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="
            http://www.springframework.org/schema/beans
            http://www.springframework.org/schema/beans/spring-beans-3.0.xsd">
     <!-- Note: All beans should be prefixed ${project.artifactId} in their ID in general -->
@@ -9,7 +8,12 @@
     <!-- Bootstrap the script fragments into the registry -->
     <bean id="${project.artifactId}-repo-webScriptFragmentsBootstrap" class="org.nabucco.alfresco.enhScriptEnv.repo.script.registry.RepositoryVersionRegisterableScriptClasspathScanner">
         <property name="scriptRegistry" ref="javaScriptProcessor.scriptRegistry" />
-        <property name="rootResourcePattern" value="classpath*:alfresco/module/${project.artifactId}/registeredScripts" />
+        <property name="rootResourcePatterns">
+            <list>
+                <value>"classpath*:alfresco/module/${project.artifactId}/registeredScripts"</value>
+                <value>"classpath*:alfresco/extension/registeredScripts"</value>
+            </list>
+        </property>
         <property name="resourcePatternResolver" ref="resourceFinder" />
     </bean>
 

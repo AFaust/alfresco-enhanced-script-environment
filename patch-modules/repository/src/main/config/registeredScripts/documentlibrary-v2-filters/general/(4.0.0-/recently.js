@@ -1,4 +1,4 @@
-var onlySelf = (filter.indexOf("ByMe")) > 0 ? true : false, dateField = (filter.indexOf("Modified") > 0) ? "modified" : "created", ownerField = (dateField == "created") ? "creator"
+var onlySelf = (filter.indexOf("ByMe")) > 0 ? true : false, dateField = (filter.indexOf("Modified") > 0) ? "modified" : "created", ownerField = (dateField === "created") ? "creator"
         : "modifier",
 // Default to 7 days - can be overridden using "days" argument
 dayCount = 7, argDays = args.days, date, toQuery, fromQuery, filterQuery;
