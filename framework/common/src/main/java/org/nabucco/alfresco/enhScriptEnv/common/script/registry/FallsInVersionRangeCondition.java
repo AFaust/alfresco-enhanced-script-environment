@@ -70,7 +70,7 @@ public class FallsInVersionRangeCondition implements ScriptSelectionCondition
             final boolean appliesToMatches = this.appliesTo == null
                     || version.compareTo(this.appliesTo) < (this.appliesToExclusive ? 0 : 1);
             final boolean editionMatches = this.community == versionedScript.isForCommunity()
-                    || this.community.equals(versionedScript.isForCommunity());
+                    || (this.community != null && this.community.equals(versionedScript.isForCommunity()));
             result = appliesFromMatches && appliesToMatches && editionMatches;
         }
         else

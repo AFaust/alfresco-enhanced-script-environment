@@ -14,15 +14,12 @@ var Filters =
      * Types that we want to suppress from the resultset
      */
     IGNORED_TYPES : [ "cm:systemfolder", "fm:forums", "fm:forum", "fm:topic", "fm:post" ],
-    
+
     /**
      * Aspects ignored from the canned query based resultset
      */
     // the following is only used in 4.1.2-
-    IGNORED_ASPECTS:
-    [
-       "cm:checkedOut"
-    ],
+    IGNORED_ASPECTS : [ "cm:checkedOut" ],
 
     /**
      * Encode a path with ISO9075 encoding
@@ -132,36 +129,15 @@ var Filters =
             } ],
             query : filterParams.query,
             variablePath : filterParams.variablePath
-        }, filterImportVersionCondition =
-        {
-            version : DESCRIPTOR.VERSION,
-            // look for version specific variant first
-            community : DESCRIPTOR.IS_COMMUNITY
         };
 
-        var filterImported = importScript("registry", filter + "@documentlibrary-v2-filters", false, filterImportVersionCondition,
-                filterContext);
+        var filterImported = importScript("registry", filter + "@documentlibrary-v2-filters", false, importVersionCondition, filterContext);
         if (!filterImported)
         {
-            // the requested filter might be edition agnostic, try again without edition specific lookup
-            filterImportVersionCondition.community = null;
-            filterImported = importScript("registry", filter + "@documentlibrary-v2-filters", false, filterImportVersionCondition,
-                    filterContext);
-
-            if (!filterImported)
-            {
-                // default "path"
-                filterParams.variablePath = false;
-                filterQuery = '+PATH:"' + parsedArgs.pathNode.qnamePath + '/*"';
-                filterParams.query = filterQuery + filterQueryDefaults;
-            }
-            else
-            {
-                filterParams.query = filterContext.query;
-                filterParams.limitResults = filterContext.limitResults;
-                filterParams.sort = filterContext.sort;
-                filterParams.variablePath = filterContext.variablePath;
-            }
+            // default "path"
+            filterParams.variablePath = false;
+            filterQuery = '+PATH:"' + parsedArgs.pathNode.qnamePath + '/*"';
+            filterParams.query = filterQuery + filterQueryDefaults;
         }
         else
         {

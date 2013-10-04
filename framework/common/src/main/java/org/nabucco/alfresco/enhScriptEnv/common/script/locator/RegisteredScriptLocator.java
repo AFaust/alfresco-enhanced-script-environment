@@ -16,6 +16,7 @@ package org.nabucco.alfresco.enhScriptEnv.common.script.locator;
 
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -36,6 +37,7 @@ import org.slf4j.LoggerFactory;
  */
 public abstract class RegisteredScriptLocator<BaseScript, Script extends ReferenceScript> extends AbstractScriptLocator<Script>
 {
+    protected static final String FALLBACK_CHAIN = "fallbackChain";
     protected static final String CONDITIONS = "conditions";
     protected static final String VERSION = "version";
     protected static final String COMMUNITY = "community";
@@ -85,10 +87,19 @@ public abstract class RegisteredScriptLocator<BaseScript, Script extends Referen
         // we currently don't support any parameters, so just pass to default implementation
         if (resolutionParameters != null)
         {
-            final ScriptSelectionCondition condition = this.extractSelectionCondition(resolutionParameters);
-            if (condition != null)
+            final Collection<ScriptSelectionCondition> conditions = this.extractSelectionConditions(resolutionParameters);
+            if (conditions != null && !conditions.isEmpty())
             {
-                script = this.lookupScriptInRegistry(locationValue, condition);
+                Script locatedScript = null;
+                for (final ScriptSelectionCondition condition : conditions)
+                {
+                    locatedScript = this.lookupScriptInRegistry(locationValue, condition);
+                    if (locatedScript != null)
+                    {
+                        break;
+                    }
+                }
+                script = locatedScript;
             }
             else
             {
@@ -157,6 +168,58 @@ public abstract class RegisteredScriptLocator<BaseScript, Script extends Referen
         }
 
         return result;
+    }
+
+    protected Collection<ScriptSelectionCondition> extractSelectionConditions(final Map<?, ?> parameters)
+    {
+        final Collection<ScriptSelectionCondition> conditions;
+
+        if (parameters.containsKey(FALLBACK_CHAIN))
+        {
+            final Object fallbackChainCandidate = parameters.get(FALLBACK_CHAIN);
+            if (fallbackChainCandidate instanceof List<?>)
+            {
+                conditions = new ArrayList<ScriptSelectionCondition>();
+                for (final Object element : (List<?>) fallbackChainCandidate)
+                {
+                    if (element instanceof Map<?, ?>)
+                    {
+                        final Map<?, ?> conditionParameters = (Map<?, ?>) element;
+                        final ScriptSelectionCondition selectionCondition = this.extractSelectionCondition(conditionParameters);
+                        if (selectionCondition != null)
+                        {
+                            conditions.add(selectionCondition);
+                        }
+                    }
+                }
+            }
+            else
+            {
+                final ScriptSelectionCondition selectionCondition = this.extractSelectionCondition(parameters);
+                if (selectionCondition != null)
+                {
+                    conditions = Collections.singletonList(selectionCondition);
+                }
+                else
+                {
+                    conditions = Collections.emptyList();
+                }
+            }
+        }
+        else
+        {
+            final ScriptSelectionCondition selectionCondition = this.extractSelectionCondition(parameters);
+            if (selectionCondition != null)
+            {
+                conditions = Collections.singletonList(selectionCondition);
+            }
+            else
+            {
+                conditions = Collections.emptyList();
+            }
+        }
+
+        return conditions;
     }
 
     protected ScriptSelectionCondition extractSelectionCondition(final Map<?, ?> parameters)

@@ -10,8 +10,8 @@
         <property name="scriptRegistry" ref="javaScriptProcessor.scriptRegistry" />
         <property name="rootResourcePatterns">
             <list>
-                <value>"classpath*:alfresco/module/${project.artifactId}/registeredScripts"</value>
-                <value>"classpath*:alfresco/extension/registeredScripts"</value>
+                <value>classpath*:alfresco/module/${project.artifactId}/registeredScripts</value>
+                <value>classpath*:alfresco/extension/registeredScripts</value>
             </list>
         </property>
         <property name="resourcePatternResolver" ref="resourceFinder" />

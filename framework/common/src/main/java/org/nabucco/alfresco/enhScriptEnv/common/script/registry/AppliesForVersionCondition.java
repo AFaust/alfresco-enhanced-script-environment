@@ -63,7 +63,7 @@ public class AppliesForVersionCondition implements ScriptSelectionCondition
             final boolean appliesToMatches = appliesTo == null
                     || CorrectVersionNumberComparator.compareVersions(this.version, appliesTo) < (appliesToExclusive ? 0 : 1);
             final boolean editionMatches = this.community == versionedScript.isForCommunity()
-                    || this.community.equals(versionedScript.isForCommunity());
+                    || (this.community != null && this.community.equals(versionedScript.isForCommunity()));
             result = appliesFromMatches && appliesToMatches && editionMatches;
         }
         else

@@ -1,9 +1,9 @@
-// We can reuse the script from Enterprise 4.1.4 because they are identical
+// load script for previous version
 importScript("registry", "filters.lib@documentlibrary-v2", true,
 {
+    // get the script from the previous version
     version : "4.0.2.9",
-    // have to override the implicit community flag
-    community : false
+    community : null
 });
 
 // apply patch
