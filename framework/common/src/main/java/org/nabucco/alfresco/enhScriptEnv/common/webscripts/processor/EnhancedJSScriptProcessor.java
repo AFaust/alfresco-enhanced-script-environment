@@ -25,7 +25,7 @@ import java.util.LinkedHashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
-import java.util.WeakHashMap;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
@@ -47,6 +47,7 @@ import org.mozilla.javascript.debug.DebuggableScript;
 import org.nabucco.alfresco.enhScriptEnv.common.script.EnhancedScriptProcessor;
 import org.nabucco.alfresco.enhScriptEnv.common.script.ReferenceScript;
 import org.nabucco.alfresco.enhScriptEnv.common.script.ScopeContributor;
+import org.nabucco.alfresco.enhScriptEnv.common.script.ReferenceScript.CommonReferencePath;
 import org.nabucco.alfresco.enhScriptEnv.common.util.SourceFileVisitor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -97,8 +98,9 @@ public class EnhancedJSScriptProcessor extends BaseRegisterableScriptProcessor i
     // reuse existing implementation
     private static final WrapFactory WRAP_FACTORY = new PresentationWrapFactory();
 
-    protected final Map<Context, List<ReferenceScript>> activeScriptContentChain = new WeakHashMap<Context, List<ReferenceScript>>();
-    protected final Map<Context, List<List<ReferenceScript>>> recursionScriptContentChains = new WeakHashMap<Context, List<List<ReferenceScript>>>();
+    // used WeakHashMap here before to avoid accidental leaks but measures for proper cleanup have proven themselves during tests
+    protected final Map<Context, List<ReferenceScript>> activeScriptContentChain = new ConcurrentHashMap<Context, List<ReferenceScript>>();
+    protected final Map<Context, List<List<ReferenceScript>>> recursionScriptContentChains = new ConcurrentHashMap<Context, List<List<ReferenceScript>>>();
 
     protected boolean shareScopes = true;
 
@@ -216,7 +218,7 @@ public class EnhancedJSScriptProcessor extends BaseRegisterableScriptProcessor i
             boolean newChain = false;
             if (currentChain == null)
             {
-                this.updateContentChainsBeforeExceution();
+                this.updateContentChainsBeforeExceution(cx);
                 currentChain = this.activeScriptContentChain.get(cx);
                 newChain = true;
             }
@@ -267,7 +269,7 @@ public class EnhancedJSScriptProcessor extends BaseRegisterableScriptProcessor i
                 currentChain.remove(currentChain.size() - 1);
                 if (newChain)
                 {
-                    this.updateContentChainsAfterReturning();
+                    this.updateContentChainsAfterReturning(cx);
                 }
             }
         }
@@ -308,7 +310,7 @@ public class EnhancedJSScriptProcessor extends BaseRegisterableScriptProcessor i
             boolean newChain = false;
             if (currentChain == null)
             {
-                this.updateContentChainsBeforeExceution();
+                this.updateContentChainsBeforeExceution(cx);
                 currentChain = this.activeScriptContentChain.get(cx);
                 newChain = true;
             }
@@ -359,7 +361,7 @@ public class EnhancedJSScriptProcessor extends BaseRegisterableScriptProcessor i
                 currentChain.remove(currentChain.size() - 1);
                 if (newChain)
                 {
-                    this.updateContentChainsAfterReturning();
+                    this.updateContentChainsAfterReturning(cx);
                 }
             }
         }
@@ -561,7 +563,7 @@ public class EnhancedJSScriptProcessor extends BaseRegisterableScriptProcessor i
         final Context cx = Context.enter();
         try
         {
-            this.updateContentChainsBeforeExceution();
+            this.updateContentChainsBeforeExceution(cx);
             this.activeScriptContentChain.get(cx).add(contentAdapter);
             try
             {
@@ -569,7 +571,7 @@ public class EnhancedJSScriptProcessor extends BaseRegisterableScriptProcessor i
             }
             finally
             {
-                this.updateContentChainsAfterReturning();
+                this.updateContentChainsAfterReturning(cx);
             }
         }
         finally
@@ -657,19 +659,27 @@ public class EnhancedJSScriptProcessor extends BaseRegisterableScriptProcessor i
     {
         Script script = null;
         final String path = content.getPath();
-        final String realPath;
+        String realPath = null;
 
-        // check if the path is in classpath form
-        // TODO: can we generalize external form file:// to a classpath-relative location? (best-effort)
-        if (!path.matches("^(classpath(\\*)?:)+.*$"))
+        if (content instanceof ReferenceScript)
         {
-            // take path as is - can be anything depending on how content is loaded
-            realPath = path;
+        	realPath = ((ReferenceScript)content).getReferencePath(CommonReferencePath.FILE);
         }
-        else
+        
+        if (realPath == null)
         {
-            // we always want to have a fully-qualified file-protocol path (unless we can generalize all to classpath-relative locations)
-            realPath = this.getClass().getClassLoader().getResource(path.substring(path.indexOf(':') + 1)).toExternalForm();
+		    // check if the path is in classpath form
+		    // TODO: can we generalize external form file:// to a classpath-relative location? (best-effort)
+		    if (!path.matches("^(classpath(\\*)?:)+.*$"))
+		    {
+		        // take path as is - can be anything depending on how content is loaded
+		        realPath = path;
+		    }
+		    else
+		    {
+		        // we always want to have a fully-qualified file-protocol path (unless we can generalize all to classpath-relative locations)
+		        realPath = this.getClass().getClassLoader().getResource(path.substring(path.indexOf(':') + 1)).toExternalForm();
+		    }
         }
 
         // store since it may be reset between cache-check and cache-put, and we don't want debug-enabled scripts cached
@@ -954,9 +964,8 @@ public class EnhancedJSScriptProcessor extends BaseRegisterableScriptProcessor i
         }
     }
 
-    protected void updateContentChainsBeforeExceution()
+    protected void updateContentChainsBeforeExceution(final Context currentContext)
     {
-        final Context currentContext = Context.getCurrentContext();
         final List<ReferenceScript> activeChain = this.activeScriptContentChain.get(currentContext);
         if (activeChain != null)
         {
@@ -972,9 +981,8 @@ public class EnhancedJSScriptProcessor extends BaseRegisterableScriptProcessor i
         this.activeScriptContentChain.put(currentContext, new LinkedList<ReferenceScript>());
     }
 
-    protected void updateContentChainsAfterReturning()
+    protected void updateContentChainsAfterReturning(final Context currentContext)
     {
-        final Context currentContext = Context.getCurrentContext();
         this.activeScriptContentChain.remove(currentContext);
         final List<List<ReferenceScript>> recursionChains = this.recursionScriptContentChains.get(currentContext);
         if (recursionChains != null)

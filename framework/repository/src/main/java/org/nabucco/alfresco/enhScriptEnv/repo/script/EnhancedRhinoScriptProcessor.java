@@ -26,7 +26,7 @@ import java.util.LinkedHashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
-import java.util.WeakHashMap;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
@@ -66,6 +66,7 @@ import org.mozilla.javascript.WrappedException;
 import org.mozilla.javascript.debug.DebuggableScript;
 import org.nabucco.alfresco.enhScriptEnv.common.script.EnhancedScriptProcessor;
 import org.nabucco.alfresco.enhScriptEnv.common.script.ReferenceScript;
+import org.nabucco.alfresco.enhScriptEnv.common.script.ReferenceScript.CommonReferencePath;
 import org.nabucco.alfresco.enhScriptEnv.common.script.ScopeContributor;
 import org.nabucco.alfresco.enhScriptEnv.common.util.SourceFileVisitor;
 import org.slf4j.Logger;
@@ -122,8 +123,9 @@ public class EnhancedRhinoScriptProcessor extends BaseProcessor implements Enhan
 
     private static final int DEFAULT_MAX_SCRIPT_CACHE_SIZE = 200;
 
-    protected final Map<Context, List<ReferenceScript>> activeScriptLocationChain = new WeakHashMap<Context, List<ReferenceScript>>();
-    protected final Map<Context, List<List<ReferenceScript>>> recursionScriptLocationChains = new WeakHashMap<Context, List<List<ReferenceScript>>>();
+    // used WeakHashMap here before to avoid accidental leaks but measures for proper cleanup have proven themselves during tests
+    protected final Map<Context, List<ReferenceScript>> activeScriptLocationChain = new ConcurrentHashMap<Context, List<ReferenceScript>>();
+    protected final Map<Context, List<List<ReferenceScript>>> recursionScriptLocationChains = new ConcurrentHashMap<Context, List<List<ReferenceScript>>>();
 
     protected WrapFactory wrapFactory = DEFAULT_WRAP_FACTORY;
 
@@ -210,7 +212,7 @@ public class EnhancedRhinoScriptProcessor extends BaseProcessor implements Enhan
         final Context cx = Context.enter();
         try
         {
-            this.updateLocationChainsBeforeExceution();
+            this.updateLocationChainsBeforeExceution(cx);
             this.activeScriptLocationChain.get(cx).add(new ScriptLocationAdapter(location));
             try
             {
@@ -218,7 +220,7 @@ public class EnhancedRhinoScriptProcessor extends BaseProcessor implements Enhan
             }
             finally
             {
-                this.updateLocationChainsAfterReturning();
+                this.updateLocationChainsAfterReturning(cx);
             }
         }
         finally
@@ -295,7 +297,7 @@ public class EnhancedRhinoScriptProcessor extends BaseProcessor implements Enhan
         final Context cx = Context.enter();
         try
         {
-            this.updateLocationChainsBeforeExceution();
+            this.updateLocationChainsBeforeExceution(cx);
             this.activeScriptLocationChain.get(cx).add(new ReferenceScript.DynamicScript(debugScriptName));
             try
             {
@@ -307,7 +309,7 @@ public class EnhancedRhinoScriptProcessor extends BaseProcessor implements Enhan
             }
             finally
             {
-                this.updateLocationChainsAfterReturning();
+                this.updateLocationChainsAfterReturning(cx);
             }
         }
         finally
@@ -399,7 +401,7 @@ public class EnhancedRhinoScriptProcessor extends BaseProcessor implements Enhan
             boolean newChain = false;
             if (currentChain == null)
             {
-                this.updateLocationChainsBeforeExceution();
+                this.updateLocationChainsBeforeExceution(cx);
                 currentChain = this.activeScriptLocationChain.get(cx);
                 newChain = true;
             }
@@ -449,7 +451,7 @@ public class EnhancedRhinoScriptProcessor extends BaseProcessor implements Enhan
                 currentChain.remove(currentChain.size() - 1);
                 if (newChain)
                 {
-                    this.updateLocationChainsAfterReturning();
+                    this.updateLocationChainsAfterReturning(cx);
                 }
             }
         }
@@ -492,7 +494,7 @@ public class EnhancedRhinoScriptProcessor extends BaseProcessor implements Enhan
             boolean newChain = false;
             if (currentChain == null)
             {
-                this.updateLocationChainsBeforeExceution();
+                this.updateLocationChainsBeforeExceution(cx);
                 currentChain = this.activeScriptLocationChain.get(cx);
                 newChain = true;
             }
@@ -544,7 +546,7 @@ public class EnhancedRhinoScriptProcessor extends BaseProcessor implements Enhan
                 currentChain.remove(currentChain.size() - 1);
                 if (newChain)
                 {
-                    this.updateLocationChainsAfterReturning();
+                    this.updateLocationChainsAfterReturning(cx);
                 }
             }
         }
@@ -750,9 +752,8 @@ public class EnhancedRhinoScriptProcessor extends BaseProcessor implements Enhan
         this.failoverToLessOptimization = failoverToLessOptimization;
     }
 
-    protected void updateLocationChainsBeforeExceution()
+    protected void updateLocationChainsBeforeExceution(final Context currentContext)
     {
-        final Context currentContext = Context.getCurrentContext();
         final List<ReferenceScript> activeChain = this.activeScriptLocationChain.get(currentContext);
         if (activeChain != null)
         {
@@ -768,9 +769,8 @@ public class EnhancedRhinoScriptProcessor extends BaseProcessor implements Enhan
         this.activeScriptLocationChain.put(currentContext, new LinkedList<ReferenceScript>());
     }
 
-    protected void updateLocationChainsAfterReturning()
+    protected void updateLocationChainsAfterReturning(final Context currentContext)
     {
-        final Context currentContext = Context.getCurrentContext();
         this.activeScriptLocationChain.remove(currentContext);
         final List<List<ReferenceScript>> recursionChains = this.recursionScriptLocationChains.get(currentContext);
         if (recursionChains != null)
@@ -788,34 +788,42 @@ public class EnhancedRhinoScriptProcessor extends BaseProcessor implements Enhan
     {
         Script script = null;
         final String path = location.getPath();
+        String realPath = null;
 
-        // check if the path is in classpath form
-        // TODO: can we generalize external form file:// to a classpath-relative location? (best-effort)
-        final String realPath;
-        if (!path.matches("^(classpath(\\*)?:)+.*$"))
+        if (location instanceof ReferenceScript)
         {
-            // take path as is - can be anything depending on how content is loaded
-            realPath = path;
+        	realPath = ((ReferenceScript)location).getReferencePath(CommonReferencePath.FILE);
         }
-        else
+        
+        if (realPath == null)
         {
-            // we always want to have a fully-qualified file-protocol path (unless we can generalize all to classpath-relative locations)
-            final String resourcePath = path.substring(path.indexOf(':') + 1);
-            URL resource = this.getClass().getClassLoader().getResource(resourcePath);
-            if (resource == null && resourcePath.startsWith("/"))
-            {
-                resource = this.getClass().getClassLoader().getResource(resourcePath.substring(1));
-            }
-
-            if (resource != null)
-            {
-                realPath = resource.toExternalForm();
-            }
-            else
-            {
-                // should not occur in normal circumstances, but since ScriptLocation can be anything...
-                realPath = path;
-            }
+	        // check if the path is in classpath form
+	        // TODO: can we generalize external form file:// to a classpath-relative location? (best-effort)
+	        if (!path.matches("^(classpath[*]?:).*$"))
+	        {
+	            // take path as is - can be anything depending on how content is loaded
+	            realPath = path;
+	        }
+	        else
+	        {
+	            // we always want to have a fully-qualified file-protocol path (unless we can generalize all to classpath-relative locations)
+	            final String resourcePath = path.substring(path.indexOf(':') + 1);
+	            URL resource = this.getClass().getClassLoader().getResource(resourcePath);
+	            if (resource == null && resourcePath.startsWith("/"))
+	            {
+	                resource = this.getClass().getClassLoader().getResource(resourcePath.substring(1));
+	            }
+	
+	            if (resource != null)
+	            {
+	                realPath = resource.toExternalForm();
+	            }
+	            else
+	            {
+	                // should not occur in normal circumstances, but since ScriptLocation can be anything...
+	                realPath = path;
+	            }
+	        }
         }
 
         // store since it may be reset between cache-check and cache-put, and we don't want debug-enabled scripts cached

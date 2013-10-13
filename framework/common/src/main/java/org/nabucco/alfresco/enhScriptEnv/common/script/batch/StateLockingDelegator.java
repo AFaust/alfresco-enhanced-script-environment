@@ -38,7 +38,7 @@ import org.mozilla.javascript.Scriptable;
 public class StateLockingDelegator extends ObjectFacadingDelegator
 {
     private static final Set<String> TRIVIAL_READ_ONLY_FUNCTION_NAMES = Collections.unmodifiableSet(new HashSet<String>(Arrays.asList(
-            "get", "is", "has", "find", "toString", "search", "query", "equals", "hashCode", "compareTo")));
+            "get", "is", "has", "find", "toString", "search", "query", "equals", "hashCode", "compareTo", "trace", "debug", "info", "log", "warn", "error")));
 
     private static final Set<String> TRIVIAL_READ_ONLY_FUNCTION_PREFIXES = Collections.unmodifiableSet(new HashSet<String>(Arrays.asList(
             "get", "is", "has", "find", "search", "query")));
