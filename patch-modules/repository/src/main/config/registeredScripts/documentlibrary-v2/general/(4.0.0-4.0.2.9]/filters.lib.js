@@ -128,6 +128,8 @@ var Filters =
                 ascending : filterParams.sort[0].ascending
             } ],
             query : filterParams.query,
+            language : filterParams.language,
+            templates : filterParams.templates,
             variablePath : filterParams.variablePath
         };
 
@@ -142,6 +144,8 @@ var Filters =
         else
         {
             filterParams.query = filterContext.query;
+            filterParams.language = filterContext.language;
+            filterParams.templates = filterContext.templates;
             filterParams.limitResults = filterContext.limitResults;
             filterParams.sort = filterContext.sort;
             filterParams.variablePath = filterContext.variablePath;
