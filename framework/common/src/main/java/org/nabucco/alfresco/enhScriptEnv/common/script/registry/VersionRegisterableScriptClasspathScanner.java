@@ -357,7 +357,7 @@ public abstract class VersionRegisterableScriptClasspathScanner<Script> implemen
         final String upperBoundExclusivity = matcher.group(8);
 
         versionDataContainer.setAppliesFromExclusive("[".equals(lowerBoundExclusivity));
-        versionDataContainer.setAppliesToExclusive("[".equals(upperBoundExclusivity));
+        versionDataContainer.setAppliesToExclusive("]".equals(upperBoundExclusivity));
         if (lowerVersion != null && lowerVersion.length() != 0)
         {
             versionDataContainer.setAppliesFrom(lowerVersion);
