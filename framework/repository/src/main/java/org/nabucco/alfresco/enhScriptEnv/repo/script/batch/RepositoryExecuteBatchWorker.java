@@ -34,7 +34,8 @@ public class RepositoryExecuteBatchWorker extends BaseExecuteBatchWorker<Reposit
 {
     private static final Logger LOGGER = LoggerFactory.getLogger(RepositoryExecuteBatchWorker.class);
 
-    protected final String user = AuthenticationUtil.getFullyAuthenticatedUser();
+    protected final String fullyAuthenticatedUser = AuthenticationUtil.getFullyAuthenticatedUser();
+    protected final String runAsUser = AuthenticationUtil.getRunAsUser();
     protected final Locale locale = I18NUtil.getLocale();
     protected final Locale contentLocale = I18NUtil.getContentLocaleOrNull();
 
@@ -50,7 +51,7 @@ public class RepositoryExecuteBatchWorker extends BaseExecuteBatchWorker<Reposit
     }
 
     /**
-     *
+     * 
      * {@inheritDoc}
      */
     @Override
@@ -107,7 +108,7 @@ public class RepositoryExecuteBatchWorker extends BaseExecuteBatchWorker<Reposit
     }
 
     /**
-     *
+     * 
      * {@inheritDoc}
      */
     @Override
@@ -115,7 +116,11 @@ public class RepositoryExecuteBatchWorker extends BaseExecuteBatchWorker<Reposit
     {
         // prepare execution context
         AuthenticationUtil.pushAuthentication();
-        AuthenticationUtil.setFullyAuthenticatedUser(this.user);
+        AuthenticationUtil.setFullyAuthenticatedUser(this.fullyAuthenticatedUser);
+        if (this.runAsUser != null && !this.runAsUser.equals(this.fullyAuthenticatedUser))
+        {
+            AuthenticationUtil.setRunAsUser(this.runAsUser);
+        }
 
         I18NUtil.setLocale(this.locale);
         if (this.contentLocale != null)
@@ -180,7 +185,7 @@ public class RepositoryExecuteBatchWorker extends BaseExecuteBatchWorker<Reposit
     }
 
     /**
-     *
+     * 
      * {@inheritDoc}
      */
     @Override
@@ -234,7 +239,7 @@ public class RepositoryExecuteBatchWorker extends BaseExecuteBatchWorker<Reposit
     }
 
     /**
-     *
+     * 
      * {@inheritDoc}
      */
     @Override
