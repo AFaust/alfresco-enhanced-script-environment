@@ -14,6 +14,7 @@
  */
 package org.nabucco.alfresco.enhScriptEnv.common.script.batch;
 
+import java.lang.ref.WeakReference;
 import java.util.Map;
 import java.util.WeakHashMap;
 
@@ -27,12 +28,15 @@ import org.mozilla.javascript.Scriptable;
 public class DefaultFacadeFactory implements ObjectFacadeFactory
 {
 
-    protected final ThreadLocal<Map<Scriptable, Scriptable>> facadeByRealObject = new ThreadLocal<Map<Scriptable, Scriptable>>();
+    // Note: We need to use weak reference for the cached facaded values as the otherwise they would keep the actual objects in memory which
+    // are keys into the map thus preventing the JVM from GCing facades AND actual objects no longer reference by a script property / variable
 
-    protected final Map<Scriptable, Map<Scriptable, Scriptable>> facadeByRealObjectAndReferenceScope = new WeakHashMap<Scriptable, Map<Scriptable, Scriptable>>();
+    protected final ThreadLocal<Map<Scriptable, WeakReference<Scriptable>>> facadeByRealObject = new ThreadLocal<Map<Scriptable, WeakReference<Scriptable>>>();
+
+    protected final Map<Scriptable, Map<Scriptable, WeakReference<Scriptable>>> facadeByRealObjectAndReferenceScope = new WeakHashMap<Scriptable, Map<Scriptable, WeakReference<Scriptable>>>();
 
     /**
-     *
+     * 
      * {@inheritDoc}
      */
     @Override
@@ -42,7 +46,7 @@ public class DefaultFacadeFactory implements ObjectFacadeFactory
     }
 
     /**
-     *
+     * 
      * {@inheritDoc}
      */
     @Override
@@ -75,20 +79,21 @@ public class DefaultFacadeFactory implements ObjectFacadeFactory
         if (obj != null && !(obj instanceof ObjectFacadingDelegator))
         {
             final Scriptable threadLocalFacadedObj;
-            final Map<Scriptable, Scriptable> facadeByRealObject = this.facadeByRealObject.get();
+            final Map<Scriptable, WeakReference<Scriptable>> facadeByRealObject = this.facadeByRealObject.get();
             if (facadeByRealObject != null)
             {
-                threadLocalFacadedObj = facadeByRealObject.get(obj);
+                final WeakReference<Scriptable> threadLocalFacadedObjRef = facadeByRealObject.get(obj);
+                threadLocalFacadedObj = threadLocalFacadedObjRef != null ? threadLocalFacadedObjRef.get() : null;
             }
             else
             {
                 threadLocalFacadedObj = null;
-                this.facadeByRealObject.set(new WeakHashMap<Scriptable, Scriptable>());
+                this.facadeByRealObject.set(new WeakHashMap<Scriptable, WeakReference<Scriptable>>());
             }
 
             if (threadLocalFacadedObj == null)
             {
-                Map<Scriptable, Scriptable> facadeByRealObjectAndReferenceScope = this.facadeByRealObjectAndReferenceScope
+                Map<Scriptable, WeakReference<Scriptable>> facadeByRealObjectAndReferenceScope = this.facadeByRealObjectAndReferenceScope
                         .get(referenceScope);
                 if (facadeByRealObjectAndReferenceScope == null)
                 {
@@ -97,29 +102,31 @@ public class DefaultFacadeFactory implements ObjectFacadeFactory
                         facadeByRealObjectAndReferenceScope = this.facadeByRealObjectAndReferenceScope.get(referenceScope);
                         if (facadeByRealObjectAndReferenceScope == null)
                         {
-                            facadeByRealObjectAndReferenceScope = new WeakHashMap<Scriptable, Scriptable>();
+                            facadeByRealObjectAndReferenceScope = new WeakHashMap<Scriptable, WeakReference<Scriptable>>();
                             this.facadeByRealObjectAndReferenceScope.put(referenceScope, facadeByRealObjectAndReferenceScope);
                         }
                     }
                 }
 
-                Scriptable globalFacadedObject = facadeByRealObjectAndReferenceScope.get(obj);
+                WeakReference<Scriptable> globalFacadedObjectRef = facadeByRealObjectAndReferenceScope.get(obj);
+                Scriptable globalFacadedObject = globalFacadedObjectRef != null ? globalFacadedObjectRef.get() : null;
                 if (globalFacadedObject == null)
                 {
                     synchronized (facadeByRealObjectAndReferenceScope)
                     {
-                        globalFacadedObject = facadeByRealObjectAndReferenceScope.get(obj);
+                        globalFacadedObjectRef = facadeByRealObjectAndReferenceScope.get(obj);
+                        globalFacadedObject = globalFacadedObjectRef != null ? globalFacadedObjectRef.get() : null;
                         if (globalFacadedObject == null)
                         {
                             globalFacadedObject = this.toFacadedObjectImpl(obj, referenceScope, accessName);
-                            facadeByRealObjectAndReferenceScope.put(obj, globalFacadedObject);
+                            facadeByRealObjectAndReferenceScope.put(obj, new WeakReference<Scriptable>(globalFacadedObject));
                         }
                     }
                 }
 
                 facadedObject = globalFacadedObject;
 
-                this.facadeByRealObject.get().put(obj, facadedObject);
+                this.facadeByRealObject.get().put(obj, new WeakReference<Scriptable>(facadedObject));
             }
             else
             {
