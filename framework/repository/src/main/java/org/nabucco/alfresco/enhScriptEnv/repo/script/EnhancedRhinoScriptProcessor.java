@@ -1066,16 +1066,14 @@ public class EnhancedRhinoScriptProcessor extends BaseProcessor implements Enhan
             LEGACY_CALL_LOGGER.debug("{} Exception: {}", debugScriptName, w);
 
             final Throwable err = w.getWrappedException();
-            // TODO
-            throw new ScriptException("", err);
+            throw new ScriptException(w.getMessage(), err);
         }
         catch (final Exception ex)
         {
             LOGGER.info("{} Exception: {}", debugScriptName, ex);
             LEGACY_CALL_LOGGER.debug("{} Exception: {}", debugScriptName, ex);
 
-            // TODO
-            throw new ScriptException("", ex);
+            throw new ScriptException(ex.getMessage(), ex);
         }
         finally
         {
