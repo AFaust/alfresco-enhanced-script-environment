@@ -21,6 +21,11 @@ import org.alfresco.util.PropertyCheck;
 import org.nabucco.alfresco.enhScriptEnv.common.script.EnhancedScriptProcessor;
 import org.springframework.beans.factory.InitializingBean;
 
+/**
+ * An enhanced local Repository-tier Rhino debugger that notifies script processors about (de-)activation.
+ * 
+ * @author Axel Faust, <a href="http://www.prodyna.com">PRODYNA AG</a>
+ */
 public class EnhancedAlfrescoRhinoScriptDebugger extends AlfrescoRhinoScriptDebugger implements InitializingBean
 {
     private List<EnhancedScriptProcessor<?>> scriptProcessors;

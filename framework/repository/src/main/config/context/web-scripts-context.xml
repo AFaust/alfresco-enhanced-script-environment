@@ -8,7 +8,7 @@
 
     <!-- Override the original bean to enable processor notification -->
     <!-- Switch on debugger by setting log4j.logger.org.alfresco.repo.web.scripts.AlfrescoRhinoScriptDebugger to DEBUG -->
-    <bean id="rhinoScriptDebugger" class="org.alfresco.repo.web.scripts.AlfrescoRhinoScriptDebugger">
+    <bean id="rhinoScriptDebugger" class="${basePackage}.web.scripts.EnhancedAlfrescoRhinoScriptDebugger">
         <property name="scriptProcessors">
             <list>
                 <ref bean="javaScriptProcessor" />

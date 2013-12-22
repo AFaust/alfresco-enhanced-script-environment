@@ -29,7 +29,6 @@
         <property name="valueConverter">
             <bean class="${basePackage}.script.RepositoryValueConverterAdapter" />
         </property>
-        <property name="legacyLoggerName" value="org.alfresco.repo.jscript.ScriptLogger" />
         <property name="defaultLoggerPrefix" value="org.alfresco.repo.jscript.executions" />
     </bean>
 

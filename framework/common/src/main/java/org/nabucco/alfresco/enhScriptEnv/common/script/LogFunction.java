@@ -33,6 +33,7 @@ import org.alfresco.util.PropertyCheck;
 import org.mozilla.javascript.Context;
 import org.mozilla.javascript.IdFunctionCall;
 import org.mozilla.javascript.IdFunctionObject;
+import org.mozilla.javascript.NativeJavaObject;
 import org.mozilla.javascript.NativeObject;
 import org.mozilla.javascript.ScriptRuntime;
 import org.mozilla.javascript.Scriptable;
@@ -44,6 +45,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.helpers.MessageFormatter;
 import org.springframework.beans.factory.InitializingBean;
+import org.springframework.extensions.webscripts.ScriptLogger;
 
 /**
  * @author Axel Faust, <a href="http://www.prodyna.com">PRODYNA AG</a>
@@ -110,9 +112,6 @@ public class LogFunction implements IdFunctionCall, InitializingBean, ScopeContr
     protected ValueConverter valueConverter;
 
     protected String defaultLoggerPrefix;
-
-    // optional
-    protected String legacyLoggerName;
 
     /**
      * Logger data map for state management and logger caching
@@ -275,15 +274,6 @@ public class LogFunction implements IdFunctionCall, InitializingBean, ScopeContr
             // export as undeleteable property of the scope
             ScriptableObject.defineProperty(scope, LOGGER_OBJ_NAME, loggerObj, ScriptableObject.PERMANENT | ScriptableObject.READONLY);
         }
-    }
-
-    /**
-     * @param legacyLoggerName
-     *            the legacyLoggerName to set
-     */
-    public final void setLegacyLoggerName(final String legacyLoggerName)
-    {
-        this.legacyLoggerName = legacyLoggerName;
     }
 
     /**
@@ -493,9 +483,14 @@ public class LogFunction implements IdFunctionCall, InitializingBean, ScopeContr
             final ReferenceScript topLevelScript = this.scriptProcessor.getScriptCallChain().get(0);
             final LoggerData loggerData = this.getLoggerData(scope, topLevelScript, true);
             final Scriptable setScriptLogger = loggerData.getScriptLogger();
-            if (setScriptLogger != null)
+            if (setScriptLogger != scriptLogger && setScriptLogger != null)
             {
-                throw new IllegalStateException("ScriptLogger has already been set - not allowed to replace it once set");
+                // we do allow replacement of the default script logger, but nothing else
+                if (setScriptLogger instanceof NativeJavaObject
+                        && !((NativeJavaObject) setScriptLogger).unwrap().getClass().equals(ScriptLogger.class))
+                {
+                    throw new IllegalStateException("ScriptLogger has already been set - not allowed to replace it once set");
+                }
             }
 
             loggerData.setScriptLogger(scriptLogger);
@@ -546,11 +541,8 @@ public class LogFunction implements IdFunctionCall, InitializingBean, ScopeContr
             }
             else if (!this.isParentLoggerExplicit(context, scope, referenceScript))
             {
-                if (this.legacyLoggerName != null)
-                {
-                    loggers.add(LoggerFactory.getLogger(this.legacyLoggerName));
-                }
-
+                // Note: We previously included the legacy script logger explicitly here, but this is now handled separately
+                
                 if (referenceScript != null)
                 {
                     final Collection<ReferencePathType> supportedReferencePathTypes = referenceScript.getSupportedReferencePathTypes();

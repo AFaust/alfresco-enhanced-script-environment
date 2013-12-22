@@ -43,7 +43,6 @@
         <property name="valueConverter">
             <bean class="org.nabucco.alfresco.enhScriptEnv.common.webscripts.processor.SimpleSurfValueConverter" />
         </property>
-        <property name="legacyLoggerName" value="org.springframework.extensions.webscripts.ScriptLogger" />
         <property name="defaultLoggerPrefix" value="org.springframework.extensions.webscripts.executions" />
     </bean>
 
@@ -94,7 +93,6 @@
         <property name="valueConverter">
             <bean class="org.nabucco.alfresco.enhScriptEnv.common.webscripts.processor.SimpleSurfValueConverter" />
         </property>
-        <property name="legacyLoggerName" value="org.springframework.extensions.webscripts.ScriptLogger" />
         <property name="defaultLoggerPrefix" value="org.springframework.extensions.templates.executions" />
     </bean>
 
