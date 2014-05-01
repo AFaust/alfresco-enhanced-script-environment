@@ -1,0 +1,28 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<beans xmlns="http://www.springframework.org/schema/beans" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="
+           http://www.springframework.org/schema/beans
+           http://www.springframework.org/schema/beans/spring-beans-3.0.xsd">
+    <!-- Note: All beans should be prefixed ${project.artifactId} in their ID in general -->
+    <!-- Exceptions: service beans (unique name) and beans with name conventions (e.g. web scripts) -->
+
+    <bean id="javaScriptProcessor" class="${basePackage}.script.NashornScriptProcessor">
+        <property name="name" value="javascript" />
+        <property name="extension" value="js" />
+
+        <property name="scriptService" ref="scriptService" />
+        <property name="serviceRegistry" ref="ServiceRegistry" />
+
+        <property name="valueConverter" ref="nashorn.valueConverter.registry" />
+    </bean>
+
+    <bean id="nashorn.valueConverter.registry" class="${basePackage}.script.NashornValueConverter" />
+
+    <bean id="nashorn.valueConverter.abstract" abstract="true">
+        <property name="registry" ref="nashorn.valueConverter.registry" />
+    </bean>
+
+    <bean id="nashorn.valueConverter.ScriptNode" class="${basePackage}.script.adapters.ScriptNodeConverter" parent="nashorn.valueConverter.abstract">
+        <property name="serviceRegistry" ref="ServiceRegistry" />
+    </bean>
+
+</beans>
