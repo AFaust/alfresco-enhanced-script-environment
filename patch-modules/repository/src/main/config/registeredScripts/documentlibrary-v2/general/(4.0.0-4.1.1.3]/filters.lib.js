@@ -113,9 +113,11 @@ var Filters =
             filterQueryDefaults : filterQueryDefaults,
             parsedArgs : parsedArgs,
             filter : filter,
+            filterData : filterData,
             args : args,
             person : person,
             constructPathQuery : this.constructPathQuery,
+            iso9075EncodePath : this.iso9075EncodePath,
             favourites : favourites,
             /*
              * result properties

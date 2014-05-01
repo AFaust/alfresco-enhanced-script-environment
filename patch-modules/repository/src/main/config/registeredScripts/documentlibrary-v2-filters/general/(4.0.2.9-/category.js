@@ -6,4 +6,4 @@ if (filterData.charAt(filterData.length - 1) == "/")
     filterData = filterData.slice(0, -1);
 }
 
-query = filterQuery + ' +PATH:"/cm:generalclassifiable/cm:' + search.ISO9075Encode(filterData) + '/member"';
+query = filterQuery + ' +PATH:"/cm:generalclassifiable' + iso9075EncodePath(filterData) + '/member"';
