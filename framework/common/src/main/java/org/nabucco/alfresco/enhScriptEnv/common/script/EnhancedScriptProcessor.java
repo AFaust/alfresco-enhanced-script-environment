@@ -19,7 +19,7 @@ import java.util.List;
 /**
  * @author Axel Faust, <a href="http://www.prodyna.com">PRODYNA AG</a>
  */
-public interface EnhancedScriptProcessor<Script extends ReferenceScript>
+public interface EnhancedScriptProcessor<SL>
 {
 
     /**
@@ -32,7 +32,7 @@ public interface EnhancedScriptProcessor<Script extends ReferenceScript>
      *            the scope the script is to be executed in
      *
      */
-    void executeInScope(Script location, Object scope);
+    Object executeInScope(SL location, Object scope);
 
     /**
      * Executes a script in a provided scope. When the scope is mutable, execution of the script may result in modifications of its state
@@ -44,7 +44,7 @@ public interface EnhancedScriptProcessor<Script extends ReferenceScript>
      *            the scope the script is to be executed in
      *
      */
-    void executeInScope(String source, Object scope);
+    Object executeInScope(String source, Object scope);
 
     /**
      * Retrieves the script location for the current script execution context. This result of this method heavily depends on the state of
@@ -83,7 +83,7 @@ public interface EnhancedScriptProcessor<Script extends ReferenceScript>
      *            the script to initialize a execution context for
      * @return the new execution context
      */
-    Object initializeScope(Script location);
+    Object initializeScope(SL location);
 
     /**
      * Registers a scope contributor to be invoked whenever a new scripting scope is initialized for contribution of additional values /

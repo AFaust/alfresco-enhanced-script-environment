@@ -28,7 +28,7 @@ public interface ReferenceScript
      *
      * @author Axel Faust, <a href="http://www.prodyna.com">PRODYNA AG</a>
      */
-    interface ReferencePathType
+    public interface ReferencePathType
     {
         // marker interface
     }
@@ -37,7 +37,7 @@ public interface ReferenceScript
      *
      * @author Axel Faust, <a href="http://www.prodyna.com">PRODYNA AG</a>
      */
-    enum CommonReferencePath implements ReferencePathType
+    public enum CommonReferencePath implements ReferencePathType
     {
         CLASSPATH, FILE;
     }
@@ -46,7 +46,7 @@ public interface ReferenceScript
      *
      * @author Axel Faust, <a href="http://www.prodyna.com">PRODYNA AG</a>
      */
-    class DynamicScript implements ReferenceScript
+    public class DynamicScript implements ReferenceScript
     {
         private final String name;
 
@@ -64,6 +64,16 @@ public interface ReferenceScript
         {
             return this.name;
         }
+
+        /**
+        *
+        * {@inheritDoc}
+        */
+       @Override
+       public String getFullName()
+       {
+           return this.name;
+       }
 
         /**
          *
@@ -98,9 +108,16 @@ public interface ReferenceScript
     }
 
     /**
-     * Obtains the name of the script
+     * Obtains the full name of the script
      *
-     * @return the name of the script
+     * @return the full name of the script
+     */
+    String getFullName();
+
+    /**
+     * Obtains the simple name of the script
+     *
+     * @return the simple name of the script
      */
     String getName();
 

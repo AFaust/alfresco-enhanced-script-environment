@@ -79,7 +79,7 @@ import org.springframework.util.FileCopyUtils;
 /**
  * @author Axel Faust, <a href="http://www.prodyna.com">PRODYNA AG</a>
  */
-public class EnhancedRhinoScriptProcessor extends BaseProcessor implements EnhancedScriptProcessor<ScriptLocationAdapter>, ScriptProcessor,
+public class EnhancedRhinoScriptProcessor extends BaseProcessor implements EnhancedScriptProcessor<ScriptLocation>, ScriptProcessor,
         InitializingBean, ApplicationListener<ContextRefreshedEvent>
 {
     private static final String NODE_REF_RESOURCE_IMPORT_PATTERN = "<import(\\s*\\n*\\s+)+resource(\\s*\\n*\\s*+)*=(\\s*\\n*\\s+)*\"(([^:]+)://([^/]+)/([^\"]+))\"(\\s*\\n*\\s+)*(/)?>";
@@ -160,7 +160,6 @@ public class EnhancedRhinoScriptProcessor extends BaseProcessor implements Enhan
     @Override
     public void afterPropertiesSet()
     {
-
         super.register();
     }
 
@@ -267,7 +266,8 @@ public class EnhancedRhinoScriptProcessor extends BaseProcessor implements Enhan
 
         if (script == null)
         {
-            debugScriptName = "string://DynamicJS-" + String.valueOf(this.dynamicScriptCounter.getAndIncrement());
+            debugScriptName = this.compileScripts ? ("string://Cached-DynamicJS-" + digest) : ("string://DynamicJS-" + String
+                    .valueOf(this.dynamicScriptCounter.getAndIncrement()));
             script = this.getCompiledScript(source, debugScriptName);
 
             if (this.compileScripts)
@@ -301,7 +301,7 @@ public class EnhancedRhinoScriptProcessor extends BaseProcessor implements Enhan
             this.activeScriptLocationChain.get(cx).add(new ReferenceScript.DynamicScript(debugScriptName));
             try
             {
-                return this.executeScriptImpl(script, model, true, debugScriptName);
+                return this.executeScriptImpl(script, model, false, debugScriptName);
             }
             catch (final Throwable err)
             {
@@ -319,37 +319,11 @@ public class EnhancedRhinoScriptProcessor extends BaseProcessor implements Enhan
     }
 
     /**
-     * {@inheritDoc}
-     */
-    @Override
-    public void reset()
-    {
-        this.scriptCacheLock.writeLock().lock();
-        try
-        {
-            this.scriptCache.clear();
-        }
-        finally
-        {
-            this.scriptCacheLock.writeLock().unlock();
-        }
-        this.dynamicScriptCacheLock.writeLock().lock();
-        try
-        {
-            this.dynamicScriptByHashCache.clear();
-        }
-        finally
-        {
-            this.dynamicScriptCacheLock.writeLock().unlock();
-        }
-    }
-
-    /**
      *
      * {@inheritDoc}
      */
     @Override
-    public void executeInScope(final String source, final Object scope)
+    public Object executeInScope(final String source, final Object scope)
     {
         ParameterCheck.mandatoryString("source", source);
 
@@ -357,13 +331,14 @@ public class EnhancedRhinoScriptProcessor extends BaseProcessor implements Enhan
         Script script = null;
         final MD5 md5 = new MD5();
         final String digest = md5.digest(source.getBytes());
+        final String debugScriptName;
 
         script = this.lookupScriptCache(this.dynamicScriptByHashCache, this.dynamicScriptCacheLock, digest);
 
-        final String debugScriptName;
         if (script == null)
         {
-            debugScriptName = "string://DynamicJS-" + String.valueOf(this.dynamicScriptCounter.getAndIncrement());
+            debugScriptName = this.compileScripts ? ("string://Cached-DynamicJS-" + digest) : ("string://DynamicJS-" + String
+                    .valueOf(this.dynamicScriptCounter.getAndIncrement()));
             script = this.getCompiledScript(source, debugScriptName);
 
             if (this.compileScripts)
@@ -444,7 +419,8 @@ public class EnhancedRhinoScriptProcessor extends BaseProcessor implements Enhan
                     realScope = (Scriptable) scope;
                 }
 
-                this.executeScriptInScopeImpl(script, realScope);
+                final Object result = this.executeScriptInScopeImpl(script, realScope);
+                return result;
             }
             finally
             {
@@ -476,12 +452,17 @@ public class EnhancedRhinoScriptProcessor extends BaseProcessor implements Enhan
      * {@inheritDoc}
      */
     @Override
-    public void executeInScope(final ScriptLocationAdapter location, final Object scope)
+    public Object executeInScope(final ScriptLocation location, final Object scope)
     {
         ParameterCheck.mandatory("location", location);
 
         final Script script = this.getCompiledScript(location);
-        final String debugScriptName = location.getName();
+        final String debugScriptName;
+        {
+            final String path = location.getPath();
+            final int i = path.lastIndexOf('/');
+            debugScriptName = i != -1 ? path.substring(i + 1) : path;
+        }
 
         LOGGER.info("{} Start", debugScriptName);
         LEGACY_CALL_LOGGER.debug("{} Start", debugScriptName);
@@ -499,7 +480,7 @@ public class EnhancedRhinoScriptProcessor extends BaseProcessor implements Enhan
                 newChain = true;
             }
             // else: assume the original script chain is continued
-            currentChain.add(location);
+            currentChain.add(new ScriptLocationAdapter(location));
             try
             {
 
@@ -539,7 +520,8 @@ public class EnhancedRhinoScriptProcessor extends BaseProcessor implements Enhan
                     realScope = (Scriptable) scope;
                 }
 
-                this.executeScriptInScopeImpl(script, realScope);
+                final Object result = this.executeScriptInScopeImpl(script, realScope);
+                return result;
             }
             finally
             {
@@ -571,7 +553,7 @@ public class EnhancedRhinoScriptProcessor extends BaseProcessor implements Enhan
      * {@inheritDoc}
      */
     @Override
-    public Object initializeScope(final ScriptLocationAdapter location)
+    public Object initializeScope(final ScriptLocation location)
     {
         ParameterCheck.mandatory("location", location);
 
@@ -704,6 +686,32 @@ public class EnhancedRhinoScriptProcessor extends BaseProcessor implements Enhan
     }
 
     /**
+     * {@inheritDoc}
+     */
+    @Override
+    public void reset()
+    {
+        this.scriptCacheLock.writeLock().lock();
+        try
+        {
+            this.scriptCache.clear();
+        }
+        finally
+        {
+            this.scriptCacheLock.writeLock().unlock();
+        }
+        this.dynamicScriptCacheLock.writeLock().lock();
+        try
+        {
+            this.dynamicScriptByHashCache.clear();
+        }
+        finally
+        {
+            this.dynamicScriptCacheLock.writeLock().unlock();
+        }
+    }
+
+    /**
      * @param wrapFactory
      *            the wrapFactory to set
      */
@@ -792,38 +800,39 @@ public class EnhancedRhinoScriptProcessor extends BaseProcessor implements Enhan
 
         if (location instanceof ReferenceScript)
         {
-        	realPath = ((ReferenceScript)location).getReferencePath(CommonReferencePath.FILE);
+            realPath = ((ReferenceScript) location).getReferencePath(CommonReferencePath.FILE);
         }
-        
+
         if (realPath == null)
         {
-	        // check if the path is in classpath form
-	        // TODO: can we generalize external form file:// to a classpath-relative location? (best-effort)
-	        if (!path.matches("^(classpath[*]?:).*$"))
-	        {
-	            // take path as is - can be anything depending on how content is loaded
-	            realPath = path;
-	        }
-	        else
-	        {
-	            // we always want to have a fully-qualified file-protocol path (unless we can generalize all to classpath-relative locations)
-	            final String resourcePath = path.substring(path.indexOf(':') + 1);
-	            URL resource = this.getClass().getClassLoader().getResource(resourcePath);
-	            if (resource == null && resourcePath.startsWith("/"))
-	            {
-	                resource = this.getClass().getClassLoader().getResource(resourcePath.substring(1));
-	            }
-	
-	            if (resource != null)
-	            {
-	                realPath = resource.toExternalForm();
-	            }
-	            else
-	            {
-	                // should not occur in normal circumstances, but since ScriptLocation can be anything...
-	                realPath = path;
-	            }
-	        }
+            // check if the path is in classpath form
+            // TODO: can we generalize external form file:// to a classpath-relative location? (best-effort)
+            if (!path.matches("^(classpath[*]?:).*$"))
+            {
+                // take path as is - can be anything depending on how content is loaded
+                realPath = path;
+            }
+            else
+            {
+                // we always want to have a fully-qualified file-protocol path (unless we can generalize all to classpath-relative
+                // locations)
+                final String resourcePath = path.substring(path.indexOf(':') + 1);
+                URL resource = this.getClass().getClassLoader().getResource(resourcePath);
+                if (resource == null && resourcePath.startsWith("/"))
+                {
+                    resource = this.getClass().getClassLoader().getResource(resourcePath.substring(1));
+                }
+
+                if (resource != null)
+                {
+                    realPath = resource.toExternalForm();
+                }
+                else
+                {
+                    // should not occur in normal circumstances, but since ScriptLocation can be anything...
+                    realPath = path;
+                }
+            }
         }
 
         // store since it may be reset between cache-check and cache-put, and we don't want debug-enabled scripts cached

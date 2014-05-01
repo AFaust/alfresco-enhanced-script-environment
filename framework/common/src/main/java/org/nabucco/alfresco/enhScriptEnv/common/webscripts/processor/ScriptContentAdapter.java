@@ -108,6 +108,16 @@ public class ScriptContentAdapter implements ScriptContent, ReferenceScript
     }
 
     /**
+    *
+    * {@inheritDoc}
+    */
+   @Override
+   public String getFullName()
+   {
+       return this.getPath();
+   }
+
+    /**
      *
      * {@inheritDoc}
      */

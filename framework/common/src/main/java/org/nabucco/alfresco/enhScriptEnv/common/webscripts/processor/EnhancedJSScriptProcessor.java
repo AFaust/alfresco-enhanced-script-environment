@@ -66,8 +66,8 @@ import org.springframework.util.FileCopyUtils;
  *
  * @author Axel Faust, <a href="http://www.prodyna.com">PRODYNA AG</a>
  */
-public class EnhancedJSScriptProcessor extends BaseRegisterableScriptProcessor implements ScriptProcessor,
-        EnhancedScriptProcessor<ScriptContentAdapter>, InitializingBean
+public class EnhancedJSScriptProcessor extends BaseRegisterableScriptProcessor implements InitializingBean, ScriptProcessor,
+        EnhancedScriptProcessor<ScriptContent>
 {
     private static final String CLASSPATH_RESOURCE_IMPORT_PATTERN = "<import(\\s*\\n*\\s+)+resource(\\s*\\n*\\s+)*=(\\s*\\n*\\s+)*\"classpath:(/)?([^\"]+)\"(\\s*\\n*\\s+)*(/)?>";
     private static final String CLASSPATH_RESOURCE_IMPORT_REPLACEMENT = "importScript(\"classpath\", \"/$5\", true);";
@@ -160,7 +160,7 @@ public class EnhancedJSScriptProcessor extends BaseRegisterableScriptProcessor i
      * {@inheritDoc}
      */
     @Override
-    public void executeInScope(final String source, final Object scope)
+    public Object executeInScope(final String source, final Object scope)
     {
         ParameterCheck.mandatoryString("source", source);
 
@@ -262,7 +262,8 @@ public class EnhancedJSScriptProcessor extends BaseRegisterableScriptProcessor i
                     realScope = (Scriptable) scope;
                 }
 
-                this.executeScriptInScopeImpl(script, realScope);
+                final Object result = this.executeScriptInScopeImpl(script, realScope);
+                return result;
             }
             finally
             {
@@ -293,12 +294,13 @@ public class EnhancedJSScriptProcessor extends BaseRegisterableScriptProcessor i
      * {@inheritDoc}
      */
     @Override
-    public void executeInScope(final ScriptContentAdapter content, final Object scope)
+    public Object executeInScope(final ScriptContent content, final Object scope)
     {
         ParameterCheck.mandatory("content", content);
 
         final Script script = this.getCompiledScript(content);
-        final String debugScriptName = content.getName();
+        final ScriptContentAdapter contentAdapter = new ScriptContentAdapter(content, this.standardScriptLoader);
+        final String debugScriptName = contentAdapter.getName();
 
         LOGGER.info("{} Start", debugScriptName);
 
@@ -315,7 +317,7 @@ public class EnhancedJSScriptProcessor extends BaseRegisterableScriptProcessor i
                 newChain = true;
             }
             // else: assume the original script chain is continued
-            currentChain.add(content);
+            currentChain.add(contentAdapter);
 
             try
             {
@@ -354,7 +356,8 @@ public class EnhancedJSScriptProcessor extends BaseRegisterableScriptProcessor i
                     realScope = (Scriptable) scope;
                 }
 
-                this.executeScriptInScopeImpl(script, realScope);
+                final Object result = this.executeScriptInScopeImpl(script, realScope);
+                return result;
             }
             finally
             {
@@ -384,7 +387,7 @@ public class EnhancedJSScriptProcessor extends BaseRegisterableScriptProcessor i
      * {@inheritDoc}
      */
     @Override
-    public Object initializeScope(final ScriptContentAdapter location)
+    public Object initializeScope(final ScriptContent location)
     {
         ParameterCheck.mandatory("location", location);
 
@@ -663,23 +666,24 @@ public class EnhancedJSScriptProcessor extends BaseRegisterableScriptProcessor i
 
         if (content instanceof ReferenceScript)
         {
-        	realPath = ((ReferenceScript)content).getReferencePath(CommonReferencePath.FILE);
+            realPath = ((ReferenceScript) content).getReferencePath(CommonReferencePath.FILE);
         }
-        
+
         if (realPath == null)
         {
-		    // check if the path is in classpath form
-		    // TODO: can we generalize external form file:// to a classpath-relative location? (best-effort)
-		    if (!path.matches("^(classpath(\\*)?:)+.*$"))
-		    {
-		        // take path as is - can be anything depending on how content is loaded
-		        realPath = path;
-		    }
-		    else
-		    {
-		        // we always want to have a fully-qualified file-protocol path (unless we can generalize all to classpath-relative locations)
-		        realPath = this.getClass().getClassLoader().getResource(path.substring(path.indexOf(':') + 1)).toExternalForm();
-		    }
+            // check if the path is in classpath form
+            // TODO: can we generalize external form file:// to a classpath-relative location? (best-effort)
+            if (!path.matches("^(classpath(\\*)?:)+.*$"))
+            {
+                // take path as is - can be anything depending on how content is loaded
+                realPath = path;
+            }
+            else
+            {
+                // we always want to have a fully-qualified file-protocol path (unless we can generalize all to classpath-relative
+                // locations)
+                realPath = this.getClass().getClassLoader().getResource(path.substring(path.indexOf(':') + 1)).toExternalForm();
+            }
         }
 
         // store since it may be reset between cache-check and cache-put, and we don't want debug-enabled scripts cached

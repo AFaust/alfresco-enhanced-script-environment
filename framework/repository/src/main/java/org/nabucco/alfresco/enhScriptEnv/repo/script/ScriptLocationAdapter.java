@@ -104,7 +104,17 @@ public class ScriptLocationAdapter implements ScriptLocation, ReferenceScript
     }
 
     /**
-     * 
+     *
+     * {@inheritDoc}
+     */
+    @Override
+    public String getFullName()
+    {
+        return this.getPath();
+    }
+
+    /**
+     *
      * {@inheritDoc}
      */
     @Override
