@@ -3,6 +3,8 @@ package org.nabucco.alfresco.enhScriptEnv.experimental.repo.script;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.Reader;
+import java.util.Collections;
+import java.util.HashMap;
 
 import javax.script.Bindings;
 import javax.script.ScriptContext;
@@ -59,7 +61,6 @@ public class Test
         isReader = new InputStreamReader(is);
         engine.eval(isReader, myContext);
 
-        globalBindings.remove("Java");
         globalBindings.remove("java");
         globalBindings.remove("Packages");
         globalBindings.remove("load");
@@ -85,6 +86,13 @@ public class Test
         engine.eval("testObj.doStuff({test: 123});", myContext);
 
         engine.eval("testObj.doStuff(new Object());", myContext);
+
+        globalBindings.put("map", new HashMap<String, String>(Collections.singletonMap("Test", "Map")));
+        is = Test.class.getResource("resources/nashorn-object-to-rhino.js").openStream();
+        isReader = new InputStreamReader(is);
+        engine.eval("nashornObj = [\"Test\", \"Test2\", { test : map, test2: false, test3: 12.12} ];", myContext);
+        engine.eval(isReader, myContext);
+        engine.eval("testObj.doStuff(rhinoObj);", myContext);
 
         // engine.eval("importClass(java.util.HashMap);", myContext);
 

@@ -24,5 +24,9 @@
     <bean id="nashorn.valueConverter.ScriptNode" class="${basePackage}.script.adapters.ScriptNodeConverter" parent="nashorn.valueConverter.abstract">
         <property name="serviceRegistry" ref="ServiceRegistry" />
     </bean>
+    
+    <bean id="nashorn.valueConverter.SimpleRhinoSpecificBean" class="${basePackage}.script.adapters.SimpleRhinoSpecificBeanConverter" parent="nashorn.valueConverter.abstract">
+        <property name="convertableClass" value="org.alfresco.repo.processor.BaseProcessorExtension" />
+    </bean>
 
 </beans>

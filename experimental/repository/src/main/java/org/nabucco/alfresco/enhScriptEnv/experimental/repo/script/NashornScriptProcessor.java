@@ -69,7 +69,7 @@ public class NashornScriptProcessor extends BaseProcessor implements Initializin
         ScriptProcessor
 {
 
-    protected static final String NASHORN_ENGINE_NAME = "nashorn";
+    public static final String NASHORN_ENGINE_NAME = "nashorn";
 
     private static final String NODE_REF_RESOURCE_IMPORT_PATTERN = "<import(\\s*\\n*\\s+)+resource(\\s*\\n*\\s*+)*=(\\s*\\n*\\s+)*\"(([^:]+)://([^/]+)/([^\"]+))\"(\\s*\\n*\\s+)*(/)?>";
     private static final String NODE_REF_RESOURCE_IMPORT_REPLACEMENT = "importScript(\"node\", \"$4\", true);";
