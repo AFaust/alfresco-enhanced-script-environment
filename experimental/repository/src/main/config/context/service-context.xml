@@ -5,7 +5,7 @@
     <!-- Note: All beans should be prefixed ${project.artifactId} in their ID in general -->
     <!-- Exceptions: service beans (unique name) and beans with name conventions (e.g. web scripts) -->
 
-    <bean id="javaScriptProcessor" class="${basePackage}.script.NashornScriptProcessor">
+    <bean id="javaScriptProcessor.nashornProcessor" class="${basePackage}.script.NashornScriptProcessor">
         <property name="name" value="javascript" />
         <property name="extension" value="js" />
 
