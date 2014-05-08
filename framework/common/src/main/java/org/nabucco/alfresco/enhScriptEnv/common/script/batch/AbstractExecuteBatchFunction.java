@@ -32,8 +32,8 @@ import org.mozilla.javascript.ScriptableObject;
 import org.mozilla.javascript.Undefined;
 import org.mozilla.javascript.WrappedException;
 import org.nabucco.alfresco.enhScriptEnv.common.script.EnhancedScriptProcessor;
-import org.nabucco.alfresco.enhScriptEnv.common.script.LogFunction;
 import org.nabucco.alfresco.enhScriptEnv.common.script.ScopeContributor;
+import org.nabucco.alfresco.enhScriptEnv.common.script.functions.RhinoLogFunction;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.InitializingBean;
@@ -172,14 +172,18 @@ public abstract class AbstractExecuteBatchFunction implements IdFunctionCall, Sc
      * {@inheritDoc}
      */
     @Override
-    public void contributeToScope(final Scriptable scope, final boolean trustworthyScript, final boolean mutableScope)
+    public void contributeToScope(final Object scope, final boolean trustworthyScript, final boolean mutableScope)
     {
-        final IdFunctionObject func = new IdFunctionObject(this, EXECUTE_BATCH_FUNC_TAG, EXECUTE_BATCH_FUNC_ID, EXECUTE_BATCH_FUNC_NAME,
-                ARITY, scope);
-        func.sealObject();
+        if (scope instanceof Scriptable)
+        {
+            final IdFunctionObject func = new IdFunctionObject(this, EXECUTE_BATCH_FUNC_TAG, EXECUTE_BATCH_FUNC_ID,
+                    EXECUTE_BATCH_FUNC_NAME, ARITY, (Scriptable) scope);
+            func.sealObject();
 
-        // export as read-only and undeleteable property of the scope
-        ScriptableObject.defineProperty(scope, EXECUTE_BATCH_FUNC_NAME, func, ScriptableObject.PERMANENT | ScriptableObject.READONLY);
+            // export as read-only and undeleteable property of the scope
+            ScriptableObject.defineProperty((Scriptable) scope, EXECUTE_BATCH_FUNC_NAME, func, ScriptableObject.PERMANENT
+                    | ScriptableObject.READONLY);
+        }
     }
 
     /**
@@ -315,12 +319,12 @@ public abstract class AbstractExecuteBatchFunction implements IdFunctionCall, Sc
             processScope.setParentScope(null);
 
             // check for registerChildScope function on logger and register process scope if function is available
-            final Object loggerValue = ScriptableObject.getProperty(parentScope, LogFunction.LOGGER_OBJ_NAME);
+            final Object loggerValue = ScriptableObject.getProperty(parentScope, RhinoLogFunction.LOGGER_OBJ_NAME);
             if (loggerValue instanceof Scriptable)
             {
                 final Scriptable loggerObj = (Scriptable) loggerValue;
                 final Object registerChildScopeFuncValue = ScriptableObject.getProperty(loggerObj,
-                        LogFunction.REGISTER_CHILD_SCOPE_FUNC_NAME);
+                        RhinoLogFunction.REGISTER_CHILD_SCOPE_FUNC_NAME);
                 if (registerChildScopeFuncValue instanceof Function)
                 {
                     final Function registerChildScopeFunc = (Function) registerChildScopeFuncValue;
@@ -377,8 +381,7 @@ public abstract class AbstractExecuteBatchFunction implements IdFunctionCall, Sc
     }
 
     protected void doProcess(final Context parentContext, final Scriptable parentScope, final Scriptable processScope,
-            final Scriptable thisObj,
-            final Pair<Scriptable, Function> processCallback, final Object element)
+            final Scriptable thisObj, final Pair<Scriptable, Function> processCallback, final Object element)
     {
         final Context cx = Context.enter();
         try
@@ -429,8 +432,7 @@ public abstract class AbstractExecuteBatchFunction implements IdFunctionCall, Sc
     }
 
     protected void doAfterProcess(final Context parentContext, final Scriptable parentScope, final Scriptable processScope,
-            final Scriptable thisObj,
-            final Pair<Scriptable, Function> afterProcessCallback)
+            final Scriptable thisObj, final Pair<Scriptable, Function> afterProcessCallback)
     {
         final Context cx = Context.enter();
         try

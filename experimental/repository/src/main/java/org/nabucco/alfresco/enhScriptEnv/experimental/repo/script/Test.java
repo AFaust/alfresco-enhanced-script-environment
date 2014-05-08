@@ -94,6 +94,8 @@ public class Test
         engine.eval(isReader, myContext);
         engine.eval("testObj.doStuff(rhinoObj);", myContext);
 
+        final Object result = engine.eval("function main(){ var obj = new Object(); obj.prototype = this; return obj;} main();");
+        System.out.println(result instanceof Bindings);
         // engine.eval("importClass(java.util.HashMap);", myContext);
 
         // engine.eval("print(new HashMap());", myContext);

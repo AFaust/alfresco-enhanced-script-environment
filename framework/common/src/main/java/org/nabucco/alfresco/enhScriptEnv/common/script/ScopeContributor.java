@@ -14,7 +14,6 @@
  */
 package org.nabucco.alfresco.enhScriptEnv.common.script;
 
-import org.mozilla.javascript.Scriptable;
 
 /**
  * @author Axel Faust, <a href="http://www.prodyna.com">PRODYNA AG</a>
@@ -24,7 +23,7 @@ public interface ScopeContributor
 
     /**
      * Contributes elements (values / functionality) to a scope of a Rhino-based JavaScript environment.
-     * 
+     *
      * @param scope
      *            the scope to contribute to
      * @param trustworthyScript
@@ -34,6 +33,6 @@ public interface ScopeContributor
      *            {@code true} if the scope should be considered mutable, i.e. is only created for the execution of a single script,
      *            {@code false} otherwise, i.e. when the scope may be reused
      */
-    void contributeToScope(Scriptable scope, boolean trustworthyScript, boolean mutableScope);
+    void contributeToScope(Object scope, boolean trustworthyScript, boolean mutableScope);
 
 }

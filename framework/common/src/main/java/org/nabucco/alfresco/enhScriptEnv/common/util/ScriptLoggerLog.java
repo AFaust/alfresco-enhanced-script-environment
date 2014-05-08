@@ -19,7 +19,7 @@ import org.mozilla.javascript.Context;
 import org.mozilla.javascript.Scriptable;
 import org.mozilla.javascript.ScriptableObject;
 import org.nabucco.alfresco.enhScriptEnv.common.script.EnhancedScriptProcessor;
-import org.nabucco.alfresco.enhScriptEnv.common.script.LogFunction;
+import org.nabucco.alfresco.enhScriptEnv.common.script.functions.RhinoLogFunction;
 import org.springframework.extensions.webscripts.ScriptLogger;
 
 /**

@@ -28,5 +28,13 @@
     <bean id="nashorn.valueConverter.SimpleRhinoSpecificBean" class="${basePackage}.script.adapters.SimpleRhinoSpecificBeanConverter" parent="nashorn.valueConverter.abstract">
         <property name="convertableClass" value="org.alfresco.repo.processor.BaseProcessorExtension" />
     </bean>
+    
+    <bean id="javaScriptProcessor.nashornProcessor.scriptImportFunction" class="org.nabucco.alfresco.enhScriptEnv.experimental.repo.script.functions.NashornImportScriptFunction">
+        <property name="scriptProcessor" ref="javaScriptProcessor.nashornProcessor" />
+        <property name="valueConverter">
+            <bean class="org.nabucco.alfresco.enhScriptEnv.repo.script.RepositoryValueConverterAdapter" />
+        </property>
+        <property name="locatorRegistry" ref="javaScriptProcessor.scriptLocatorRegistry" />
+    </bean>
 
 </beans>

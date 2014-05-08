@@ -109,60 +109,63 @@ public class VersionInfoContributor implements ScopeContributor, InitializingBea
      * {@inheritDoc}
      */
     @Override
-    public void contributeToScope(final Scriptable scope, final boolean trustworthyScript, final boolean mutableScope)
+    public void contributeToScope(final Object scope, final boolean trustworthyScript, final boolean mutableScope)
     {
-        final Context context = Context.enter();
-        try
+        if (scope instanceof Scriptable)
         {
-            // simple cache check and update / initialization
-            final long now = System.currentTimeMillis();
-            if (now - this.lastUpdateCheckTimestamp > this.nextUpdateInterval)
+            final Context context = Context.enter();
+            try
             {
-                synchronized (this)
+                // simple cache check and update / initialization
+                final long now = System.currentTimeMillis();
+                if (now - this.lastUpdateCheckTimestamp > this.nextUpdateInterval)
                 {
-                    if (now - this.lastUpdateCheckTimestamp > this.nextUpdateInterval)
+                    synchronized (this)
                     {
-                        this.retrieveReposioryVersionInfo();
+                        if (now - this.lastUpdateCheckTimestamp > this.nextUpdateInterval)
+                        {
+                            this.retrieveReposioryVersionInfo();
+                        }
                     }
                 }
-            }
 
-            if (!this.cachedInformation.isEmpty())
+                if (!this.cachedInformation.isEmpty())
+                {
+                    final NativeObject descriptorObj = new NativeObject();
+
+                    ScriptableObject.defineConstProperty(descriptorObj, KEY_EDITION);
+                    ScriptableObject.defineConstProperty(descriptorObj, KEY_FULL_VERSION);
+                    ScriptableObject.defineConstProperty(descriptorObj, KEY_VERSION);
+                    ScriptableObject.defineConstProperty(descriptorObj, KEY_SCHEMA);
+                    ScriptableObject.defineConstProperty(descriptorObj, KEY_IS_COMMUNITY);
+
+                    ScriptableObject.putConstProperty(descriptorObj, KEY_EDITION,
+                            DEFAULT_WRAP_FACTORY.wrap(context, (Scriptable) scope, this.cachedInformation.get(KEY_EDITION), String.class));
+                    ScriptableObject.putConstProperty(descriptorObj, KEY_FULL_VERSION, DEFAULT_WRAP_FACTORY.wrap(context,
+                            (Scriptable) scope, this.cachedInformation.get(KEY_FULL_VERSION), String.class));
+                    ScriptableObject.putConstProperty(descriptorObj, KEY_VERSION,
+                            DEFAULT_WRAP_FACTORY.wrap(context, (Scriptable) scope, this.cachedInformation.get(KEY_VERSION), String.class));
+                    ScriptableObject.putConstProperty(descriptorObj, KEY_SCHEMA, DEFAULT_WRAP_FACTORY.wrap(context, (Scriptable) scope,
+                            this.cachedInformation.containsKey(KEY_SCHEMA) ? this.cachedInformation.get(KEY_SCHEMA) : Integer.valueOf(-1),
+                            Integer.class));
+
+                    // assume community if flag not set
+                    ScriptableObject.putConstProperty(descriptorObj, KEY_IS_COMMUNITY, DEFAULT_WRAP_FACTORY.wrap(
+                            context,
+                            (Scriptable) scope,
+                            this.cachedInformation.containsKey(KEY_IS_COMMUNITY) ? Boolean.valueOf(this.cachedInformation
+                                    .get(KEY_IS_COMMUNITY)) : Boolean.TRUE, Boolean.class));
+
+                    descriptorObj.sealObject();
+
+                    ScriptableObject.defineConstProperty((Scriptable) scope, KEY_DESCRIPTOR);
+                    ScriptableObject.putConstProperty((Scriptable) scope, KEY_DESCRIPTOR, descriptorObj);
+                }
+            }
+            finally
             {
-                final NativeObject descriptorObj = new NativeObject();
-
-                ScriptableObject.defineConstProperty(descriptorObj, KEY_EDITION);
-                ScriptableObject.defineConstProperty(descriptorObj, KEY_FULL_VERSION);
-                ScriptableObject.defineConstProperty(descriptorObj, KEY_VERSION);
-                ScriptableObject.defineConstProperty(descriptorObj, KEY_SCHEMA);
-                ScriptableObject.defineConstProperty(descriptorObj, KEY_IS_COMMUNITY);
-
-                ScriptableObject.putConstProperty(descriptorObj, KEY_EDITION,
-                        DEFAULT_WRAP_FACTORY.wrap(context, scope, this.cachedInformation.get(KEY_EDITION), String.class));
-                ScriptableObject.putConstProperty(descriptorObj, KEY_FULL_VERSION,
-                        DEFAULT_WRAP_FACTORY.wrap(context, scope, this.cachedInformation.get(KEY_FULL_VERSION), String.class));
-                ScriptableObject.putConstProperty(descriptorObj, KEY_VERSION,
-                        DEFAULT_WRAP_FACTORY.wrap(context, scope, this.cachedInformation.get(KEY_VERSION), String.class));
-                ScriptableObject.putConstProperty(descriptorObj, KEY_SCHEMA, DEFAULT_WRAP_FACTORY.wrap(context, scope,
-                        this.cachedInformation.containsKey(KEY_SCHEMA) ? this.cachedInformation.get(KEY_SCHEMA) : Integer.valueOf(-1),
-                        Integer.class));
-
-                // assume community if flag not set
-                ScriptableObject.putConstProperty(descriptorObj, KEY_IS_COMMUNITY, DEFAULT_WRAP_FACTORY
-                        .wrap(context,
-                                scope,
-                                this.cachedInformation.containsKey(KEY_IS_COMMUNITY) ? Boolean.valueOf(this.cachedInformation
-                                        .get(KEY_IS_COMMUNITY)) : Boolean.TRUE, Boolean.class));
-
-                descriptorObj.sealObject();
-
-                ScriptableObject.defineConstProperty(scope, KEY_DESCRIPTOR);
-                ScriptableObject.putConstProperty(scope, KEY_DESCRIPTOR, descriptorObj);
+                Context.exit();
             }
-        }
-        finally
-        {
-            Context.exit();
         }
     }
 

@@ -66,60 +66,63 @@ public class VersionInfoContributor implements ScopeContributor, InitializingBea
      * {@inheritDoc}
      */
     @Override
-    public void contributeToScope(final Scriptable scope, final boolean trustworthyScript, final boolean mutableScope)
+    public void contributeToScope(final Object scope, final boolean trustworthyScript, final boolean mutableScope)
     {
-        final Context context = Context.enter();
-        try
+        if (scope instanceof Scriptable)
         {
-            final Descriptor currentRepositoryDescriptor = this.descriptorService.getCurrentRepositoryDescriptor();
-            final Descriptor serverDescriptor = this.descriptorService.getServerDescriptor();
-            if (currentRepositoryDescriptor != null && serverDescriptor != null)
+            final Context context = Context.enter();
+            try
             {
-                final NativeObject descriptorObj = new NativeObject();
-
-                ScriptableObject.defineConstProperty(descriptorObj, KEY_EDITION);
-                ScriptableObject.defineConstProperty(descriptorObj, KEY_FULL_VERSION);
-                ScriptableObject.defineConstProperty(descriptorObj, KEY_VERSION);
-                ScriptableObject.defineConstProperty(descriptorObj, KEY_SCHEMA);
-                ScriptableObject.defineConstProperty(descriptorObj, KEY_IS_COMMUNITY);
-
-                ScriptableObject.putConstProperty(descriptorObj, KEY_EDITION,
-                        DEFAULT_WRAP_FACTORY.wrap(context, scope, serverDescriptor.getEdition(), String.class));
-                ScriptableObject.putConstProperty(descriptorObj, KEY_FULL_VERSION,
-                        DEFAULT_WRAP_FACTORY.wrap(context, scope, currentRepositoryDescriptor.getVersion(), String.class));
-                ScriptableObject.putConstProperty(descriptorObj, KEY_VERSION,
-                        DEFAULT_WRAP_FACTORY.wrap(context, scope, currentRepositoryDescriptor.getVersionNumber().toString(), String.class));
-                ScriptableObject.putConstProperty(descriptorObj, KEY_SCHEMA,
-                        DEFAULT_WRAP_FACTORY.wrap(context, scope, Integer.valueOf(currentRepositoryDescriptor.getSchema()), Integer.class));
-
-                final Boolean isCommunity;
-                final LicenseMode licenseMode = currentRepositoryDescriptor.getLicenseMode();
-                if (licenseMode == LicenseMode.ENTERPRISE || licenseMode == LicenseMode.TEAM)
+                final Descriptor currentRepositoryDescriptor = this.descriptorService.getCurrentRepositoryDescriptor();
+                final Descriptor serverDescriptor = this.descriptorService.getServerDescriptor();
+                if (currentRepositoryDescriptor != null && serverDescriptor != null)
                 {
-                    isCommunity = Boolean.FALSE;
-                }
-                else if (licenseMode == null || licenseMode == LicenseMode.UNKNOWN)
-                {
-                    isCommunity = Boolean.TRUE;
-                }
-                else
-                {
-                    LOGGER.warn("Unknown / unexpected license mode {} - assuming 'community mode'", licenseMode);
-                    isCommunity = Boolean.TRUE;
-                }
+                    final NativeObject descriptorObj = new NativeObject();
 
-                ScriptableObject.putConstProperty(descriptorObj, KEY_IS_COMMUNITY,
-                        DEFAULT_WRAP_FACTORY.wrap(context, scope, isCommunity, Boolean.class));
+                    ScriptableObject.defineConstProperty(descriptorObj, KEY_EDITION);
+                    ScriptableObject.defineConstProperty(descriptorObj, KEY_FULL_VERSION);
+                    ScriptableObject.defineConstProperty(descriptorObj, KEY_VERSION);
+                    ScriptableObject.defineConstProperty(descriptorObj, KEY_SCHEMA);
+                    ScriptableObject.defineConstProperty(descriptorObj, KEY_IS_COMMUNITY);
 
-                descriptorObj.sealObject();
+                    ScriptableObject.putConstProperty(descriptorObj, KEY_EDITION,
+                            DEFAULT_WRAP_FACTORY.wrap(context, (Scriptable) scope, serverDescriptor.getEdition(), String.class));
+                    ScriptableObject.putConstProperty(descriptorObj, KEY_FULL_VERSION,
+                            DEFAULT_WRAP_FACTORY.wrap(context, (Scriptable) scope, currentRepositoryDescriptor.getVersion(), String.class));
+                    ScriptableObject.putConstProperty(descriptorObj, KEY_VERSION, DEFAULT_WRAP_FACTORY.wrap(context, (Scriptable) scope,
+                            currentRepositoryDescriptor.getVersionNumber().toString(), String.class));
+                    ScriptableObject.putConstProperty(descriptorObj, KEY_SCHEMA, DEFAULT_WRAP_FACTORY.wrap(context, (Scriptable) scope,
+                            Integer.valueOf(currentRepositoryDescriptor.getSchema()), Integer.class));
 
-                ScriptableObject.defineConstProperty(scope, KEY_DESCRIPTOR);
-                ScriptableObject.putConstProperty(scope, KEY_DESCRIPTOR, descriptorObj);
+                    final Boolean isCommunity;
+                    final LicenseMode licenseMode = currentRepositoryDescriptor.getLicenseMode();
+                    if (licenseMode == LicenseMode.ENTERPRISE || licenseMode == LicenseMode.TEAM)
+                    {
+                        isCommunity = Boolean.FALSE;
+                    }
+                    else if (licenseMode == null || licenseMode == LicenseMode.UNKNOWN)
+                    {
+                        isCommunity = Boolean.TRUE;
+                    }
+                    else
+                    {
+                        LOGGER.warn("Unknown / unexpected license mode {} - assuming 'community mode'", licenseMode);
+                        isCommunity = Boolean.TRUE;
+                    }
+
+                    ScriptableObject.putConstProperty(descriptorObj, KEY_IS_COMMUNITY,
+                            DEFAULT_WRAP_FACTORY.wrap(context, (Scriptable) scope, isCommunity, Boolean.class));
+
+                    descriptorObj.sealObject();
+
+                    ScriptableObject.defineConstProperty((Scriptable) scope, KEY_DESCRIPTOR);
+                    ScriptableObject.putConstProperty((Scriptable) scope, KEY_DESCRIPTOR, descriptorObj);
+                }
             }
-        }
-        finally
-        {
-            Context.exit();
+            finally
+            {
+                Context.exit();
+            }
         }
     }
 

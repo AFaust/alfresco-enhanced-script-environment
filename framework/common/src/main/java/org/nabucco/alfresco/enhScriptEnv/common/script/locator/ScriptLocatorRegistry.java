@@ -21,11 +21,20 @@ public interface ScriptLocatorRegistry<Script>
 {
     /**
      * Registers a specific script locator with the script processor.
-     * 
+     *
      * @param name
      *            the name of the locator - to be used in import calls within script files
      * @param scriptLocator
      *            the script locator
      */
     public void registerScriptLocator(String name, ScriptLocator<Script> scriptLocator);
+
+    /**
+     * Retrieves a specific script locator.
+     *
+     * @param name
+     *            the name of the locator
+     * @return the script locator or {@code null} if no locator was registered with that name
+     */
+    public ScriptLocator<Script> getLocator(String name);
 }

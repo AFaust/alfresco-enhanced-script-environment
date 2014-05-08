@@ -13,6 +13,8 @@
 
         <alfresco.groupId>org.alfresco</alfresco.groupId>
         <alfresco.version>4.2.d</alfresco.version>
+        
+        <maven.compiler.target>1.7</maven.compiler.target>
 
     </properties>
 

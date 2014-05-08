@@ -1,31 +1,37 @@
 <?xml version='1.0' encoding='UTF-8'?>
-<beans xmlns="http://www.springframework.org/schema/beans" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-    xsi:schemaLocation="
+<beans xmlns="http://www.springframework.org/schema/beans" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="
            http://www.springframework.org/schema/beans
            http://www.springframework.org/schema/beans/spring-beans-3.0.xsd">
     <!-- Note: All beans should be prefixed ${project.artifactId} in their ID in general -->
     <!-- Exceptions: service beans (unique name) and beans with name conventions (e.g. web scripts) -->
 
-    <bean id="javaScriptProcessor" class="${basePackage}.script.EnhancedRhinoScriptProcessor">
+    <!-- Bean post processor to intercept all script processor beans and facade them -->
+    <bean id="javaScriptProcessor.postProcessor" class="org.nabucco.alfresco.enhScriptEnv.repo.script.SwitchableScriptProcessor">
+        <property name="activeScriptProcessor" value="${script.processor.activeProcessorName}" />
+    </bean>
+
+    <bean id="javaScriptProcessor.enhancedRhinoProcessor" class="${basePackage}.script.EnhancedRhinoScriptProcessor">
         <property name="name" value="javascript" />
         <property name="extension" value="js" />
         <property name="compileScripts" value="true" />
         <property name="shareScopes" value="true" />
 
         <property name="scriptService" ref="scriptService" />
-
         <property name="serviceRegistry" ref="ServiceRegistry" />
     </bean>
 
-    <bean id="javaScriptProcessor.scriptImportFunction" class="org.nabucco.alfresco.enhScriptEnv.common.script.ImportScriptFunction">
-        <property name="scriptProcessor" ref="javaScriptProcessor" />
+    <bean id="javaScriptProcessor.scriptLocatorRegistry" class="org.nabucco.alfresco.enhScriptEnv.common.script.locator.SimpleScriptLocatorRegistry" />
+
+    <bean id="javaScriptProcessor.enhancedRhinoProcessor.scriptImportFunction" class="org.nabucco.alfresco.enhScriptEnv.common.script.functions.RhinoImportScriptFunction">
+        <property name="scriptProcessor" ref="javaScriptProcessor.enhancedRhinoProcessor" />
         <property name="valueConverter">
             <bean class="${basePackage}.script.RepositoryValueConverterAdapter" />
         </property>
+        <property name="locatorRegistry" ref="javaScriptProcessor.scriptLocatorRegistry" />
     </bean>
 
-    <bean id="javaScriptProcessor.scriptLogger" class="org.nabucco.alfresco.enhScriptEnv.common.script.LogFunction">
-        <property name="scriptProcessor" ref="javaScriptProcessor" />
+    <bean id="javaScriptProcessor.enhancedRhinoProcessor.scriptLogger" class="org.nabucco.alfresco.enhScriptEnv.common.script.functions.RhinoLogFunction">
+        <property name="scriptProcessor" ref="javaScriptProcessor.enhancedRhinoProcessor" />
         <property name="valueConverter">
             <bean class="${basePackage}.script.RepositoryValueConverterAdapter" />
         </property>
@@ -33,7 +39,7 @@
     </bean>
 
     <bean id="javaScriptProcessor.baseScriptLocator" abstract="true">
-        <property name="scriptLocatorRegistry" ref="javaScriptProcessor.scriptImportFunction" />
+        <property name="scriptLocatorRegistry" ref="javaScriptProcessor.scriptLocatorRegistry" />
     </bean>
 
     <bean id="javaScriptProcessor.legacyNamePathScriptLocator" class="${basePackage}.script.LegacyNamePathScriptLocator" parent="javaScriptProcessor.baseScriptLocator">
@@ -70,13 +76,13 @@
         <property name="descriptorService" ref="DescriptorService" />
     </bean>
 
-    <bean id="javaScriptProcessor.versionInfoContributor" class="${basePackage}.script.util.VersionInfoContributor">
-        <property name="scriptProcessor" ref="javaScriptProcessor" />
+    <bean id="javaScriptProcessor.enhancedRhinoProcessor.versionInfoContributor" class="${basePackage}.script.util.VersionInfoContributor">
+        <property name="scriptProcessor" ref="javaScriptProcessor.enhancedRhinoProcessor" />
         <property name="descriptorService" ref="DescriptorService" />
     </bean>
 
-    <bean id="javaScriptProcessor.executeBatchFunction" class="${basePackage}.script.batch.RepositoryExecuteBatchFunction">
-        <property name="scriptProcessor" ref="javaScriptProcessor" />
+    <bean id="javaScriptProcessor.enhancedRhinoProcessor.executeBatchFunction" class="${basePackage}.script.batch.RepositoryExecuteBatchFunction">
+        <property name="scriptProcessor" ref="javaScriptProcessor.enhancedRhinoProcessor" />
         <property name="transactionService" ref="TransactionService" />
         <property name="transactionManager" ref="transactionManager" />
         <property name="converters">
