@@ -712,14 +712,13 @@ public class NashornScriptProcessor extends BaseProcessor implements Initializin
             scope.remove("importClass");
         }
 
-        // TODO: create proxies for Scopeable objects / procesor extensions
-        // synchronized (this.registeredContributors)
-        // {
-        // for (final ScopeContributor contributor : this.registeredContributors)
-        // {
-        // contributor.contributeToScope(scope, trustworthyScript, mutableScope);
-        // }
-        // }
+        synchronized (this.registeredContributors)
+        {
+            for (final ScopeContributor contributor : this.registeredContributors)
+            {
+                contributor.contributeToScope(scope, trustworthyScript, mutableScope);
+            }
+        }
 
         return scope;
     }
@@ -729,7 +728,7 @@ public class NashornScriptProcessor extends BaseProcessor implements Initializin
         final Object result;
         if (this.valueConverter != null)
         {
-            result = this.valueConverter.convertToNashorn(value);
+            result = this.valueConverter.convertValueForNashorn(value);
         }
         else
         {

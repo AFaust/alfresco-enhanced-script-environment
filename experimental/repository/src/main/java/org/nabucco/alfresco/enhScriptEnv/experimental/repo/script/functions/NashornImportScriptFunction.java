@@ -120,7 +120,9 @@ public class NashornImportScriptFunction<Script extends ReferenceScript> extends
                 final InputStream is = NashornScriptProcessor.class.getResource("resources/contribute-importScript.js").openStream();
                 try (final Reader isReader = new InputStreamReader(is))
                 {
-                    this.engine.eval(isReader, global);
+                    final ScriptContext ctx = new SimpleScriptContext();
+                    ctx.setBindings(global, ScriptContext.ENGINE_SCOPE);
+                    this.engine.eval(isReader, ctx);
                 }
             }
             catch (final IOException ex)

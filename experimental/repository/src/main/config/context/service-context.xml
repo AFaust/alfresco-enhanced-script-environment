@@ -31,9 +31,7 @@
     
     <bean id="javaScriptProcessor.nashornProcessor.scriptImportFunction" class="org.nabucco.alfresco.enhScriptEnv.experimental.repo.script.functions.NashornImportScriptFunction">
         <property name="scriptProcessor" ref="javaScriptProcessor.nashornProcessor" />
-        <property name="valueConverter">
-            <bean class="org.nabucco.alfresco.enhScriptEnv.repo.script.RepositoryValueConverterAdapter" />
-        </property>
+        <property name="valueConverter" ref="nashorn.valueConverter.registry" />
         <property name="locatorRegistry" ref="javaScriptProcessor.scriptLocatorRegistry" />
     </bean>
 

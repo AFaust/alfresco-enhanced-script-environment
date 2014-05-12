@@ -25,8 +25,10 @@ import java.util.HashSet;
 import java.util.Set;
 
 import javax.script.Bindings;
+import javax.script.ScriptContext;
 import javax.script.ScriptEngine;
 import javax.script.ScriptEngineManager;
+import javax.script.SimpleScriptContext;
 
 import org.alfresco.repo.jscript.Scopeable;
 import org.alfresco.scripts.ScriptException;
@@ -96,7 +98,7 @@ public abstract class AbstractValueInstanceConverter implements ValueInstanceCon
                 AbstractValueInstanceConverter.this.preRhinoBeanInvocation(invocation);
 
                 final Object result = invocation.proceed();
-                final Object convertedResult = this.globalDelegate.convertToNashorn(result);
+                final Object convertedResult = this.globalDelegate.convertValueForNashorn(result);
                 return convertedResult;
             }
             finally
@@ -164,27 +166,19 @@ public abstract class AbstractValueInstanceConverter implements ValueInstanceCon
     {
         try
         {
-            final InputStream is = NashornScriptProcessor.class.getResource("resources/nashorn-object-to-rhino.js").openStream();
-            final Reader isReader = new InputStreamReader(is);
-            try
+            try (final InputStream is = NashornScriptProcessor.class.getResource("resources/nashorn-object-to-rhino.js").openStream())
             {
-                // this may be rather expensive per call, so use (potentially reuse) thead-local bindings
-                // TODO: Can we add some cleanup? What is the footprint of this thread-local?
-                final Bindings bindings = this.scriptEngine.createBindings();
-                bindings.put("nashornObj", obj);
-                this.scriptEngine.eval(isReader, bindings);
-                final Object result = bindings.get("rhinoObj");
-                return result;
-            }
-            finally
-            {
-                try
+                try (final Reader isReader = new InputStreamReader(is))
                 {
-                    isReader.close();
-                }
-                catch (final IOException ioEx)
-                {
-                    // NO-OP - may already have been closed
+                    // this may be rather expensive per call, so use (potentially reuse) thead-local bindings
+                    // TODO: Can we add some cleanup? What is the footprint of this thread-local?
+                    final Bindings bindings = this.scriptEngine.createBindings();
+                    bindings.put("nashornObj", obj);
+                    final ScriptContext ctx = new SimpleScriptContext();
+                    ctx.setBindings(bindings, ScriptContext.ENGINE_SCOPE);
+                    this.scriptEngine.eval(isReader, ctx);
+                    final Object result = bindings.get("rhinoObj");
+                    return result;
                 }
             }
         }

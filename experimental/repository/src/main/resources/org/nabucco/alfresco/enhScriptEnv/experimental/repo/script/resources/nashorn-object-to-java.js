@@ -1,6 +1,6 @@
 function convert(obj)
 {
-    var result, type, idx, max, cls, clsName, key;
+    var result, type, arr, idx, max, key;
 
     if (obj === undefined || obj === null)
     {
@@ -13,46 +13,32 @@ function convert(obj)
     }
     else if (obj.length !== undefined)
     {
-        type = Java.type("org.mozilla.javascript.NativeArray");
-        result = new type(obj.length);
+        arr = obj.length;
 
         for (idx = 0, max = obj.length; idx < max; idx++)
         {
-            result.put(idx, result, convert(obj[idx]));
+            arr[idx] = convert(obj[idx]);
         }
+
+        result = Java.to(arr, "java.util.List");
     }
     else
     {
         if (obj.getClass !== undefined)
         {
-            cls = obj.getClass();
-            clsName = cls.getName();
-            if (clsName.startsWith("java.util.") && clsName.endsWith("Map"))
-            {
-                type = Java.type("org.mozilla.javascript.NativeObject");
-                result = new type();
-                for (key in obj)
-                {
-                    if (obj.hasOwnProperty(key))
-                    {
-                        result.put(key, result, convert(obj[key]));
-                    }
-                }
-            }
-            // TODO: Do other types of potential Java objects need to be mapped?
-            else
-            {
-                // return as-is
-                result = obj;
-            }
+            // return as is
+            result = obj;
         }
         else if (typeof obj === 'object')
         {
-            type = Java.type("org.mozilla.javascript.NativeObject");
+            type = Java.type("java.util.HashMap");
             result = new type();
             for (key in obj)
             {
-                result.put(key, result, convert(obj[key]));
+                if (obj.hasOwnProperty(key))
+                {
+                    result.put(key, convert(obj[key]));
+                }
             }
         }
         else if (typeof obj === 'number' && isFinite(obj))
@@ -74,4 +60,4 @@ function convert(obj)
     return result;
 }
 
-rhinoObj = convert(nashornObj);
+javaObj = convert(nashornObj);

@@ -53,7 +53,7 @@ public class ScriptNodeConverter extends AbstractValueInstanceConverter
      * {@inheritDoc}
      */
     @Override
-    public Object convertToNashorn(final Object valueInstance, final ValueConverter globalDelegate)
+    public Object convertValueForNashorn(final Object valueInstance, final ValueConverter globalDelegate)
     {
         final Object result;
         if (valueInstance instanceof ScriptNode)

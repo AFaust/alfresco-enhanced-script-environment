@@ -26,6 +26,7 @@
 
         return result;
     };
+
     Object.defineProperty(this, "importScript",
     {
         configurable : false,
@@ -35,8 +36,8 @@
         {
             var resolutionParamObj = asObject(resolutionParams, true), executionScopeObj = asObject(executionScope, false);
 
-            return importerDelegate.importScript(locatorType, locationValue, failOnMissingScript === true, resolutionParamObj,
-                    scope, executionScopeObj);
+            return importerDelegate.importScript(locatorType, locationValue, failOnMissingScript === true, resolutionParamObj, scope,
+                    executionScopeObj);
         }
     });
 }(NashornImportScriptFunction, this));

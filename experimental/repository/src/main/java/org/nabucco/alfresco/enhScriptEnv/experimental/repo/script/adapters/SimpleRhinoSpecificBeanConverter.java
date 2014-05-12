@@ -107,7 +107,7 @@ public class SimpleRhinoSpecificBeanConverter extends AbstractValueInstanceConve
      * {@inheritDoc}
      */
     @Override
-    public Object convertToNashorn(final Object valueInstance, final ValueConverter globalDelegate)
+    public Object convertValueForNashorn(final Object valueInstance, final ValueConverter globalDelegate)
     {
         final Object result;
         final Object realValue;
@@ -131,15 +131,14 @@ public class SimpleRhinoSpecificBeanConverter extends AbstractValueInstanceConve
                     throw new ScriptException("Failed to instantiate delegator", ex);
                 }
 
-                proxyFactory = new ConstructorArgumentAwareProxyFactory(new Object[0], new Class[0]);
+                proxyFactory = new ConstructorArgumentAwareProxyFactory(new Object[] { valueInstance }, new Class[] { Object.class });
             }
             else
             {
                 realValue = valueInstance;
-                proxyFactory = new ConstructorArgumentAwareProxyFactory(new Object[] { valueInstance }, new Class[] { Object.class });
+                // any processor extension without no-argument-constructor will break this - but there should be none
+                proxyFactory = new ConstructorArgumentAwareProxyFactory(new Object[0], new Class[0]);
             }
-
-            // any processor extension without no-argument-constructor will break this - but there should be none
 
             proxyFactory.addAdvice(new RhinoSpecificBeanInterceptor(globalDelegate));
             proxyFactory.setInterfaces(collectInterfaces(valueInstance, Collections.<Class<?>> emptySet()));

@@ -27,11 +27,11 @@ public interface NashornValueInstanceConverterRegistry
         /**
          * Converts the provided object into a Nashorn-compatible value.
          *
-         * @param valueInstance
+         * @param value
          *            the object to convert
          * @return the converted value instance
          */
-        Object convertToNashorn(Object valueInstance);
+        Object convertValueForNashorn(Object value);
     }
 
     /**
@@ -43,13 +43,13 @@ public interface NashornValueInstanceConverterRegistry
         /**
          * Converts the provided object into a Nashorn-compatible value.
          *
-         * @param valueInstance
+         * @param value
          *            the object to convert
          * @param globalDelegate
          *            the global value instance converter to delegate any sub-instance conversions to
          * @return the converted value instance
          */
-        Object convertToNashorn(Object valueInstance, ValueConverter globalDelegate);
+        Object convertValueForNashorn(Object value, ValueConverter globalDelegate);
 
     }
 
