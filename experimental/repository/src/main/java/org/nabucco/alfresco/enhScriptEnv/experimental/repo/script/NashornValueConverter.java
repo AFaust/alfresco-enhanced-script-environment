@@ -32,23 +32,27 @@ import javax.script.ScriptEngineManager;
 import javax.script.SimpleScriptContext;
 
 import jdk.nashorn.internal.runtime.ScriptObject;
+import jdk.nashorn.internal.objects.NativeJava;
 
 import org.alfresco.repo.jscript.NativeMap;
 import org.alfresco.scripts.ScriptException;
 import org.alfresco.util.ParameterCheck;
+import org.alfresco.util.PropertyCheck;
 import org.mozilla.javascript.Context;
 import org.mozilla.javascript.IdScriptableObject;
 import org.mozilla.javascript.NativeArray;
 import org.mozilla.javascript.NativeJavaObject;
 import org.mozilla.javascript.Scriptable;
 import org.nabucco.alfresco.enhScriptEnv.experimental.repo.script.NashornValueInstanceConverterRegistry.ValueConverter;
+import org.springframework.beans.factory.InitializingBean;
 
 /**
  * @author Axel Faust, <a href="http://www.prodyna.com">PRODYNA AG</a>
  */
 @SuppressWarnings("restriction")
-//need to work with internal API to prepare the scope
-public class NashornValueConverter implements NashornValueInstanceConverterRegistry, ValueConverter, org.nabucco.alfresco.enhScriptEnv.common.script.ValueConverter
+// need to work with internal API to prepare the scope and convert objects
+public class NashornValueConverter implements NashornValueInstanceConverterRegistry, ValueConverter,
+        org.nabucco.alfresco.enhScriptEnv.common.script.ValueConverter, InitializingBean
 {
 
     /**
@@ -56,9 +60,30 @@ public class NashornValueConverter implements NashornValueInstanceConverterRegis
      */
     private static final String TYPE_DATE = "Date";
 
+    private static final String NASHORN_ENGINE_NAME = "nashorn";
+
     protected final Map<Class<?>, ValueInstanceConverter> valueInstanceConvertersByClass = new HashMap<Class<?>, ValueInstanceConverter>();
 
-    protected final ScriptEngine scriptEngine = new ScriptEngineManager().getEngineByName(NashornScriptProcessor.NASHORN_ENGINE_NAME);
+    protected ScriptEngine scriptEngine = new ScriptEngineManager().getEngineByName(NASHORN_ENGINE_NAME);
+
+    /**
+     *
+     * {@inheritDoc}
+     */
+    @Override
+    public void afterPropertiesSet()
+    {
+        PropertyCheck.mandatory(this, "scriptEngine", this.scriptEngine);
+    }
+
+    /**
+     * @param scriptEngine
+     *            the scriptEngine to set
+     */
+    public final void setScriptEngine(final ScriptEngine scriptEngine)
+    {
+        this.scriptEngine = scriptEngine;
+    }
 
     /**
      * {@inheritDoc}
@@ -129,9 +154,35 @@ public class NashornValueConverter implements NashornValueInstanceConverterRegis
                 result = this.convertObjectToNashornObject(scriptableValue);
             }
         }
+        else if (value != null)
+        {
+            final Class<? extends Object> valueClass = value.getClass();
+            if (valueClass.isArray())
+            {
+                if (valueClass.getComponentType().isPrimitive())
+                {
+                    result = NativeJava.from(null, value);
+                }
+                else
+                {
+                    final Object[] arr1 = (Object[]) value;
+                    final Object[] arr2 = new Object[arr1.length];
+                    for (int idx = 0; idx < arr1.length; idx++)
+                    {
+                        arr2[idx] = this.convertValueForNashorn(arr1[idx]);
+                    }
+
+                    result = NativeJava.from(null, arr2);
+                }
+            }
+            else
+            {
+                result = this.convertObjectToNashornObject(value);
+            }
+        }
         else
         {
-            result = this.convertObjectToNashornObject(value);
+            result = value;
         }
 
         return result;
@@ -145,7 +196,7 @@ public class NashornValueConverter implements NashornValueInstanceConverterRegis
     {
         final Object result;
 
-        if(value instanceof ScriptObject)
+        if (value instanceof ScriptObject)
         {
             try
             {
@@ -225,13 +276,16 @@ public class NashornValueConverter implements NashornValueInstanceConverterRegis
                 propValues.put((String) propId, this.convertValueForNashorn(val));
             }
         }
+
         result = propValues;
+
         return result;
     }
 
     protected Object convertRhinoArrayToNashorn(final Scriptable scriptableValue, final Object[] propIds)
     {
         final Object result;
+        final Object intermediateResult;
 
         // get type of array
         Class<?> componentType = null;
@@ -268,12 +322,14 @@ public class NashornValueConverter implements NashornValueInstanceConverterRegis
 
         if (propValues.isEmpty())
         {
-            result = new Object[0];
+            intermediateResult = new Object[0];
         }
         else
         {
-            result = propValues.toArray((Object[]) Array.newInstance(componentType, 0));
+            intermediateResult = propValues.toArray((Object[]) Array.newInstance(componentType, 0));
         }
+
+        result = this.convertValueForNashorn(intermediateResult);
 
         return result;
     }

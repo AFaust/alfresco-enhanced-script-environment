@@ -53,6 +53,7 @@ import org.alfresco.service.cmr.repository.ScriptProcessor;
 import org.alfresco.service.namespace.QName;
 import org.alfresco.util.MD5;
 import org.alfresco.util.ParameterCheck;
+import org.alfresco.util.PropertyCheck;
 import org.nabucco.alfresco.enhScriptEnv.common.script.EnhancedScriptProcessor;
 import org.nabucco.alfresco.enhScriptEnv.common.script.ReferenceScript;
 import org.nabucco.alfresco.enhScriptEnv.common.script.ReferenceScript.CommonReferencePath;
@@ -69,7 +70,7 @@ public class NashornScriptProcessor extends BaseProcessor implements Initializin
         ScriptProcessor
 {
 
-    public static final String NASHORN_ENGINE_NAME = "nashorn";
+    private static final String NASHORN_ENGINE_NAME = "nashorn";
 
     private static final String NODE_REF_RESOURCE_IMPORT_PATTERN = "<import(\\s*\\n*\\s+)+resource(\\s*\\n*\\s*+)*=(\\s*\\n*\\s+)*\"(([^:]+)://([^/]+)/([^\"]+))\"(\\s*\\n*\\s+)*(/)?>";
     private static final String NODE_REF_RESOURCE_IMPORT_REPLACEMENT = "importScript(\"node\", \"$4\", true);";
@@ -85,7 +86,7 @@ public class NashornScriptProcessor extends BaseProcessor implements Initializin
     private static final Logger LOGGER = LoggerFactory.getLogger(NashornScriptProcessor.class);
     private static final Logger LEGACY_CALL_LOGGER = LoggerFactory.getLogger(RhinoScriptProcessor.class.getName() + ".calls");
 
-    protected final ScriptEngine scriptEngine = new ScriptEngineManager().getEngineByName(NASHORN_ENGINE_NAME);
+    protected ScriptEngine scriptEngine = new ScriptEngineManager().getEngineByName(NASHORN_ENGINE_NAME);
 
     // TODO: Is there (switchable) debugging support in Nashorn?
     protected volatile boolean debuggerActive = false;
@@ -393,6 +394,8 @@ public class NashornScriptProcessor extends BaseProcessor implements Initializin
     @Override
     public void afterPropertiesSet() throws Exception
     {
+        PropertyCheck.mandatory(this, "scriptEngine", this.scriptEngine);
+        PropertyCheck.mandatory(this, "valueConverter", this.valueConverter);
         super.register();
     }
 
@@ -403,6 +406,15 @@ public class NashornScriptProcessor extends BaseProcessor implements Initializin
     public final void setValueConverter(final ValueConverter valueConverter)
     {
         this.valueConverter = valueConverter;
+    }
+
+    /**
+     * @param scriptEngine
+     *            the scriptEngine to set
+     */
+    public final void setScriptEngine(final ScriptEngine scriptEngine)
+    {
+        this.scriptEngine = scriptEngine;
     }
 
     protected ReferenceScript toReferenceScript(final String source) throws UnsupportedEncodingException

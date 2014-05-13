@@ -49,6 +49,7 @@ import org.springframework.beans.factory.InitializingBean;
  */
 public abstract class AbstractValueInstanceConverter implements ValueInstanceConverter, InitializingBean
 {
+    private static final String NASHORN_ENGINE_NAME = "nashorn";
     protected static final Scriptable DUMMY_SCOPE;
     static
     {
@@ -108,8 +109,6 @@ public abstract class AbstractValueInstanceConverter implements ValueInstanceCon
         }
     }
 
-    protected final ScriptEngine scriptEngine = new ScriptEngineManager().getEngineByName(NashornScriptProcessor.NASHORN_ENGINE_NAME);
-
     protected final ThreadLocal<Bindings> localBindings = new ThreadLocal<Bindings>()
     {
 
@@ -124,6 +123,7 @@ public abstract class AbstractValueInstanceConverter implements ValueInstanceCon
 
     };
 
+    protected ScriptEngine scriptEngine = new ScriptEngineManager().getEngineByName(NASHORN_ENGINE_NAME);
     protected NashornValueInstanceConverterRegistry registry;
     protected Class<?> convertableClass;
 
@@ -133,10 +133,20 @@ public abstract class AbstractValueInstanceConverter implements ValueInstanceCon
     @Override
     public void afterPropertiesSet()
     {
+        PropertyCheck.mandatory(this, "scriptEngine", this.scriptEngine);
         PropertyCheck.mandatory(this, "registry", this.registry);
         PropertyCheck.mandatory(this, "convertableClass", this.convertableClass);
 
         this.registry.registerValueInstanceConverter(this.convertableClass, this);
+    }
+
+    /**
+     * @param scriptEngine
+     *            the scriptEngine to set
+     */
+    public final void setScriptEngine(final ScriptEngine scriptEngine)
+    {
+        this.scriptEngine = scriptEngine;
     }
 
     /**

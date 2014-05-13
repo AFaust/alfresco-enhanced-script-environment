@@ -27,8 +27,10 @@ import javax.script.SimpleBindings;
 import javax.script.SimpleScriptContext;
 
 import jdk.nashorn.internal.runtime.ScriptObject;
+import jdk.nashorn.api.scripting.ScriptObjectMirror;
 
 import org.alfresco.scripts.ScriptException;
+import org.alfresco.util.PropertyCheck;
 import org.nabucco.alfresco.enhScriptEnv.common.script.ReferenceScript;
 import org.nabucco.alfresco.enhScriptEnv.common.script.ScriptImportException;
 import org.nabucco.alfresco.enhScriptEnv.common.script.functions.AbstractImportScriptFunction;
@@ -43,9 +45,31 @@ import org.slf4j.LoggerFactory;
 // need to work with internal API to prepare the scope
 public class NashornImportScriptFunction<Script extends ReferenceScript> extends AbstractImportScriptFunction<Script>
 {
+
+    private static final String NASHORN_ENGINE_NAME = "nashorn";
     private static final Logger LOGGER = LoggerFactory.getLogger(NashornImportScriptFunction.class);
 
-    protected final ScriptEngine engine = new ScriptEngineManager().getEngineByName(NashornScriptProcessor.NASHORN_ENGINE_NAME);
+    protected ScriptEngine scriptEngine = new ScriptEngineManager().getEngineByName(NASHORN_ENGINE_NAME);
+
+    /**
+     *
+     * {@inheritDoc}
+     */
+    @Override
+    public void afterPropertiesSet() throws Exception
+    {
+        super.afterPropertiesSet();
+        PropertyCheck.mandatory(this, "scriptEngine", this.scriptEngine);
+    }
+
+    /**
+     * @param scriptEngine
+     *            the scriptEngine to set
+     */
+    public final void setScriptEngine(final ScriptEngine scriptEngine)
+    {
+        this.scriptEngine = scriptEngine;
+    }
 
     protected Object prepareExecutionScope(final Script location, final Object sourceScope, final Object executionScopeParam)
     {
@@ -74,7 +98,7 @@ public class NashornImportScriptFunction<Script extends ReferenceScript> extends
 
             try
             {
-                final Object scriptResult = this.engine.eval(
+                final Object scriptResult = this.scriptEngine.eval(
                         "(function (obj, proto) { obj.prototype = proto; return obj; }(scope, this));", ctxt);
                 if (scriptResult instanceof Bindings)
                 {
@@ -122,7 +146,7 @@ public class NashornImportScriptFunction<Script extends ReferenceScript> extends
                 {
                     final ScriptContext ctx = new SimpleScriptContext();
                     ctx.setBindings(global, ScriptContext.ENGINE_SCOPE);
-                    this.engine.eval(isReader, ctx);
+                    this.scriptEngine.eval(isReader, ctx);
                 }
             }
             catch (final IOException ex)
@@ -164,7 +188,11 @@ public class NashornImportScriptFunction<Script extends ReferenceScript> extends
 
         final Object resolutionParamsObj = this.valueConverter.convertValueForJava(resolutionParams);
 
-        result = this.resolveAndImport(locatorType, locationValue, resolutionParamsObj, currentScope, executionScope, failOnMissingScript);
+        // we assume the current scope is always the global - need to wrap before passing on to unaware API
+        // TODO: revisit for more complex import scenarios
+        final Object scopeToPass = ScriptObjectMirror.wrap(currentScope, currentScope);
+
+        result = this.resolveAndImport(locatorType, locationValue, resolutionParamsObj, scopeToPass, executionScope, failOnMissingScript);
 
         return result;
     }

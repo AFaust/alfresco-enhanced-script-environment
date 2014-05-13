@@ -1,6 +1,6 @@
-(function(importer, scopeParam)
+(function(importer)
 {
-    var importerDelegate = importer, scope = scopeParam, asObject = function(obj, allowJavaObj)
+    var importerDelegate = importer, asObject = function(obj, allowJavaObj)
     {
         var result;
 
@@ -36,8 +36,8 @@
         {
             var resolutionParamObj = asObject(resolutionParams, true), executionScopeObj = asObject(executionScope, false);
 
-            return importerDelegate.importScript(locatorType, locationValue, failOnMissingScript === true, resolutionParamObj, scope,
+            return importerDelegate.importScript(locatorType, locationValue, failOnMissingScript === true, resolutionParamObj, this,
                     executionScopeObj);
         }
     });
-}(NashornImportScriptFunction, this));
+}(NashornImportScriptFunction));

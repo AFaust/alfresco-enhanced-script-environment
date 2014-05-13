@@ -5,32 +5,44 @@
     <!-- Note: All beans should be prefixed ${project.artifactId} in their ID in general -->
     <!-- Exceptions: service beans (unique name) and beans with name conventions (e.g. web scripts) -->
 
+    <bean id="jdk.scriptEngineManager" class="javax.script.ScriptEngineManager" />
+
+    <bean id="jdk.nashornScriptEngine" factory-bean="jdk.scriptEngineManager" factory-method="getEngineByName">
+        <constructor-arg>
+            <value>nashorn</value>
+        </constructor-arg>
+    </bean>
+
     <bean id="javaScriptProcessor.nashornProcessor" class="${basePackage}.script.NashornScriptProcessor">
         <property name="name" value="javascript" />
         <property name="extension" value="js" />
 
         <property name="scriptService" ref="scriptService" />
         <property name="serviceRegistry" ref="ServiceRegistry" />
-
+        <property name="scriptEngine" ref="jdk.nashornScriptEngine" />
         <property name="valueConverter" ref="nashorn.valueConverter.registry" />
     </bean>
 
-    <bean id="nashorn.valueConverter.registry" class="${basePackage}.script.NashornValueConverter" />
+    <bean id="nashorn.valueConverter.registry" class="${basePackage}.script.NashornValueConverter">
+        <property name="scriptEngine" ref="jdk.nashornScriptEngine" />
+    </bean>
 
     <bean id="nashorn.valueConverter.abstract" abstract="true">
+        <property name="scriptEngine" ref="jdk.nashornScriptEngine" />
         <property name="registry" ref="nashorn.valueConverter.registry" />
     </bean>
 
     <bean id="nashorn.valueConverter.ScriptNode" class="${basePackage}.script.adapters.ScriptNodeConverter" parent="nashorn.valueConverter.abstract">
         <property name="serviceRegistry" ref="ServiceRegistry" />
     </bean>
-    
+
     <bean id="nashorn.valueConverter.SimpleRhinoSpecificBean" class="${basePackage}.script.adapters.SimpleRhinoSpecificBeanConverter" parent="nashorn.valueConverter.abstract">
         <property name="convertableClass" value="org.alfresco.repo.processor.BaseProcessorExtension" />
     </bean>
-    
+
     <bean id="javaScriptProcessor.nashornProcessor.scriptImportFunction" class="org.nabucco.alfresco.enhScriptEnv.experimental.repo.script.functions.NashornImportScriptFunction">
         <property name="scriptProcessor" ref="javaScriptProcessor.nashornProcessor" />
+        <property name="scriptEngine" ref="jdk.nashornScriptEngine" />
         <property name="valueConverter" ref="nashorn.valueConverter.registry" />
         <property name="locatorRegistry" ref="javaScriptProcessor.scriptLocatorRegistry" />
     </bean>
