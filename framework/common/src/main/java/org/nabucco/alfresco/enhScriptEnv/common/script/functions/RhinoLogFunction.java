@@ -14,22 +14,9 @@
  */
 package org.nabucco.alfresco.enhScriptEnv.common.script.functions;
 
-import java.lang.ref.WeakReference;
 import java.lang.reflect.Method;
-import java.text.MessageFormat;
 import java.util.Collection;
-import java.util.Collections;
-import java.util.HashSet;
-import java.util.IdentityHashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.WeakHashMap;
-import java.util.concurrent.locks.ReadWriteLock;
-import java.util.concurrent.locks.ReentrantReadWriteLock;
 
-import org.alfresco.util.Pair;
-import org.alfresco.util.ParameterCheck;
-import org.alfresco.util.PropertyCheck;
 import org.mozilla.javascript.Context;
 import org.mozilla.javascript.IdFunctionCall;
 import org.mozilla.javascript.IdFunctionObject;
@@ -40,21 +27,15 @@ import org.mozilla.javascript.Scriptable;
 import org.mozilla.javascript.ScriptableObject;
 import org.mozilla.javascript.Undefined;
 import org.mozilla.javascript.WrappedException;
-import org.nabucco.alfresco.enhScriptEnv.common.script.EnhancedScriptProcessor;
-import org.nabucco.alfresco.enhScriptEnv.common.script.ReferenceScript;
-import org.nabucco.alfresco.enhScriptEnv.common.script.ScopeContributor;
-import org.nabucco.alfresco.enhScriptEnv.common.script.ValueConverter;
-import org.nabucco.alfresco.enhScriptEnv.common.script.ReferenceScript.ReferencePathType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.helpers.MessageFormatter;
-import org.springframework.beans.factory.InitializingBean;
 import org.springframework.extensions.webscripts.ScriptLogger;
 
 /**
  * @author Axel Faust, <a href="http://www.prodyna.com">PRODYNA AG</a>
  */
-public class RhinoLogFunction implements IdFunctionCall, InitializingBean, ScopeContributor
+public class RhinoLogFunction extends AbstractLogFunction implements IdFunctionCall
 {
 
     public static final String LOGGER_OBJ_NAME = "logger";
@@ -111,34 +92,25 @@ public class RhinoLogFunction implements IdFunctionCall, InitializingBean, Scope
 
     private static final Logger LOGGER = LoggerFactory.getLogger(RhinoLogFunction.class);
 
-    protected EnhancedScriptProcessor<? extends ReferenceScript> scriptProcessor;
-
-    protected ValueConverter valueConverter;
-
-    protected String defaultLoggerPrefix;
-
-    /**
-     * Logger data map for state management and logger caching
-     */
-    protected final Map<Scriptable, Map<ReferenceScript, LoggerData>> scopeLoggerData = new WeakHashMap<Scriptable, Map<ReferenceScript, LoggerData>>();
-
-    /**
-     * Parent scope registry for bottom-up lookup and including context script in which parent-child relation was registered
-     */
-    protected final Map<Scriptable, Pair<WeakReference<Scriptable>, ReferenceScript>> scopeParents = new WeakHashMap<Scriptable, Pair<WeakReference<Scriptable>, ReferenceScript>>();
-
-    protected final ReadWriteLock scopeLoggerDataLock = new ReentrantReadWriteLock(true);
-
-    protected final ReadWriteLock scopeParentLock = new ReentrantReadWriteLock(true);
-
-    @Override
-    public void afterPropertiesSet()
+    protected static String extractStringParameter(final Object[] args, final int expectedIndex)
     {
-        PropertyCheck.mandatory(this, "scriptProcessor", this.scriptProcessor);
-        PropertyCheck.mandatory(this, "valueConverter", this.valueConverter);
-        PropertyCheck.mandatory(this, "defaultLoggerPrefix", this.defaultLoggerPrefix);
-
-        this.scriptProcessor.registerScopeContributor(this);
+        final String string;
+        if (args.length >= (expectedIndex + 1))
+        {
+            if (args[expectedIndex] == Undefined.instance || args[expectedIndex] == null)
+            {
+                string = null;
+            }
+            else
+            {
+                string = ScriptRuntime.toString(args, expectedIndex);
+            }
+        }
+        else
+        {
+            string = null;
+        }
+        return string;
     }
 
     /**
@@ -187,13 +159,13 @@ public class RhinoLogFunction implements IdFunctionCall, InitializingBean, Scope
             }
             else if (methodId == OUT_FUNC_ID)
             {
-                this.handleOut(scope, thisObj, args);
+                this.handleOut(args);
 
                 result = Undefined.instance;
             }
             else if (methodId == SET_SCRIPT_LOGGER_FUNC_ID)
             {
-                this.handleSetScriptLogger(scope, thisObj, args);
+                this.handleSetScriptLogger(scope, args);
 
                 result = Undefined.instance;
             }
@@ -284,99 +256,38 @@ public class RhinoLogFunction implements IdFunctionCall, InitializingBean, Scope
         }
     }
 
-    /**
-     * @param defaultLoggerPrefix
-     *            the defaultLoggerPrefix to set
-     */
-    public final void setDefaultLoggerPrefix(final String defaultLoggerPrefix)
-    {
-        this.defaultLoggerPrefix = defaultLoggerPrefix;
-    }
-
-    /**
-     * @param scriptProcessor
-     *            the scriptProcessor to set
-     */
-    public final void setScriptProcessor(final EnhancedScriptProcessor scriptProcessor)
-    {
-        this.scriptProcessor = scriptProcessor;
-    }
-
-    /**
-     * @param valueConverter
-     *            the valueConverter to set
-     */
-    public final void setValueConverter(final ValueConverter valueConverter)
-    {
-        this.valueConverter = valueConverter;
-    }
-
     protected void handleRegisterChildScope(final Scriptable scope, final Object[] args)
     {
+        final Object childScope;
         if (args.length >= 1)
         {
-            final Object scopeParam = args[0];
-            if (scopeParam instanceof Scriptable)
+            if (args[0] == Undefined.instance || args[0] == null)
             {
-                final Scriptable childScope = (Scriptable) scopeParam;
-                final ReferenceScript script = this.scriptProcessor.getContextScriptLocation();
-                this.scopeParentLock.writeLock().lock();
-                try
-                {
-                    this.scopeParents.put(childScope, new Pair<WeakReference<Scriptable>, ReferenceScript>(new WeakReference<Scriptable>(
-                            scope), script));
-                }
-                finally
-                {
-                    this.scopeParentLock.writeLock().unlock();
-                }
+                childScope = null;
             }
             else
             {
-                throw new IllegalArgumentException("Parameter is not a valid JavaScript scope object");
+                childScope = args[0];
             }
         }
         else
         {
-            throw new IllegalArgumentException("Child scope parameter is missings");
+            childScope = null;
         }
+
+        this.handleRegisterChildScope(scope, childScope);
     }
 
     protected void handleSetLoggerInheritance(final Scriptable scope, final Object[] args)
     {
         final boolean inheritLoggerContext = ScriptRuntime.toBoolean(args, 0);
-
-        final ReferenceScript referenceScript = this.scriptProcessor.getContextScriptLocation();
-        final LoggerData loggerData = this.getLoggerData(scope, referenceScript, true);
-        loggerData.setInheritLoggerContext(inheritLoggerContext);
+        this.handleSetLoggerInheritance(scope, inheritLoggerContext);
     }
 
     protected void handleSetLogger(final Scriptable scope, final Object[] args)
     {
-        if (args.length == 0 || args[0] == Undefined.instance || args[0] == null)
-        {
-            throw new IllegalArgumentException("No logger name provided");
-        }
-
-        final String explicitLogger = ScriptRuntime.toString(args, 0);
-        final ReferenceScript referenceScript = this.scriptProcessor.getContextScriptLocation();
-        final LoggerData loggerData = this.getLoggerData(scope, referenceScript, true);
-
-        if (loggerData.getLoggers() == null && loggerData.getExplicitLogger() == null)
-        {
-            loggerData.setExplicitLogger(explicitLogger);
-        }
-        else
-        {
-            if (loggerData.getExplicitLogger() != null)
-            {
-                throw new IllegalStateException("Explicit logger already set");
-            }
-            else if (loggerData.getLoggers() != null)
-            {
-                throw new IllegalStateException("Loggers already initialized");
-            }
-        }
+        final String explicitLoggerName = extractStringParameter(args, 0);
+        this.handleSetLogger(scope, explicitLoggerName);
     }
 
     protected Object handleEnablementCheck(final Scriptable scope, final Scriptable thisObj, final int methodId)
@@ -415,9 +326,7 @@ public class RhinoLogFunction implements IdFunctionCall, InitializingBean, Scope
     protected void handleLogging(final Context cx, final Scriptable scope, final Scriptable thisObj, final Object[] args, final int methodId)
     {
         final Collection<Logger> loggers = this.getLoggers(scope, true);
-        final ReferenceScript topLevelScript = this.scriptProcessor.getScriptCallChain().get(0);
-        final LoggerData globalLoggerData = this.getLoggerData(scope, topLevelScript, false);
-        final Scriptable scriptLogger = globalLoggerData != null ? globalLoggerData.getScriptLogger() : null;
+        final Object scriptLogger = this.getScriptLogger();
 
         if (args.length == 0 || args[0] == Undefined.instance || args[0] == null)
         {
@@ -427,7 +336,7 @@ public class RhinoLogFunction implements IdFunctionCall, InitializingBean, Scope
         if (args.length == 1)
         {
             final String message = ScriptRuntime.toString(args, 0);
-            this.log(methodId, loggers, scriptLogger, message);
+            this.log(methodId, loggers, scriptLogger instanceof Scriptable ? (Scriptable) scriptLogger : null, message);
         }
         else if (args.length > 1)
         {
@@ -444,7 +353,7 @@ public class RhinoLogFunction implements IdFunctionCall, InitializingBean, Scope
                 {
                     ex = (Throwable) secondParam;
                 }
-                this.log(methodId, loggers, scriptLogger, message, ex);
+                this.log(methodId, loggers, scriptLogger instanceof Scriptable ? (Scriptable) scriptLogger : null, message, ex);
             }
             else
             {
@@ -454,59 +363,46 @@ public class RhinoLogFunction implements IdFunctionCall, InitializingBean, Scope
                 {
                     params[idx] = this.valueConverter.convertValueForJava(args[argsIdx]);
                 }
-                this.log(methodId, loggers, scriptLogger, message, params);
+                this.log(methodId, loggers, scriptLogger instanceof Scriptable ? (Scriptable) scriptLogger : null, message, params);
             }
         }
     }
 
-    protected void handleOut(final Scriptable scope, final Scriptable thisObj, final Object[] args)
+    protected void handleOut(final Object[] args)
     {
-        if (args.length == 0 || args[0] == Undefined.instance || args[0] == null)
-        {
-            throw new IllegalArgumentException("No message provided");
-        }
+        final String message = RhinoLogFunction.extractStringParameter(args, 0);
 
-        if (args.length >= 1)
-        {
-            final String message = ScriptRuntime.toString(args, 0);
-
-            final ReferenceScript contextScriptLocation = this.scriptProcessor.getContextScriptLocation();
-            LOGGER.warn("Script {} logging to System.out: {}", contextScriptLocation, message);
-            System.out.println(message);
-        }
+        this.handleOut(message);
     }
 
-    protected void handleSetScriptLogger(final Scriptable scope, final Scriptable thisObj, final Object[] args)
+    protected void handleSetScriptLogger(final Scriptable scope, final Object[] args)
     {
         if (args.length >= 1)
         {
             final Scriptable scriptLogger = ScriptRuntime.toObject(scope, args[0]);
             final Object registeredScriptLogger = ScriptableObject.getProperty(scope, LOGGER_OBJ_NAME);
-            if (registeredScriptLogger == scriptLogger)
+            if (registeredScriptLogger != scriptLogger)
             {
-                throw new IllegalArgumentException("Setting the root-scope logger as scriptLogger is not allowed due to recursion");
+                super.handleSetScriptLogger(scriptLogger);
             }
-
-            // ScriptLogger is always treated as a top-level context data object, so retrieve the top-level logger data
-            final ReferenceScript topLevelScript = this.scriptProcessor.getScriptCallChain().get(0);
-            final LoggerData loggerData = this.getLoggerData(scope, topLevelScript, true);
-            final Scriptable setScriptLogger = loggerData.getScriptLogger();
-            if (setScriptLogger != scriptLogger && setScriptLogger != null)
-            {
-                // we do allow replacement of the default script logger, but nothing else
-                if (setScriptLogger instanceof NativeJavaObject
-                        && !((NativeJavaObject) setScriptLogger).unwrap().getClass().equals(ScriptLogger.class))
-                {
-                    throw new IllegalStateException("ScriptLogger has already been set - not allowed to replace it once set");
-                }
-            }
-
-            loggerData.setScriptLogger(scriptLogger);
         }
         else
         {
             throw new IllegalArgumentException("Parameter scriptLogger is missing");
         }
+    }
+
+    protected boolean isUnreplaceableScriptLogger(final Object scriptLogger)
+    {
+        final boolean result = !(scriptLogger instanceof NativeJavaObject)
+                || !this.getDefaultScriptLoggerClass().isInstance(((NativeJavaObject) scriptLogger).unwrap().getClass());
+
+        return result;
+    }
+
+    protected Class<?> getDefaultScriptLoggerClass()
+    {
+        return ScriptLogger.class;
     }
 
     protected void exportFunction(final int methodId, final String name, final int arity, final Scriptable scope)
@@ -516,222 +412,6 @@ public class RhinoLogFunction implements IdFunctionCall, InitializingBean, Scope
 
         // export as read-only and undeleteable property of the scope
         ScriptableObject.defineProperty(scope, name, func, ScriptableObject.PERMANENT | ScriptableObject.READONLY);
-    }
-
-    protected Collection<Logger> getLoggers(final Scriptable scope, final boolean createIfNull)
-    {
-        final Collection<Logger> loggers;
-
-        // TODO: what about logging in functions defined in script A but called from script B (due to scope access or explicit passing)?
-        final ReferenceScript referenceScript = this.scriptProcessor.getContextScriptLocation();
-
-        final LoggerData loggerData = this.getLoggerData(scope, referenceScript, createIfNull);
-        loggers = this.getLoggers(scope, referenceScript, loggerData);
-
-        return loggers;
-    }
-
-    protected Collection<Logger> getLoggers(final Scriptable scope, final ReferenceScript referenceScript, final LoggerData loggerData)
-    {
-        final Collection<Logger> loggers;
-        if (loggerData == null || loggerData.getLoggers() == null)
-        {
-            loggers = new HashSet<Logger>();
-            if (referenceScript != null)
-            {
-                loggers.addAll(this.getParentLoggers(scope, referenceScript));
-            }
-
-            if (loggerData != null && loggerData.getExplicitLogger() != null)
-            {
-                loggers.add(LoggerFactory.getLogger(loggerData.getExplicitLogger()));
-            }
-            else if (!this.isParentLoggerExplicit(scope, referenceScript))
-            {
-                // Note: We previously included the legacy script logger explicitly here, but this is now handled separately
-
-                if (referenceScript != null)
-                {
-                    final Collection<ReferencePathType> supportedReferencePathTypes = referenceScript.getSupportedReferencePathTypes();
-                    for (final ReferencePathType referencePathType : supportedReferencePathTypes)
-                    {
-                        final String referencePath = referenceScript.getReferencePath(referencePathType);
-                        if (referencePath != null)
-                        {
-                            final String loggerSuffix = referencePath.replace('.', '_').replace('/', '.');
-                            final String loggerName = MessageFormat.format("{0}.{1}.{2}", this.defaultLoggerPrefix, referencePathType,
-                                    loggerSuffix);
-                            loggers.add(LoggerFactory.getLogger(loggerName));
-                        }
-                    }
-                }
-            }
-
-            if (loggerData != null)
-            {
-                loggerData.setLoggers(loggers);
-            }
-        }
-        else
-        {
-            loggers = loggerData.getLoggers();
-        }
-        return loggers;
-    }
-
-    protected Collection<Logger> getParentLoggers(final Scriptable scope, final ReferenceScript script)
-    {
-        // determine parent script from call chain
-        final List<? extends ReferenceScript> scriptCallChain = this.scriptProcessor.getScriptCallChain();
-        final int scriptIndex = scriptCallChain.indexOf(script);
-        final ReferenceScript parentScript = scriptIndex > 0 ? scriptCallChain.get(scriptIndex - 1) : null;
-
-        // determine parent scope from explicit registration
-        final Pair<WeakReference<Scriptable>, ReferenceScript> scopeParentPair;
-
-        this.scopeParentLock.readLock().lock();
-        try
-        {
-            scopeParentPair = this.scopeParents.get(scope);
-        }
-        finally
-        {
-            this.scopeParentLock.readLock().unlock();
-        }
-        // use parent scope only if one has been registered and the script it was registered for is the identical script retrieved from the
-        // call chain
-        final Scriptable parentScope = scopeParentPair == null || (scopeParentPair.getSecond() != parentScript) ? scope : scopeParentPair
-                .getFirst().get();
-
-        final LoggerData parentLoggerData = parentScope != null && parentScript != null ? this.getLoggerData(parentScope, parentScript,
-                false) : null;
-        final Collection<Logger> loggers;
-        if (parentLoggerData == null || parentLoggerData.isInheritLoggerContext())
-        {
-            loggers = this.getLoggers(parentScope, parentScript, parentLoggerData);
-        }
-        else
-        {
-            loggers = Collections.emptySet();
-        }
-
-        return loggers;
-    }
-
-    protected boolean isParentLoggerExplicit(final Scriptable scope, final ReferenceScript script)
-    {
-        // determine parent script from call chain
-        final List<? extends ReferenceScript> scriptCallChain = this.scriptProcessor.getScriptCallChain();
-        final int scriptIndex = scriptCallChain.indexOf(script);
-        final ReferenceScript parentScript = scriptIndex > 0 ? scriptCallChain.get(scriptIndex - 1) : null;
-
-        final boolean result;
-        if (parentScript != null)
-        {
-            // determine parent scope from explicit registration
-            final Pair<WeakReference<Scriptable>, ReferenceScript> scopeParentPair;
-
-            this.scopeParentLock.readLock().lock();
-            try
-            {
-                scopeParentPair = this.scopeParents.get(scope);
-            }
-            finally
-            {
-                this.scopeParentLock.readLock().unlock();
-            }
-            // use parent scope only if one has been registered and the script it was registered for is the identical script retrieved from
-            // the call chain
-            final Scriptable parentScope = scopeParentPair == null || (scopeParentPair.getSecond() != parentScript) ? scope
-                    : scopeParentPair.getFirst().get();
-
-            final LoggerData parentLoggerData = parentScope != null ? this.getLoggerData(parentScope, parentScript, false) : null;
-
-            // check immediate parent
-            final boolean nextParentLoggerIsExplicit = parentLoggerData != null && parentLoggerData.getExplicitLogger() != null
-                    && parentLoggerData.isInheritLoggerContext();
-            // recursive check unless inheritance is off
-            final boolean ancestorLoggerIsExplicit = (parentLoggerData == null || parentLoggerData.isInheritLoggerContext())
-                    && this.isParentLoggerExplicit(parentScope, parentScript);
-            result = nextParentLoggerIsExplicit || ancestorLoggerIsExplicit;
-        }
-        else
-        {
-            result = false;
-        }
-        return result;
-    }
-
-    protected Map<ReferenceScript, LoggerData> getScriptLoggerDataForContext(final Scriptable scope, final boolean createIfNull)
-    {
-        Map<ReferenceScript, LoggerData> dataByScript = null;
-        this.scopeLoggerDataLock.readLock().lock();
-        try
-        {
-            dataByScript = this.scopeLoggerData.get(scope);
-        }
-        finally
-        {
-            this.scopeLoggerDataLock.readLock().unlock();
-        }
-
-        if (dataByScript == null && createIfNull)
-        {
-            dataByScript = new IdentityHashMap<ReferenceScript, RhinoLogFunction.LoggerData>();
-            this.scopeLoggerDataLock.writeLock().lock();
-            try
-            {
-                this.scopeLoggerData.put(scope, dataByScript);
-            }
-            finally
-            {
-                this.scopeLoggerDataLock.writeLock().unlock();
-            }
-        }
-
-        return dataByScript;
-    }
-
-    protected LoggerData getLoggerData(final Scriptable scope, final ReferenceScript script, final boolean createIfNull)
-    {
-        // this is like an internal assertion
-        ParameterCheck.mandatory("scope", scope);
-        ParameterCheck.mandatory("script", script);
-
-        LoggerData loggerData = null;
-
-        final Map<ReferenceScript, LoggerData> loggerDataByScript = this.getScriptLoggerDataForContext(scope, createIfNull);
-        loggerData = loggerDataByScript != null ? loggerDataByScript.get(script) : null;
-        if (loggerDataByScript != null && loggerData == null && createIfNull)
-        {
-            loggerData = new LoggerData();
-            loggerDataByScript.put(script, loggerData);
-        }
-
-        if (loggerData == null)
-        {
-            // determine parent scope from explicit registration
-            final Pair<WeakReference<Scriptable>, ReferenceScript> scopeParentPair;
-
-            this.scopeParentLock.readLock().lock();
-            try
-            {
-                scopeParentPair = this.scopeParents.get(scope);
-            }
-            finally
-            {
-                this.scopeParentLock.readLock().unlock();
-            }
-            if (scopeParentPair != null)
-            {
-                final Scriptable parentScope = scopeParentPair.getFirst().get();
-                if (parentScope != null)
-                {
-                    loggerData = this.getLoggerData(parentScope, script, createIfNull);
-                }
-            }
-        }
-        return loggerData;
     }
 
     protected void log(final int methodId, final Collection<Logger> loggers, final Scriptable scriptLogger, final String message)
@@ -879,89 +559,7 @@ public class RhinoLogFunction implements IdFunctionCall, InitializingBean, Scope
 
         public void set(final Scriptable thisObj, final Scriptable logger)
         {
-            RhinoLogFunction.this.handleSetScriptLogger(this.scope, thisObj, new Object[] { logger });
+            RhinoLogFunction.this.handleSetScriptLogger(this.scope, new Object[] { logger });
         }
-    }
-
-    protected static class LoggerData
-    {
-        private Collection<Logger> loggers;
-        private String explicitLogger;
-        private boolean inheritLoggerContext = true;
-        private Scriptable scriptLogger;
-
-        public LoggerData()
-        {
-            // NO-OP
-        }
-
-        /**
-         * @return the loggers
-         */
-        public final Collection<Logger> getLoggers()
-        {
-            return this.loggers;
-        }
-
-        /**
-         * @param loggers
-         *            the loggers to set
-         */
-        public final void setLoggers(final Collection<Logger> loggers)
-        {
-            this.loggers = loggers;
-        }
-
-        /**
-         * @return the explicitLogger
-         */
-        public final String getExplicitLogger()
-        {
-            return this.explicitLogger;
-        }
-
-        /**
-         * @param explicitLogger
-         *            the explicitLogger to set
-         */
-        public final void setExplicitLogger(final String explicitLogger)
-        {
-            this.explicitLogger = explicitLogger;
-        }
-
-        /**
-         * @return the inheritLoggerContext
-         */
-        public final boolean isInheritLoggerContext()
-        {
-            return this.inheritLoggerContext;
-        }
-
-        /**
-         * @param inheritLoggerContext
-         *            the inheritLoggerContext to set
-         */
-        public final void setInheritLoggerContext(final boolean inheritLoggerContext)
-        {
-            this.inheritLoggerContext = inheritLoggerContext;
-        }
-
-        /**
-         * @return the scriptLogger
-         */
-        public final Scriptable getScriptLogger()
-        {
-            return this.scriptLogger;
-        }
-
-        /**
-         * @param scriptLogger
-         *            the legacyLogger to set
-         */
-        public final void setScriptLogger(final Scriptable scriptLogger)
-        {
-            this.scriptLogger = scriptLogger;
-        }
-
     }
 }

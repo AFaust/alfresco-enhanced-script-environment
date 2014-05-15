@@ -713,23 +713,23 @@ public class NashornScriptProcessor extends BaseProcessor implements Initializin
         scope.remove("exit");
         scope.remove("quit");
 
-        if (!trustworthyScript)
-        {
-            // remove access to Java
-            scope.remove("Java");
-            scope.remove("java");
-            scope.remove("Packages");
-            scope.remove("JavaAdapter");
-            scope.remove("importPackage");
-            scope.remove("importClass");
-        }
-
         synchronized (this.registeredContributors)
         {
             for (final ScopeContributor contributor : this.registeredContributors)
             {
                 contributor.contributeToScope(scope, trustworthyScript, mutableScope);
             }
+        }
+
+        if (!trustworthyScript)
+        {
+            // remove access to Java (after contributors had chance to use them)
+            scope.remove("Java");
+            scope.remove("java");
+            scope.remove("Packages");
+            scope.remove("JavaAdapter");
+            scope.remove("importPackage");
+            scope.remove("importClass");
         }
 
         return scope;

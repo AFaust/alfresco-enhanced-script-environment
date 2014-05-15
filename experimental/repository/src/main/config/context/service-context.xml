@@ -47,4 +47,11 @@
         <property name="locatorRegistry" ref="javaScriptProcessor.scriptLocatorRegistry" />
     </bean>
 
+    <bean id="javaScriptProcessor.nashornProcessor.logFunction" class="org.nabucco.alfresco.enhScriptEnv.experimental.repo.script.functions.NashornLogFunction">
+        <property name="scriptProcessor" ref="javaScriptProcessor.nashornProcessor" />
+        <property name="scriptEngine" ref="jdk.nashornScriptEngine" />
+        <property name="valueConverter" ref="nashorn.valueConverter.registry" />
+        <property name="defaultLoggerPrefix" value="org.alfresco.repo.jscript.executions" />
+    </bean>
+
 </beans>
