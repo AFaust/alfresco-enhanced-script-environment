@@ -31,12 +31,17 @@ import org.nabucco.alfresco.enhScriptEnv.common.script.ReferenceScript;
 import org.nabucco.alfresco.enhScriptEnv.common.script.ScopeContributor;
 import org.springframework.beans.BeansException;
 import org.springframework.beans.factory.config.BeanPostProcessor;
+import org.springframework.context.ApplicationContext;
+import org.springframework.context.ApplicationContextAware;
 
 /**
  * @author Axel Faust, <a href="http://www.prodyna.com">PRODYNA AG</a>
  */
-public class SwitchableScriptProcessor implements ScriptProcessor, EnhancedScriptProcessor<ScriptLocation>, BeanPostProcessor
+public class SwitchableScriptProcessor implements ScriptProcessor, EnhancedScriptProcessor<ScriptLocation>, BeanPostProcessor,
+        ApplicationContextAware
 {
+
+    protected ApplicationContext applicationContext;
 
     protected ScriptService scriptService;
 
@@ -49,6 +54,11 @@ public class SwitchableScriptProcessor implements ScriptProcessor, EnhancedScrip
     protected final List<ProcessorExtension> registeredExtensions = new ArrayList<ProcessorExtension>();
 
     protected final List<ScopeContributor> registeredContributors = new ArrayList<ScopeContributor>();
+
+    public void setApplicationContext(final ApplicationContext applicationContext)
+    {
+        this.applicationContext = applicationContext;
+    }
 
     /**
      * {@inheritDoc}
@@ -92,10 +102,11 @@ public class SwitchableScriptProcessor implements ScriptProcessor, EnhancedScrip
         if (bean instanceof ScriptProcessor)
         {
             // need to make sure that WE are registered, not the other bean
-            if (this.scriptService != null)
+            if (this.scriptService == null)
             {
-                this.scriptService.registerScriptProcessor(this);
+                this.scriptService = this.applicationContext.getBean("scriptService", ScriptService.class);
             }
+            this.scriptService.registerScriptProcessor(this);
 
             final ScriptProcessor scriptProcessor = (ScriptProcessor) bean;
             for (final ProcessorExtension processorExtension : this.registeredExtensions)
@@ -112,24 +123,27 @@ public class SwitchableScriptProcessor implements ScriptProcessor, EnhancedScrip
                 }
             }
         }
-        else if (bean instanceof ScriptService && "ScriptService".equals(beanName))
-        {
-            this.scriptService = (ScriptService) bean;
-            this.scriptService.registerScriptProcessor(this);
-        }
         return bean;
     }
 
     // need to support this as it may be called on defaultScriptProcessor, which we replace
     public void register()
     {
-        // NO-OP
+        if (this.scriptService == null)
+        {
+            this.scriptService = this.applicationContext.getBean("scriptService", ScriptService.class);
+        }
+        this.scriptService.registerScriptProcessor(this);
     }
 
     // need to support this as it may be called on defaultScriptProcessor, which we replace
     public void init()
     {
-        // NO-OP
+        if (this.scriptService == null)
+        {
+            this.scriptService = this.applicationContext.getBean("scriptService", ScriptService.class);
+        }
+        this.scriptService.registerScriptProcessor(this);
     }
 
     /**

@@ -12,22 +12,25 @@
  * either express or implied. See the License for the specific language governing permissions
  * and limitations under the License.
  */
-package org.nabucco.alfresco.enhScriptEnv.common.script;
+package org.nabucco.alfresco.enhScriptEnv.repo.script;
+
+import org.nabucco.alfresco.enhScriptEnv.common.script.AbstractRhiinoValueConverter;
 
 /**
- *
  * @author Axel Faust, <a href="http://www.prodyna.com">PRODYNA AG</a>
  */
-public interface ValueConverter
+public class RhinoRepositoryValueConverterAdapter extends AbstractRhiinoValueConverter
 {
+    private static final org.alfresco.repo.jscript.ValueConverter VALUE_CONVERTER = new org.alfresco.repo.jscript.ValueConverter();
 
     /**
-     * Converts a value from the script environment to a value that can be used in regular Java components.
-     *
-     * @param value
-     *            the value to convert
-     * @return the converted value
+     * {@inheritDoc}
      */
-    Object convertValueForJava(Object value);
+    @Override
+    protected Object convertValueForJavaImpl(final Object value)
+    {
+        final Object result = VALUE_CONVERTER.convertValueForJava(value);
+        return result;
+    }
 
 }

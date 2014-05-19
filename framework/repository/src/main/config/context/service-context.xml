@@ -18,6 +18,10 @@
 
         <property name="scriptService" ref="scriptService" />
         <property name="serviceRegistry" ref="ServiceRegistry" />
+        
+        <property name="valueConverter">
+            <bean class="${basePackage}.script.RhinoRepositoryValueConverterAdapter" />
+        </property>
     </bean>
 
     <bean id="javaScriptProcessor.scriptLocatorRegistry" class="org.nabucco.alfresco.enhScriptEnv.common.script.locator.SimpleScriptLocatorRegistry" />
@@ -25,7 +29,7 @@
     <bean id="javaScriptProcessor.enhancedRhinoProcessor.scriptImportFunction" class="org.nabucco.alfresco.enhScriptEnv.common.script.functions.RhinoImportScriptFunction">
         <property name="scriptProcessor" ref="javaScriptProcessor.enhancedRhinoProcessor" />
         <property name="valueConverter">
-            <bean class="${basePackage}.script.RhinoValueConverterAdapter" />
+            <bean class="${basePackage}.script.RhinoRepositoryValueConverterAdapter" />
         </property>
         <property name="locatorRegistry" ref="javaScriptProcessor.scriptLocatorRegistry" />
     </bean>
@@ -33,7 +37,7 @@
     <bean id="javaScriptProcessor.enhancedRhinoProcessor.scriptLogger" class="org.nabucco.alfresco.enhScriptEnv.common.script.functions.RhinoLogFunction">
         <property name="scriptProcessor" ref="javaScriptProcessor.enhancedRhinoProcessor" />
         <property name="valueConverter">
-            <bean class="${basePackage}.script.RhinoValueConverterAdapter" />
+            <bean class="${basePackage}.script.RhinoRepositoryValueConverterAdapter" />
         </property>
         <property name="defaultLoggerPrefix" value="org.alfresco.repo.jscript.executions" />
     </bean>

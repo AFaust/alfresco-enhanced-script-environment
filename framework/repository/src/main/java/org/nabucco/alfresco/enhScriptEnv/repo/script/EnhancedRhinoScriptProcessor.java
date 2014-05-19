@@ -42,7 +42,6 @@ import org.alfresco.repo.jscript.RhinoScriptProcessor;
 import org.alfresco.repo.jscript.Scopeable;
 import org.alfresco.repo.jscript.ScriptNode;
 import org.alfresco.repo.jscript.ScriptableHashMap;
-import org.alfresco.repo.jscript.ValueConverter;
 import org.alfresco.repo.processor.BaseProcessor;
 import org.alfresco.repo.thumbnail.script.ScriptThumbnail;
 import org.alfresco.scripts.ScriptException;
@@ -54,6 +53,7 @@ import org.alfresco.service.cmr.repository.ScriptProcessor;
 import org.alfresco.service.namespace.QName;
 import org.alfresco.util.MD5;
 import org.alfresco.util.ParameterCheck;
+import org.alfresco.util.PropertyCheck;
 import org.mozilla.javascript.Context;
 import org.mozilla.javascript.ImporterTopLevel;
 import org.mozilla.javascript.NativeFunction;
@@ -68,6 +68,7 @@ import org.nabucco.alfresco.enhScriptEnv.common.script.EnhancedScriptProcessor;
 import org.nabucco.alfresco.enhScriptEnv.common.script.ReferenceScript;
 import org.nabucco.alfresco.enhScriptEnv.common.script.ReferenceScript.CommonReferencePath;
 import org.nabucco.alfresco.enhScriptEnv.common.script.ScopeContributor;
+import org.nabucco.alfresco.enhScriptEnv.common.script.ValueConverter;
 import org.nabucco.alfresco.enhScriptEnv.common.util.SourceFileVisitor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -91,6 +92,7 @@ public class EnhancedRhinoScriptProcessor extends BaseProcessor implements Enhan
     private static final String CLASSPATH_RESOURCE_IMPORT_PATTERN = "<import(\\s*\\n*\\s+)+resource(\\s*\\n*\\s+)*=(\\s*\\n*\\s+)*\"classpath:(/)?([^\"]+)\"(\\s*\\n*\\s+)*(/)?>";
     private static final String CLASSPATH_RESOURCE_IMPORT_REPLACEMENT = "importScript(\"classpath\", \"/$5\", true);";
 
+    // TODO: externalize this to ValueConverter.convertValueForScript (with a bit more flourish)
     protected static final WrapFactory DEFAULT_WRAP_FACTORY = new WrapFactory()
     {
         /**
@@ -139,7 +141,7 @@ public class EnhancedRhinoScriptProcessor extends BaseProcessor implements Enhan
     protected boolean failoverToLessOptimization = true;
     protected int optimizationLevel = -1;
 
-    protected final ValueConverter valueConverter = new ValueConverter();
+    protected ValueConverter valueConverter;
 
     protected final Map<String, Script> scriptCache = new LinkedHashMap<String, Script>(256);
     protected final ReadWriteLock scriptCacheLock = new ReentrantReadWriteLock(true);
@@ -160,6 +162,7 @@ public class EnhancedRhinoScriptProcessor extends BaseProcessor implements Enhan
     @Override
     public void afterPropertiesSet()
     {
+        PropertyCheck.mandatory(this, "valueConverter", this.valueConverter);
         super.register();
     }
 
@@ -721,6 +724,15 @@ public class EnhancedRhinoScriptProcessor extends BaseProcessor implements Enhan
     }
 
     /**
+     * @param valueConverter
+     *            the valueConverter to set
+     */
+    public final void setValueConverter(final ValueConverter valueConverter)
+    {
+        this.valueConverter = valueConverter;
+    }
+
+    /**
      * @param shareScopes
      *            the shareScopes to set
      */
@@ -1065,9 +1077,7 @@ public class EnhancedRhinoScriptProcessor extends BaseProcessor implements Enhan
             // execute the script and return the result
             final Object scriptResult = this.executeScriptInScopeImpl(script, scope);
 
-            // extract java object result if wrapped by Rhino
-            final Object result = this.valueConverter.convertValueForJava(scriptResult);
-            return result;
+            return scriptResult;
         }
         catch (final WrappedException w)
         {
@@ -1122,7 +1132,9 @@ public class EnhancedRhinoScriptProcessor extends BaseProcessor implements Enhan
             }
 
             final Object scriptResult = script.exec(cx, scope);
-            return scriptResult;
+            // extract java object result if wrapped by Rhino
+            final Object result = this.valueConverter.convertValueForJava(scriptResult);
+            return result;
         }
         finally
         {

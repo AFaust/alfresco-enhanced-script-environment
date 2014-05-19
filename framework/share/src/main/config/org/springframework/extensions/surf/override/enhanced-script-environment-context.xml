@@ -40,7 +40,7 @@
     <bean id="webframework.webscripts.scriptprocessor.alternative.javascript.scriptLogger" class="org.nabucco.alfresco.enhScriptEnv.common.script.functions.RhinoLogFunction">
         <property name="scriptProcessor" ref="webframework.webscripts.scriptprocessor.alternative.javascript" />
         <property name="valueConverter">
-            <bean class="org.nabucco.alfresco.enhScriptEnv.common.webscripts.processor.SimpleSurfValueConverter" />
+            <bean class="org.nabucco.alfresco.enhScriptEnv.common.webscripts.processor.RhinoSurfValueConverterAdapter" />
         </property>
         <property name="defaultLoggerPrefix" value="org.springframework.extensions.webscripts.executions" />
     </bean>
@@ -50,7 +50,7 @@
     <bean id="webframework.webscripts.scriptprocessor.alternative.javascript.importFunction" class="org.nabucco.alfresco.enhScriptEnv.common.script.functions.RhinoImportScriptFunction">
         <property name="scriptProcessor" ref="webframework.webscripts.scriptprocessor.alternative.javascript" />
         <property name="valueConverter">
-            <bean class="org.nabucco.alfresco.enhScriptEnv.common.webscripts.processor.SimpleSurfValueConverter" />
+            <bean class="org.nabucco.alfresco.enhScriptEnv.common.webscripts.processor.RhinoSurfValueConverterAdapter" />
         </property>
         <property name="locatorRegistry" ref="webframework.webscripts.scriptprocessor.scriptLocatorRegistry" />
     </bean>
@@ -90,7 +90,7 @@
     <bean id="webframework.templates.scriptprocessor.alternative.javascript.scriptLogger" class="org.nabucco.alfresco.enhScriptEnv.common.script.functions.RhinoLogFunction">
         <property name="scriptProcessor" ref="webframework.templates.scriptprocessor.alternative.javascript" />
         <property name="valueConverter">
-            <bean class="org.nabucco.alfresco.enhScriptEnv.common.webscripts.processor.SimpleSurfValueConverter" />
+            <bean class="org.nabucco.alfresco.enhScriptEnv.common.webscripts.processor.RhinoSurfValueConverterAdapter" />
         </property>
         <property name="defaultLoggerPrefix" value="org.springframework.extensions.templates.executions" />
     </bean>
@@ -100,7 +100,7 @@
     <bean id="webframework.templates.scriptprocessor.alternative.javascript.importFunction" class="org.nabucco.alfresco.enhScriptEnv.common.script.functions.RhinoImportScriptFunction">
         <property name="scriptProcessor" ref="webframework.templates.scriptprocessor.alternative.javascript" />
         <property name="valueConverter">
-            <bean class="org.nabucco.alfresco.enhScriptEnv.common.webscripts.processor.SimpleSurfValueConverter" />
+            <bean class="org.nabucco.alfresco.enhScriptEnv.common.webscripts.processor.RhinoSurfValueConverterAdapter" />
         </property>
         <property name="locatorRegistry" ref="webframework.templates.scriptprocessor.scriptLocatorRegistry" />
     </bean>
