@@ -21,7 +21,7 @@ import java.util.Map;
 /**
  * @author Axel Faust, <a href="http://www.prodyna.com">PRODYNA AG</a>
  */
-public abstract class AbstractRhiinoValueConverter implements ValueConverter
+public abstract class AbstractRhinoValueConverter implements ValueConverter
 {
 
     /**

@@ -14,12 +14,12 @@
  */
 package org.nabucco.alfresco.enhScriptEnv.repo.script;
 
-import org.nabucco.alfresco.enhScriptEnv.common.script.AbstractRhiinoValueConverter;
+import org.nabucco.alfresco.enhScriptEnv.common.script.AbstractRhinoValueConverter;
 
 /**
  * @author Axel Faust, <a href="http://www.prodyna.com">PRODYNA AG</a>
  */
-public class RhinoRepositoryValueConverterAdapter extends AbstractRhiinoValueConverter
+public class RhinoRepositoryValueConverterAdapter extends AbstractRhinoValueConverter
 {
     private static final org.alfresco.repo.jscript.ValueConverter VALUE_CONVERTER = new org.alfresco.repo.jscript.ValueConverter();
 

@@ -14,13 +14,13 @@
  */
 package org.nabucco.alfresco.enhScriptEnv.common.webscripts.processor;
 
-import org.nabucco.alfresco.enhScriptEnv.common.script.AbstractRhiinoValueConverter;
+import org.nabucco.alfresco.enhScriptEnv.common.script.AbstractRhinoValueConverter;
 import org.springframework.extensions.webscripts.ScriptValueConverter;
 
 /**
  * @author Axel Faust, <a href="http://www.prodyna.com">PRODYNA AG</a>
  */
-public class RhinoSurfValueConverterAdapter extends AbstractRhiinoValueConverter
+public class RhinoSurfValueConverterAdapter extends AbstractRhinoValueConverter
 {
 
     /**
