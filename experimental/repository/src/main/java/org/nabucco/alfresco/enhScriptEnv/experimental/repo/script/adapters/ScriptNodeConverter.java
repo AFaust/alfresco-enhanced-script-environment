@@ -18,11 +18,14 @@ import java.lang.reflect.Method;
 import java.util.Collections;
 
 import org.alfresco.repo.jscript.ScriptNode;
+import org.alfresco.repo.thumbnail.script.ScriptThumbnail;
 import org.alfresco.service.ServiceRegistry;
 import org.alfresco.service.cmr.repository.NodeRef;
 import org.aopalliance.intercept.MethodInvocation;
 import org.mozilla.javascript.Scriptable;
-import org.nabucco.alfresco.enhScriptEnv.experimental.repo.script.NashornValueInstanceConverterRegistry.ValueConverter;
+import org.nabucco.alfresco.enhScriptEnv.experimental.repo.script.ValueConverter;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.aop.framework.ConstructorArgumentAwareProxyFactory;
 import org.springframework.aop.framework.ProxyFactory;
 
@@ -31,6 +34,8 @@ import org.springframework.aop.framework.ProxyFactory;
  */
 public class ScriptNodeConverter extends AbstractValueInstanceConverter
 {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(ScriptNodeConverter.class);
 
     protected ServiceRegistry serviceRegistry;
 
@@ -53,13 +58,25 @@ public class ScriptNodeConverter extends AbstractValueInstanceConverter
      * {@inheritDoc}
      */
     @Override
-    public Object convertValueForNashorn(final Object valueInstance, final ValueConverter globalDelegate)
+    public Object convertValueForNashorn(final Object valueInstance, final ValueConverter globalDelegate, final Class<?> expectedClass)
     {
         final Object result;
-        if (valueInstance instanceof ScriptNode)
+        if (valueInstance instanceof ScriptNode && (Object.class.equals(expectedClass) || ScriptNode.class.isAssignableFrom(expectedClass)))
         {
-            final ProxyFactory proxyFactory = new ConstructorArgumentAwareProxyFactory(new Object[] {
-                    ((ScriptNode) valueInstance).getNodeRef(), this.serviceRegistry }, new Class[] { NodeRef.class, ServiceRegistry.class });
+            final Object[] ctorArguments;
+            final Class[] ctorArgumentTypes;
+            if (valueInstance instanceof ScriptThumbnail)
+            {
+                ctorArguments = new Object[] { ((ScriptNode) valueInstance).getNodeRef(), this.serviceRegistry, DUMMY_SCOPE };
+                ctorArgumentTypes = new Class[] { NodeRef.class, ServiceRegistry.class, Scriptable.class };
+            }
+            else
+            {
+                ctorArguments = new Object[] { ((ScriptNode) valueInstance).getNodeRef(), this.serviceRegistry };
+                ctorArgumentTypes = new Class[] { NodeRef.class, ServiceRegistry.class };
+            }
+
+            final ProxyFactory proxyFactory = new ConstructorArgumentAwareProxyFactory(ctorArguments, ctorArgumentTypes);
 
             proxyFactory.addAdvice(new RhinoSpecificBeanInterceptor(globalDelegate));
             proxyFactory.setInterfaces(collectInterfaces(valueInstance, Collections.<Class<?>> emptySet()));
@@ -70,6 +87,7 @@ public class ScriptNodeConverter extends AbstractValueInstanceConverter
         }
         else
         {
+            LOGGER.warn("Conversion of value instance {} to expected class {} is not supported", valueInstance, expectedClass);
             result = null;
         }
         return result;

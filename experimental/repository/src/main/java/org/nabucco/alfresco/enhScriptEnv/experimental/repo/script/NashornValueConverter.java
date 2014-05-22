@@ -19,11 +19,18 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.Reader;
 import java.lang.reflect.Array;
+import java.lang.reflect.Field;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.Collections;
 import java.util.Date;
 import java.util.HashMap;
+import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import javax.script.Bindings;
 import javax.script.ScriptContext;
@@ -32,27 +39,37 @@ import javax.script.ScriptEngineManager;
 import javax.script.SimpleScriptContext;
 
 import jdk.nashorn.internal.runtime.ScriptObject;
-import jdk.nashorn.internal.objects.NativeJava;
 
+import org.alfresco.repo.jscript.ContentAwareScriptableQNameMap;
 import org.alfresco.repo.jscript.NativeMap;
+import org.alfresco.repo.jscript.ScriptNode;
+import org.alfresco.repo.jscript.ScriptableHashMap;
 import org.alfresco.scripts.ScriptException;
+import org.alfresco.service.ServiceRegistry;
+import org.alfresco.service.namespace.NamespacePrefixResolverProvider;
+import org.alfresco.service.namespace.QNameMap;
 import org.alfresco.util.ParameterCheck;
 import org.alfresco.util.PropertyCheck;
 import org.mozilla.javascript.Context;
-import org.mozilla.javascript.IdScriptableObject;
 import org.mozilla.javascript.NativeArray;
 import org.mozilla.javascript.NativeJavaObject;
 import org.mozilla.javascript.Scriptable;
-import org.nabucco.alfresco.enhScriptEnv.experimental.repo.script.NashornValueInstanceConverterRegistry.ValueConverter;
+import org.mozilla.javascript.ScriptableObject;
+import org.nabucco.alfresco.enhScriptEnv.experimental.repo.script.aop.ListLikeMapAdapterInterceptor;
+import org.nabucco.alfresco.enhScriptEnv.experimental.repo.script.aop.ScriptableAdapterInterceptor;
+import org.nabucco.alfresco.enhScriptEnv.experimental.repo.script.aop.ValueConvertingListInterceptor;
+import org.nabucco.alfresco.enhScriptEnv.experimental.repo.script.aop.ValueConvertingMapInterceptor;
+import org.springframework.aop.framework.ConstructorArgumentAwareProxyFactory;
+import org.springframework.aop.framework.ProxyFactory;
 import org.springframework.beans.factory.InitializingBean;
+import org.springframework.extensions.webscripts.ScriptableMap;
 
 /**
  * @author Axel Faust, <a href="http://www.prodyna.com">PRODYNA AG</a>
  */
 @SuppressWarnings("restriction")
 // need to work with internal API to prepare the scope and convert objects
-public class NashornValueConverter implements NashornValueInstanceConverterRegistry, ValueConverter,
-        org.nabucco.alfresco.enhScriptEnv.common.script.ValueConverter, InitializingBean
+public class NashornValueConverter implements NashornValueInstanceConverterRegistry, ValueConverter, InitializingBean
 {
 
     /**
@@ -66,6 +83,22 @@ public class NashornValueConverter implements NashornValueInstanceConverterRegis
 
     protected ScriptEngine scriptEngine = new ScriptEngineManager().getEngineByName(NASHORN_ENGINE_NAME);
 
+    protected ServiceRegistry serviceRegistry;
+
+    protected final ThreadLocal<Bindings> cachedBindings = new ThreadLocal<Bindings>()
+    {
+
+        /**
+         * {@inheritDoc}
+         */
+        @Override
+        protected Bindings initialValue()
+        {
+            return NashornValueConverter.this.scriptEngine.createBindings();
+        }
+
+    };
+
     /**
      *
      * {@inheritDoc}
@@ -74,6 +107,7 @@ public class NashornValueConverter implements NashornValueInstanceConverterRegis
     public void afterPropertiesSet()
     {
         PropertyCheck.mandatory(this, "scriptEngine", this.scriptEngine);
+        PropertyCheck.mandatory(this, "serviceRegistry", this.serviceRegistry);
     }
 
     /**
@@ -83,6 +117,15 @@ public class NashornValueConverter implements NashornValueInstanceConverterRegis
     public final void setScriptEngine(final ScriptEngine scriptEngine)
     {
         this.scriptEngine = scriptEngine;
+    }
+
+    /**
+     * @param serviceRegistry
+     *            the serviceRegistry to set
+     */
+    public final void setServiceRegistry(final ServiceRegistry serviceRegistry)
+    {
+        this.serviceRegistry = serviceRegistry;
     }
 
     /**
@@ -103,86 +146,165 @@ public class NashornValueConverter implements NashornValueInstanceConverterRegis
     @Override
     public Object convertValueForNashorn(final Object value)
     {
-        final Object result;
+        final Object result = this.convertValueForNashorn(value, Object.class);
+        return result;
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public <T> T convertValueForNashorn(final Object value, final Class<T> expectedClass)
+    {
+        final T result;
 
         // check for Rhino integration data types
         if (value instanceof Scriptable)
         {
             final Scriptable scriptableValue = (Scriptable) value;
-            if (value instanceof IdScriptableObject)
-            {
-                if (TYPE_DATE.equals(((IdScriptableObject) value).getClassName()))
-                {
-                    result = Context.jsToJava(value, Date.class);
-                }
-                else if (scriptableValue instanceof NativeArray)
-                {
-                    // convert Rhino JavaScript array of values to a regular array of objects
-                    final Object[] propIds = scriptableValue.getIds();
-                    if (isArray(propIds) == true)
-                    {
-                        result = this.convertRhinoArrayToNashorn(scriptableValue, propIds);
-                    }
-                    else
-                    {
-                        final Map<Object, Object> propValues = new HashMap<Object, Object>(propIds.length);
-                        for (final Object propId : propIds)
-                        {
-                            // Get the value and add to the map
-                            final Object val = scriptableValue.get(propId.toString(), scriptableValue);
-                            propValues.put(this.convertValueForNashorn(propId), this.convertValueForNashorn(val));
-                        }
 
-                        result = propValues;
-                    }
-                }
-                else
-                {
-                    result = this.convertObjectToNashornObject(scriptableValue);
-                }
-            }
-            else if (scriptableValue instanceof NativeMap)
+            if (Map.class.isAssignableFrom(expectedClass))
             {
-                result = this.convertRhinoMapToMap(scriptableValue);
+                // some kind of map required
+                result = expectedClass.cast(this.convertScriptableToMap(scriptableValue, expectedClass));
+            }
+            else if (Scriptable.class.isAssignableFrom(expectedClass) && scriptableValue instanceof Map<?, ?>)
+            {
+                // already a Map AND a Scriptable, may be a special kind of Rhino-enabled Map
+                result = expectedClass.cast(this.convertScriptableToMap(scriptableValue, expectedClass));
             }
             else if (scriptableValue instanceof NativeJavaObject)
             {
-                result = ((NativeJavaObject) scriptableValue).unwrap();
+                final Object javaObject = ((NativeJavaObject) scriptableValue).unwrap();
+                result = expectedClass.cast(this.convertValueForNashorn(javaObject, expectedClass));
+            }
+            else if (expectedClass.isAssignableFrom(Date.class) && value instanceof ScriptableObject
+                    && TYPE_DATE.equals(((ScriptableObject) value).getClassName()))
+            {
+                result = expectedClass.cast(Context.jsToJava(value, Date.class));
+            }
+            else if (scriptableValue instanceof NativeArray)
+            {
+                // convert Rhino JavaScript array of values to a regular array of objects
+                final Object[] propIds = scriptableValue.getIds();
+                if (isArray(propIds) == true)
+                {
+                    final List<Object> propValues = new ArrayList<Object>(propIds.length);
+                    for (int i = 0; i < propIds.length; i++)
+                    {
+                        // work on each key in turn
+                        final Object propId = propIds[i];
+
+                        // we are only interested in keys that indicate a list of values
+                        if (propId instanceof Integer)
+                        {
+                            // get the value out for the specified key
+                            final Object val = scriptableValue.get(((Integer) propId).intValue(), scriptableValue);
+                            propValues.add(val);
+                        }
+                    }
+
+                    result = this.convertValueForNashorn(propValues, expectedClass);
+                }
+                else
+                {
+                    final Map<Object, Object> propValues = new HashMap<Object, Object>(propIds.length);
+                    for (final Object propId : propIds)
+                    {
+                        final Object val = scriptableValue.get(propId.toString(), scriptableValue);
+                        propValues.put(propId, val);
+                    }
+
+                    result = expectedClass.cast(this.convertValueForNashorn(propValues, expectedClass));
+                }
             }
             else
             {
-                result = this.convertObjectToNashornObject(scriptableValue);
+                result = expectedClass.cast(this.converValueForNashornImpl(scriptableValue, expectedClass));
             }
+        }
+        // special map #2 requires a sub-classing proxy, but doesn't require List-interface add-in
+        else if (QNameMap.class.isAssignableFrom(expectedClass) && value instanceof QNameMap<?, ?>)
+        {
+
+            result = expectedClass.cast(this.convertQNameMapToMap((QNameMap<?, ?>) value, expectedClass));
+        }
+        else if (Map.class.equals(expectedClass) && value instanceof Map<?, ?>)
+        {
+            final ProxyFactory proxyFactory = new ProxyFactory();
+
+            proxyFactory.addAdvice(new ValueConvertingMapInterceptor(this));
+
+            proxyFactory.setInterfaces(collectInterfaces(value, Collections.<Class<?>> emptySet()));
+            proxyFactory.setTarget(value);
+
+            result = expectedClass.cast(proxyFactory.getProxy());
+
+        }
+        else if (List.class.equals(expectedClass) && value instanceof List<?>)
+        {
+            final ProxyFactory proxyFactory = new ProxyFactory();
+
+            proxyFactory.addAdvice(new ValueConvertingListInterceptor(this));
+
+            proxyFactory.setInterfaces(collectInterfaces(value, Collections.<Class<?>> emptySet()));
+            proxyFactory.setTarget(value);
+
+            result = expectedClass.cast(proxyFactory.getProxy());
+
         }
         else if (value != null)
         {
             final Class<? extends Object> valueClass = value.getClass();
-            if (valueClass.isArray())
+            if ((expectedClass.isArray() && (valueClass.isArray() || value instanceof List<?>))
+                    || (List.class.equals(expectedClass) && valueClass.isArray()))
             {
-                if (valueClass.getComponentType().isPrimitive())
+                if (expectedClass.isArray() && valueClass.isArray())
                 {
-                    result = NativeJava.from(null, value);
+                    final Object[] arr = (Object[]) value;
+
+                    for (int idx = 0; idx < arr.length; idx++)
+                    {
+                        arr[idx] = this.convertValueForNashorn(arr[idx], expectedClass.getComponentType());
+                    }
+                    result = expectedClass.cast(arr);
+                }
+                else if (expectedClass.isArray() && value instanceof List<?>)
+                {
+                    final List<?> list = (List<?>) value;
+                    final Object[] arr = (Object[]) Array.newInstance(expectedClass.getComponentType(), list.size());
+                    for (int idx = 0; idx < list.size(); idx++)
+                    {
+                        arr[idx] = this.convertValueForNashorn(list.get(idx), expectedClass.getComponentType());
+                    }
+                    result = expectedClass.cast(arr);
                 }
                 else
                 {
-                    final Object[] arr1 = (Object[]) value;
-                    final Object[] arr2 = new Object[arr1.length];
-                    for (int idx = 0; idx < arr1.length; idx++)
+                    final Object[] arr = (Object[]) value;
+                    final List<Object> list = new ArrayList<Object>();
+                    for (final Object element : arr)
                     {
-                        arr2[idx] = this.convertValueForNashorn(arr1[idx]);
+                        list.add(element);
                     }
-
-                    result = NativeJava.from(null, arr2);
+                    result = expectedClass.cast(this.convertValueForNashorn(list, expectedClass));
                 }
+            }
+            else if (!expectedClass.isPrimitive())
+            {
+                // arbitrary object - no special handling (yet)
+                result = expectedClass.cast(this.converValueForNashornImpl(value, expectedClass));
             }
             else
             {
-                result = this.convertObjectToNashornObject(value);
+                @SuppressWarnings("unchecked")
+                final T primitiveResult = (T) value;
+                result = primitiveResult;
             }
         }
         else
         {
-            result = value;
+            result = null;
         }
 
         return result;
@@ -206,7 +328,7 @@ public class NashornValueConverter implements NashornValueInstanceConverterRegis
                     {
                         // this may be rather expensive per call, so use (potentially reuse) thead-local bindings
                         // TODO: Can we add some cleanup? What is the footprint of this thread-local?
-                        final Bindings bindings = this.scriptEngine.createBindings();
+                        final Bindings bindings = this.cachedBindings.get();
                         bindings.put("nashornObj", value);
                         final ScriptContext ctx = new SimpleScriptContext();
                         ctx.setBindings(bindings, ScriptContext.ENGINE_SCOPE);
@@ -232,7 +354,7 @@ public class NashornValueConverter implements NashornValueInstanceConverterRegis
         return result;
     }
 
-    protected Object convertObjectToNashornObject(final Object object)
+    protected Object converValueForNashornImpl(final Object object, final Class<?> expectedClass)
     {
         ValueInstanceConverter instanceConverter = null;
         Class<?> cls = object.getClass();
@@ -245,7 +367,7 @@ public class NashornValueConverter implements NashornValueInstanceConverterRegis
         final Object result;
         if (instanceConverter != null)
         {
-            result = instanceConverter.convertValueForNashorn(object, this);
+            result = instanceConverter.convertValueForNashorn(object, this, expectedClass);
         }
         else
         {
@@ -256,81 +378,196 @@ public class NashornValueConverter implements NashornValueInstanceConverterRegis
         return result;
     }
 
-    protected Object convertRhinoMapToMap(final Scriptable scriptableValue)
+    protected Object convertScriptableToMap(final Scriptable scriptableValue, final Class<?> expectedClass)
     {
         final Object result;
-        // convert Scriptable object of values to a Map of objects
-        final Object[] propIds = scriptableValue.getIds();
-        final Map<String, Object> propValues = new HashMap<String, Object>(propIds.length);
-        for (int i = 0; i < propIds.length; i++)
+
+        // special map #1 requires a sub-classing proxy where we add-in List-interface to support Array-like access
+        // (like the map supports in Rhino)
+        if (ScriptableHashMap.class.isAssignableFrom(expectedClass) && scriptableValue instanceof ScriptableHashMap<?, ?>)
         {
-            // work on each key in turn
-            final Object propId = propIds[i];
+            // note: fortunately, this does not cover the final class ScriptableParameterMap that is "only" returned as Map
 
-            // we are only interested in keys that indicate a list of values
-            if (propId instanceof String)
-            {
-                // get the value out for the specified key
-                final Object val = scriptableValue.get((String) propId, scriptableValue);
-                // recursively call this method to convert the value
-                propValues.put((String) propId, this.convertValueForNashorn(val));
-            }
+            // we know ScriptableHashMap has a no-arg constructor
+            final ProxyFactory proxyFactory = new ConstructorArgumentAwareProxyFactory(new Object[0], new Class[0]);
+
+            proxyFactory.addAdvice(new ValueConvertingMapInterceptor(this));
+            proxyFactory.addAdvice(new ValueConvertingListInterceptor(this));
+            proxyFactory.setInterfaces(collectInterfaces(scriptableValue, Collections.<Class<?>> singleton(List.class)));
+            proxyFactory.setTarget(scriptableValue);
+            proxyFactory.setProxyTargetClass(true);
+
+            result = proxyFactory.getProxy();
         }
+        // special map #2 requires a sub-classing proxy, but doesn't require List-interface add-in
+        else if (QNameMap.class.isAssignableFrom(expectedClass) && scriptableValue instanceof QNameMap<?, ?>)
+        {
 
-        result = propValues;
+            result = this.convertQNameMapToMap((QNameMap<?, ?>) scriptableValue, expectedClass);
+        }
+        // special map #3 that we typically can just facade with List-interface add-in to support Array-like access and Scriptable
+        else if (ScriptableMap.class.equals(expectedClass) && scriptableValue instanceof ScriptableMap)
+        {
+            final ProxyFactory proxyFactory = new ProxyFactory();
+
+            proxyFactory.addAdvice(new ScriptableAdapterInterceptor());
+            proxyFactory.addAdvice(new ValueConvertingMapInterceptor(this));
+            proxyFactory.addAdvice(new ValueConvertingListInterceptor(this));
+            proxyFactory.addAdvice(new ListLikeMapAdapterInterceptor());
+
+            proxyFactory.setInterfaces(collectInterfaces(scriptableValue, Collections.<Class<?>> emptySet()));
+            proxyFactory.setTarget(scriptableValue);
+
+            result = proxyFactory.getProxy();
+        }
+        // special map #4 that we typically can just facade with List-interface add-in to support Array-like access without Scriptable
+        else if (Map.class.equals(expectedClass) && scriptableValue instanceof LinkedHashMap<?, ?>)
+        {
+            final ProxyFactory proxyFactory = new ProxyFactory();
+
+            proxyFactory.addAdvice(new ValueConvertingMapInterceptor(this));
+            proxyFactory.addAdvice(new ValueConvertingListInterceptor(this));
+            proxyFactory.addAdvice(new ListLikeMapAdapterInterceptor());
+
+            proxyFactory.setInterfaces(collectInterfaces(scriptableValue, Collections.<Class<?>> emptySet()));
+            // not expected => not exposed
+            proxyFactory.removeInterface(Scriptable.class);
+            proxyFactory.setTarget(scriptableValue);
+
+            result = proxyFactory.getProxy();
+
+        }
+        else if (scriptableValue instanceof NativeMap)
+        {
+            // default NativeMap handling
+            final ProxyFactory proxyFactory = new ProxyFactory();
+
+            final Object wrapped = ((NativeMap) scriptableValue).unwrap();
+
+            proxyFactory.setInterfaces(collectInterfaces(wrapped, Collections.<Class<?>> emptySet()));
+            if (Scriptable.class.equals(expectedClass))
+            {
+                // expected => delegated to Map (if somehow used at all)
+                proxyFactory.addAdvice(new ScriptableAdapterInterceptor());
+                proxyFactory.addInterface(Scriptable.class);
+            }
+            proxyFactory.addAdvice(new ValueConvertingMapInterceptor(this));
+            proxyFactory.setTarget(wrapped);
+
+            result = proxyFactory.getProxy();
+        }
+        else if (scriptableValue instanceof Map<?, ?>)
+        {
+            // default Map handling
+            final ProxyFactory proxyFactory = new ProxyFactory();
+
+            proxyFactory.setInterfaces(collectInterfaces(scriptableValue, Collections.<Class<?>> emptySet()));
+            if (Scriptable.class.equals(expectedClass))
+            {
+                // expected => delegated to Map (if somehow used at all)
+                proxyFactory.addAdvice(new ScriptableAdapterInterceptor());
+            }
+            else if (!Scriptable.class.isAssignableFrom(expectedClass))
+            {
+                // not expected => not exposed
+                proxyFactory.removeInterface(Scriptable.class);
+            }
+
+            proxyFactory.addAdvice(new ValueConvertingMapInterceptor(this));
+            proxyFactory.setTarget(scriptableValue);
+
+            result = proxyFactory.getProxy();
+        }
+        else
+        {
+            // default Scriptable handling
+
+            // convert Scriptable object of values to a Map of objects
+            final Object[] propIds = scriptableValue.getIds();
+            final Map<String, Object> propValues = new HashMap<String, Object>(propIds.length);
+            for (int i = 0; i < propIds.length; i++)
+            {
+                // work on each key in turn
+                final Object propId = propIds[i];
+
+                // get the value out for the specified key
+                final Object val = propId instanceof String ? scriptableValue.get((String) propId, scriptableValue) : scriptableValue.get(
+                        ((Integer) propId).intValue(), scriptableValue);
+                propValues.put((String) propId, val);
+            }
+
+            final ProxyFactory proxyFactory = new ProxyFactory();
+            proxyFactory.setInterfaces(collectInterfaces(propValues, Collections.<Class<?>> emptySet()));
+            if (Scriptable.class.equals(expectedClass))
+            {
+                // expected => delegated to Map (if somehow used at all)
+                proxyFactory.addAdvice(new ScriptableAdapterInterceptor());
+                proxyFactory.addInterface(Scriptable.class);
+            }
+            proxyFactory.addAdvice(new ValueConvertingMapInterceptor(this));
+            proxyFactory.setTarget(propValues);
+
+            result = proxyFactory.getProxy();
+        }
 
         return result;
     }
 
-    protected Object convertRhinoArrayToNashorn(final Scriptable scriptableValue, final Object[] propIds)
+    protected Object convertQNameMapToMap(final QNameMap<?, ?> scriptableValue, final Class<?> expectedClass)
     {
         final Object result;
-        final Object intermediateResult;
+        final Object[] cstructParams;
+        final Class[] cstructParamTypes;
 
-        // get type of array
-        Class<?> componentType = null;
-
-        final List<Object> propValues = new ArrayList<Object>(propIds.length);
-        for (int i = 0; i < propIds.length; i++)
+        if (scriptableValue instanceof ContentAwareScriptableQNameMap<?, ?>)
         {
-            // work on each key in turn
-            final Object propId = propIds[i];
-
-            // we are only interested in keys that indicate a list of values
-            if (propId instanceof Integer)
+            try
             {
-                // get the value out for the specified key
-                final Object val = scriptableValue.get(((Integer) propId).intValue(), scriptableValue);
-                // recursively call this method to convert the value
-                propValues.add(this.convertValueForNashorn(val));
-
-                if (componentType == null)
-                {
-                    componentType = val.getClass();
-                }
-                else if (!componentType.isInstance(val))
-                {
-                    Class<?> valClass = val.getClass();
-                    while (!valClass.isAssignableFrom(componentType))
-                    {
-                        valClass = valClass.getSuperclass();
-                    }
-                    componentType = valClass;
-                }
+                final Field factoryField = QNameMap.class.getField("factory");
+                factoryField.setAccessible(true);
+                final Object factory = factoryField.get(scriptableValue);
+                cstructParams = new Object[] { factory, this.serviceRegistry };
+                cstructParamTypes = new Class[] { ScriptNode.class, ServiceRegistry.class };
             }
-        }
-
-        if (propValues.isEmpty())
-        {
-            intermediateResult = new Object[0];
+            catch (final NoSuchFieldException | IllegalAccessException ex)
+            {
+                throw new ScriptException("Technical error preparing conversion of QNameMap for Nashorn", ex);
+            }
         }
         else
         {
-            intermediateResult = propValues.toArray((Object[]) Array.newInstance(componentType, 0));
+            try
+            {
+                final Field providerField = QNameMap.class.getField("provider");
+                providerField.setAccessible(true);
+                final Object namespacePrefixResolverProvider = providerField.get(scriptableValue);
+                cstructParams = new Object[] { namespacePrefixResolverProvider };
+                cstructParamTypes = new Class[] { NamespacePrefixResolverProvider.class };
+            }
+            catch (final NoSuchFieldException | IllegalAccessException ex)
+            {
+                throw new ScriptException("Technical error preparing conversion of QNameMap for Nashorn", ex);
+            }
         }
 
-        result = this.convertValueForNashorn(intermediateResult);
+        final ProxyFactory proxyFactory = new ConstructorArgumentAwareProxyFactory(cstructParams, cstructParamTypes);
 
+        proxyFactory.setInterfaces(collectInterfaces(scriptableValue, Collections.<Class<?>> emptySet()));
+        if (Scriptable.class.isAssignableFrom(expectedClass))
+        {
+            // expected => delegated to Map (if somehow used at all)
+            proxyFactory.addAdvice(new ScriptableAdapterInterceptor());
+        }
+        else
+        {
+            // not expected => not exposed
+            proxyFactory.removeInterface(Scriptable.class);
+        }
+        proxyFactory.addAdvice(new ValueConvertingMapInterceptor(this));
+        proxyFactory.setTarget(scriptableValue);
+        proxyFactory.setProxyTargetClass(true);
+
+        result = proxyFactory.getProxy();
         return result;
     }
 
@@ -353,5 +590,21 @@ public class NashornValueConverter implements NashornValueInstanceConverterRegis
             }
         }
         return result;
+    }
+
+    @SuppressWarnings("rawtypes")
+    protected static Class[] collectInterfaces(final Object source, final Collection<Class<?>> predefinedInterfaces)
+    {
+        final Set<Class<?>> interfaces = new HashSet<Class<?>>(predefinedInterfaces);
+        Class<?> implClass = source.getClass();
+        while (!Object.class.equals(implClass))
+        {
+            interfaces.addAll(Arrays.asList(implClass.getInterfaces()));
+
+            implClass = implClass.getSuperclass();
+        }
+
+        final Class[] interfacesArr = interfaces.toArray(new Class[0]);
+        return interfacesArr;
     }
 }

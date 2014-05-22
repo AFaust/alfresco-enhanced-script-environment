@@ -58,7 +58,6 @@ import org.nabucco.alfresco.enhScriptEnv.common.script.EnhancedScriptProcessor;
 import org.nabucco.alfresco.enhScriptEnv.common.script.ReferenceScript;
 import org.nabucco.alfresco.enhScriptEnv.common.script.ReferenceScript.CommonReferencePath;
 import org.nabucco.alfresco.enhScriptEnv.common.script.ScopeContributor;
-import org.nabucco.alfresco.enhScriptEnv.experimental.repo.script.NashornValueInstanceConverterRegistry.ValueConverter;
 import org.nabucco.alfresco.enhScriptEnv.repo.script.NodeScriptLocation;
 import org.nabucco.alfresco.enhScriptEnv.repo.script.ScriptLocationAdapter;
 import org.slf4j.Logger;
@@ -80,6 +79,9 @@ public class NashornScriptProcessor extends BaseProcessor implements Initializin
 
     private static final String CLASSPATH_RESOURCE_IMPORT_PATTERN = "<import(\\s*\\n*\\s+)+resource(\\s*\\n*\\s+)*=(\\s*\\n*\\s+)*\"classpath:(/)?([^\"]+)\"(\\s*\\n*\\s+)*(/)?>";
     private static final String CLASSPATH_RESOURCE_IMPORT_REPLACEMENT = "importScript(\"classpath\", \"/$5\", true);";
+
+    private static final String CONST_PATTERN = "\\s*const ([^=]+=)";
+    private static final String CONST_REPLACEMENT = "var $1";
 
     private static final int DEFAULT_MAX_SCRIPT_CACHE_SIZE = 200;
 
@@ -540,6 +542,15 @@ public class NashornScriptProcessor extends BaseProcessor implements Initializin
         return legacyNamePathResolvedScript;
     }
 
+    @SuppressWarnings("static-method")
+    protected String prepareSource(final String script)
+    {
+        final String importResolvedSource = this.resolveScriptImports(script);
+        final String constFixedSource = importResolvedSource.replaceAll(CONST_PATTERN, CONST_REPLACEMENT);
+
+        return constFixedSource;
+    }
+
     protected Object executeScriptImpl(final String source, final Map<String, Object> argModel, final boolean secureScript,
             final ReferenceScript script)
     {
@@ -566,6 +577,8 @@ public class NashornScriptProcessor extends BaseProcessor implements Initializin
 
             // execute the script and return the result
             final Object scriptResult = this.executeScriptInScopeImpl(source, effectiveScriptName, scope);
+
+            // TODO: in-place cleaning of any parameters from argModel (e.g. Map / Collections modified within script)
 
             return scriptResult;
         }
@@ -682,8 +695,10 @@ public class NashornScriptProcessor extends BaseProcessor implements Initializin
         scriptContext.setBindings(scope, ScriptContext.ENGINE_SCOPE);
         scriptContext.setAttribute(ScriptEngine.FILENAME, effectiveScriptName, ScriptContext.ENGINE_SCOPE);
 
-        final Object scriptResult = this.scriptEngine.eval(source, scriptContext);
-        return scriptResult;
+        final String cleanSource = this.prepareSource(source);
+        final Object scriptResult = this.scriptEngine.eval(cleanSource, scriptContext);
+        final Object result = this.valueConverter.convertValueForJava(scriptResult);
+        return result;
 
     }
 

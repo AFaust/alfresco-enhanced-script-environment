@@ -40,8 +40,8 @@ import org.mozilla.javascript.NativeObject;
 import org.mozilla.javascript.Scriptable;
 import org.nabucco.alfresco.enhScriptEnv.experimental.repo.script.NashornScriptProcessor;
 import org.nabucco.alfresco.enhScriptEnv.experimental.repo.script.NashornValueInstanceConverterRegistry;
-import org.nabucco.alfresco.enhScriptEnv.experimental.repo.script.NashornValueInstanceConverterRegistry.ValueConverter;
 import org.nabucco.alfresco.enhScriptEnv.experimental.repo.script.NashornValueInstanceConverterRegistry.ValueInstanceConverter;
+import org.nabucco.alfresco.enhScriptEnv.experimental.repo.script.ValueConverter;
 import org.springframework.beans.factory.InitializingBean;
 
 /**
@@ -99,7 +99,7 @@ public abstract class AbstractValueInstanceConverter implements ValueInstanceCon
                 AbstractValueInstanceConverter.this.preRhinoBeanInvocation(invocation);
 
                 final Object result = invocation.proceed();
-                final Object convertedResult = this.globalDelegate.convertValueForNashorn(result);
+                final Object convertedResult = this.globalDelegate.convertValueForNashorn(result, invocation.getMethod().getReturnType());
                 return convertedResult;
             }
             finally

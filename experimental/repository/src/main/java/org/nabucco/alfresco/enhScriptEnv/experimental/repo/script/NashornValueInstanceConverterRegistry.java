@@ -22,21 +22,6 @@ public interface NashornValueInstanceConverterRegistry
     /**
      * @author Axel Faust, <a href="http://www.prodyna.com">PRODYNA AG</a>
      */
-    public interface ValueConverter
-    {
-        /**
-         * Converts the provided object into a Nashorn-compatible value.
-         *
-         * @param value
-         *            the object to convert
-         * @return the converted value instance
-         */
-        Object convertValueForNashorn(Object value);
-    }
-
-    /**
-     * @author Axel Faust, <a href="http://www.prodyna.com">PRODYNA AG</a>
-     */
     public interface ValueInstanceConverter
     {
 
@@ -47,9 +32,11 @@ public interface NashornValueInstanceConverterRegistry
          *            the object to convert
          * @param globalDelegate
          *            the global value instance converter to delegate any sub-instance conversions to
+         * @param expectedClass
+         *            the class object the converted value instanceof is required to be an instance of
          * @return the converted value instance
          */
-        Object convertValueForNashorn(Object value, ValueConverter globalDelegate);
+        Object convertValueForNashorn(Object value, ValueConverter globalDelegate, Class<?> expectedClass);
 
     }
 

@@ -25,6 +25,7 @@
 
     <bean id="nashorn.valueConverter.registry" class="${basePackage}.script.NashornValueConverter">
         <property name="scriptEngine" ref="jdk.nashornScriptEngine" />
+        <property name="serviceRegistry" ref="ServiceRegistry" />
     </bean>
 
     <bean id="nashorn.valueConverter.abstract" abstract="true">
@@ -38,6 +39,40 @@
 
     <bean id="nashorn.valueConverter.SimpleRhinoSpecificBean" class="${basePackage}.script.adapters.SimpleRhinoSpecificBeanConverter" parent="nashorn.valueConverter.abstract">
         <property name="convertableClass" value="org.alfresco.repo.processor.BaseProcessorExtension" />
+    </bean>
+    
+    <bean id="nashorn.valueConverter.Site" class="${basePackage}.script.adapters.SiteConverter" parent="nashorn.valueConverter.abstract">
+        <property name="convertableClass" value="org.alfresco.repo.site.script.Site" />
+        <property name="serviceRegistry" ref="ServiceRegistry" />
+        <property name="siteService" ref="siteService" />
+    </bean>
+    
+    <bean id="nashorn.valueConverter.ScriptExecutionDetails" class="${basePackage}.script.adapters.SimpleRhinoSpecificBeanConverter" parent="nashorn.valueConverter.abstract">
+        <property name="convertableClass" value="org.alfresco.repo.action.script.ScriptExecutionDetails" />
+    </bean>
+    
+    <bean id="nashorn.valueConverter.Association" class="${basePackage}.script.adapters.SimpleRhinoSpecificBeanConverter" parent="nashorn.valueConverter.abstract">
+        <property name="convertableClass" value="org.alfresco.repo.jscript.Association" />
+    </bean>
+    
+    <bean id="nashorn.valueConverter.ChildAssociation" class="${basePackage}.script.adapters.SimpleRhinoSpecificBeanConverter" parent="nashorn.valueConverter.abstract">
+        <property name="convertableClass" value="org.alfresco.repo.jscript.ChildAssociation" />
+    </bean>
+    
+    <bean id="nashorn.valueConverter.ScriptVersion" class="${basePackage}.script.adapters.SimpleRhinoSpecificBeanConverter" parent="nashorn.valueConverter.abstract">
+        <property name="convertableClass" value="org.alfresco.repo.jscript.ScriptVersion" />
+    </bean>
+    
+    <bean id="nashorn.valueConverter.ScriptGroup" class="${basePackage}.script.adapters.SimpleRhinoSpecificBeanConverter" parent="nashorn.valueConverter.abstract">
+        <property name="convertableClass" value="org.alfresco.repo.security.authority.script.ScriptGroup" />
+    </bean>
+    
+    <bean id="nashorn.valueConverter.ScriptUser" class="${basePackage}.script.adapters.SimpleRhinoSpecificBeanConverter" parent="nashorn.valueConverter.abstract">
+        <property name="convertableClass" value="org.alfresco.repo.security.authority.script.ScriptUser" />
+    </bean>
+    
+    <bean id="nashorn.valueConverter.ActivitiScriptBase" class="${basePackage}.script.adapters.SimpleRhinoSpecificBeanConverter" parent="nashorn.valueConverter.abstract">
+        <property name="convertableClass" value="org.alfresco.repo.workflow.activiti.script.ActivitiScriptBase" />
     </bean>
 
     <bean id="javaScriptProcessor.nashornProcessor.scriptImportFunction" class="org.nabucco.alfresco.enhScriptEnv.experimental.repo.script.functions.NashornImportScriptFunction">

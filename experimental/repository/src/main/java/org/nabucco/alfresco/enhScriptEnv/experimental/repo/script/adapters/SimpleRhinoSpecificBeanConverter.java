@@ -31,7 +31,7 @@ import net.sf.cglib.core.Signature;
 import net.sf.cglib.core.TypeUtils;
 
 import org.alfresco.scripts.ScriptException;
-import org.nabucco.alfresco.enhScriptEnv.experimental.repo.script.NashornValueInstanceConverterRegistry.ValueConverter;
+import org.nabucco.alfresco.enhScriptEnv.experimental.repo.script.ValueConverter;
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.ClassWriter;
@@ -63,10 +63,13 @@ public class SimpleRhinoSpecificBeanConverter extends AbstractValueInstanceConve
 
         private static final Signature CSTRUC = TypeUtils.parseConstructor(new Type[] { Constants.TYPE_OBJECT });
 
-        protected DelegatorEmitter(final ClassVisitor v, final Type parent, final String className, final Class<?> delegateClass)
+        protected DelegatorEmitter(final ClassVisitor v)
         {
             super(v);
+        }
 
+        protected void writeDelegatorClass(final Type parent, final String className, final Class<?> delegateClass)
+        {
             this.begin_class(Opcodes.V1_2, Opcodes.ACC_PUBLIC, className, parent, new Type[0], Constants.SOURCE_FILE);
 
             final CodeEmitter cstruct = this.begin_method(Opcodes.ACC_PUBLIC, CSTRUC, null);
@@ -107,16 +110,22 @@ public class SimpleRhinoSpecificBeanConverter extends AbstractValueInstanceConve
      * {@inheritDoc}
      */
     @Override
-    public Object convertValueForNashorn(final Object valueInstance, final ValueConverter globalDelegate)
+    public Object convertValueForNashorn(final Object valueInstance, final ValueConverter globalDelegate, final Class<?> expectedClass)
     {
         final Object result;
         final Object realValue;
 
+        // TODO: differentiate value objects from service objects (value objects should typically not be replaced by delegating proxy)
+        // TODO: adapt delegate class emitter to transparently replace Rhino-specific return types with proper types
+
         if (valueInstance != null)
         {
             final ProxyFactory proxyFactory;
-            if (Modifier.isFinal(valueInstance.getClass().getModifiers()))
+            if (Modifier.isFinal(valueInstance.getClass().getModifiers())
+                    && (Object.class.equals(expectedClass) || expectedClass.isInterface()))
             {
+                LOGGER.debug("Creating dynamic delegator for Rhino-specific bean {}", valueInstance);
+
                 // cannot subclass to proxy
                 final Class<?> delegateClass = getOrGenerateDelegator(valueInstance.getClass());
 
@@ -133,19 +142,33 @@ public class SimpleRhinoSpecificBeanConverter extends AbstractValueInstanceConve
 
                 proxyFactory = new ConstructorArgumentAwareProxyFactory(new Object[] { valueInstance }, new Class[] { Object.class });
             }
-            else
+            else if (!Modifier.isFinal(valueInstance.getClass().getModifiers()))
             {
+                LOGGER.debug("Creating subclass-proxy for Rhino-specific bean {}", valueInstance);
                 realValue = valueInstance;
-                // any processor extension without no-argument-constructor will break this - but there should be none
+                // any bean class without no-argument-constructor will break this - but there should be none
                 proxyFactory = new ConstructorArgumentAwareProxyFactory(new Object[0], new Class[0]);
             }
+            else
+            {
+                LOGGER.warn("Conversion of value instance {} to expected class {} is not supported", valueInstance, expectedClass);
+                realValue = null;
+                proxyFactory = null;
+            }
 
-            proxyFactory.addAdvice(new RhinoSpecificBeanInterceptor(globalDelegate));
-            proxyFactory.setInterfaces(collectInterfaces(valueInstance, Collections.<Class<?>> emptySet()));
-            proxyFactory.setTarget(realValue);
-            proxyFactory.setProxyTargetClass(true);
+            if (realValue != null && proxyFactory != null)
+            {
+                proxyFactory.addAdvice(new RhinoSpecificBeanInterceptor(globalDelegate));
+                proxyFactory.setInterfaces(collectInterfaces(valueInstance, Collections.<Class<?>> emptySet()));
+                proxyFactory.setTarget(realValue);
+                proxyFactory.setProxyTargetClass(true);
 
-            result = proxyFactory.getProxy();
+                result = proxyFactory.getProxy();
+            }
+            else
+            {
+                result = null;
+            }
         }
         else
         {
@@ -169,7 +192,7 @@ public class SimpleRhinoSpecificBeanConverter extends AbstractValueInstanceConve
         {
             final ClassWriter cw = new ClassWriter(ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS);
 
-            new DelegatorEmitter(cw, Type.getType(BaseDelegate.class), originalClass.getName() + "_Delegate", originalClass);
+            new DelegatorEmitter(cw).writeDelegatorClass(Type.getType(BaseDelegate.class), originalClass.getName() + "_Delegate", originalClass);
 
             final byte[] classBytes = cw.toByteArray();
             final String className = ClassNameReader.getClassName(new ClassReader(classBytes));

@@ -3,8 +3,11 @@ package org.nabucco.alfresco.enhScriptEnv.experimental.repo.script;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.Reader;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import javax.script.Bindings;
 import javax.script.ScriptContext;
@@ -96,9 +99,31 @@ public class Test
 
         final Object result = engine.eval("function main(){ var obj = new Object(); obj.prototype = this; return obj;} main();");
         System.out.println(result instanceof Bindings);
-        // engine.eval("importClass(java.util.HashMap);", myContext);
 
-        // engine.eval("print(new HashMap());", myContext);
+        globalBindings.put("arr", Arrays.asList("Str1", "Str2", "Str3", "Str4", "Str5", "Str6"));
+        engine.eval("for (var idx = 0; idx < arr.length; idx++){ print(arr[idx]); }", myContext);
+
+        globalBindings.put("arr", new String[] { "Str1", "Str2", "Str3", "Str4", "Str5", "Str6" });
+        engine.eval("for (var idx = 0; idx < arr.length; idx++){ print(arr[idx]); }", myContext);
+
+        globalBindings.put("str", "MyTestString");
+        engine.eval("print(str === \"MyTestString\");", myContext);
+        engine.eval("print(testObj.name === \"TestName\");", myContext);
+
+        is = Test.class.getResource("resources/nashorn-object-to-java.js").openStream();
+        isReader = new InputStreamReader(is);
+        engine.eval(isReader, myContext);
+        System.out.println(globalBindings.get("javaObj"));
+        System.out.println(globalBindings.get("javaObj").getClass());
+
+        final Matcher matcher = Pattern.compile("^Descriptor_##_(.+?)(_##_(.+))?$").matcher("Descriptor_##_alfrescoLocal_##_test");
+        if(matcher.matches())
+        {
+            for(int i = 0; i <= matcher.groupCount(); i++)
+            {
+                System.out.println(matcher.group(i));
+            }
+        }
     }
 
 }
