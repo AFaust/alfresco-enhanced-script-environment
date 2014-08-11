@@ -22,7 +22,7 @@ import org.nabucco.alfresco.enhScriptEnv.common.script.EnhancedScriptProcessor;
 import org.nabucco.alfresco.enhScriptEnv.common.script.ReferenceScript;
 import org.nabucco.alfresco.enhScriptEnv.common.script.ScopeContributor;
 import org.nabucco.alfresco.enhScriptEnv.common.script.ScriptImportException;
-import org.nabucco.alfresco.enhScriptEnv.common.script.ValueConverter;
+import org.nabucco.alfresco.enhScriptEnv.common.script.converter.ValueConverter;
 import org.nabucco.alfresco.enhScriptEnv.common.script.locator.ScriptLocator;
 import org.nabucco.alfresco.enhScriptEnv.common.script.locator.ScriptLocatorRegistry;
 import org.slf4j.Logger;

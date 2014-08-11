@@ -14,6 +14,8 @@
  */
 package org.nabucco.alfresco.enhScriptEnv.common.script.functions;
 
+import java.util.Map;
+
 import org.mozilla.javascript.Context;
 import org.mozilla.javascript.IdFunctionCall;
 import org.mozilla.javascript.IdFunctionObject;
@@ -74,7 +76,7 @@ public class RhinoImportScriptFunction<Script extends ReferenceScript> extends A
                 final boolean failOnMissingScript = ScriptRuntime.toBoolean(args, 2);
                 // defaults to null
                 final Scriptable resolutionParams = ScriptRuntime.toObjectOrNull(cx, args.length > 3 ? args[3] : null);
-                final Object resolutionParamsJavaObj = this.valueConverter.convertValueForJava(resolutionParams);
+                final Object resolutionParamsJavaObj = this.valueConverter.convertValueForJava(resolutionParams, Map.class);
 
                 // TODO: Is Scriptable ok as base type for scope? Could be anything, even a function...
                 final Scriptable executionScopeParam = ScriptRuntime.toObjectOrNull(cx, args.length > 4 ? args[4] : null);

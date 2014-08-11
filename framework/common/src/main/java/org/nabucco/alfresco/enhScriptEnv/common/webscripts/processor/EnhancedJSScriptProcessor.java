@@ -16,6 +16,7 @@ package org.nabucco.alfresco.enhScriptEnv.common.webscripts.processor;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.lang.reflect.Method;
 import java.text.MessageFormat;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -41,13 +42,14 @@ import org.mozilla.javascript.NativeJavaObject;
 import org.mozilla.javascript.Script;
 import org.mozilla.javascript.Scriptable;
 import org.mozilla.javascript.ScriptableObject;
-import org.mozilla.javascript.WrapFactory;
 import org.mozilla.javascript.WrappedException;
 import org.mozilla.javascript.debug.DebuggableScript;
 import org.nabucco.alfresco.enhScriptEnv.common.script.EnhancedScriptProcessor;
 import org.nabucco.alfresco.enhScriptEnv.common.script.ReferenceScript;
-import org.nabucco.alfresco.enhScriptEnv.common.script.ScopeContributor;
 import org.nabucco.alfresco.enhScriptEnv.common.script.ReferenceScript.CommonReferencePath;
+import org.nabucco.alfresco.enhScriptEnv.common.script.ScopeContributor;
+import org.nabucco.alfresco.enhScriptEnv.common.script.converter.ValueConverter;
+import org.nabucco.alfresco.enhScriptEnv.common.script.converter.rhino.DelegatingWrapFactory;
 import org.nabucco.alfresco.enhScriptEnv.common.util.SourceFileVisitor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -59,7 +61,6 @@ import org.springframework.extensions.webscripts.ScriptProcessor;
 import org.springframework.extensions.webscripts.ScriptValueConverter;
 import org.springframework.extensions.webscripts.WebScriptException;
 import org.springframework.extensions.webscripts.processor.BaseRegisterableScriptProcessor;
-import org.springframework.extensions.webscripts.processor.JSScriptProcessor.PresentationWrapFactory;
 import org.springframework.util.FileCopyUtils;
 
 /**
@@ -95,9 +96,6 @@ public class EnhancedJSScriptProcessor extends BaseRegisterableScriptProcessor i
         ASM_AVAILABLE = asmAvailable;
     }
 
-    // reuse existing implementation
-    private static final WrapFactory WRAP_FACTORY = new PresentationWrapFactory();
-
     // used WeakHashMap here before to avoid accidental leaks but measures for proper cleanup have proven themselves during tests
     protected final Map<Context, List<ReferenceScript>> activeScriptContentChain = new ConcurrentHashMap<Context, List<ReferenceScript>>();
     protected final Map<Context, List<List<ReferenceScript>>> recursionScriptContentChains = new ConcurrentHashMap<Context, List<List<ReferenceScript>>>();
@@ -113,6 +111,7 @@ public class EnhancedJSScriptProcessor extends BaseRegisterableScriptProcessor i
     protected int optimizationLevel = -1;
 
     protected ScriptLoader standardScriptLoader;
+    protected ValueConverter valueConverter;
 
     protected final Map<String, Script> scriptCache = new LinkedHashMap<String, Script>(256);
     protected final ReadWriteLock scriptCacheLock = new ReentrantReadWriteLock(true);
@@ -133,6 +132,7 @@ public class EnhancedJSScriptProcessor extends BaseRegisterableScriptProcessor i
     public void afterPropertiesSet()
     {
         PropertyCheck.mandatory(this, "standardScriptLoader", this.standardScriptLoader);
+        PropertyCheck.mandatory(this, "valueConverter", this.valueConverter);
     }
 
     /**
@@ -492,7 +492,7 @@ public class EnhancedJSScriptProcessor extends BaseRegisterableScriptProcessor i
         Context cx = Context.enter();
         try
         {
-            cx.setWrapFactory(WRAP_FACTORY);
+            cx.setWrapFactory(new DelegatingWrapFactory(this.valueConverter));
             this.unrestrictedShareableScope = this.setupScope(cx, true, false);
         }
         finally
@@ -503,7 +503,7 @@ public class EnhancedJSScriptProcessor extends BaseRegisterableScriptProcessor i
         cx = Context.enter();
         try
         {
-            cx.setWrapFactory(WRAP_FACTORY);
+            cx.setWrapFactory(new DelegatingWrapFactory(this.valueConverter));
             this.restrictedShareableScope = this.setupScope(cx, false, false);
         }
         finally
@@ -865,6 +865,19 @@ public class EnhancedJSScriptProcessor extends BaseRegisterableScriptProcessor i
             scope.delete("java");
         }
 
+        // With Alfresco 4.2.2/4.1.8, NativeJSON backported from Rhino 1.7R4 is added
+        // reflectively check availability and initialize in scope
+        try
+        {
+            final Class<?> nativeJSON = Class.forName("org.mozilla.javascript.NativeJSON");
+            final Method init = nativeJSON.getMethod("init", new Class[] { Scriptable.class, boolean.class });
+            init.invoke(null, new Object[] { scope, Boolean.valueOf(!mutableScope) });
+        }
+        catch (final Exception ex)
+        {
+            // NO-OP - earlier versions simply don't support it
+        }
+
         synchronized (this.registeredContributors)
         {
             for (final ScopeContributor contributor : this.registeredContributors)
@@ -885,7 +898,7 @@ public class EnhancedJSScriptProcessor extends BaseRegisterableScriptProcessor i
         final Context cx = Context.enter();
         try
         {
-            cx.setWrapFactory(WRAP_FACTORY);
+            cx.setWrapFactory(new DelegatingWrapFactory(this.valueConverter));
 
             final Scriptable scope;
             if (this.shareScopes)
@@ -907,7 +920,7 @@ public class EnhancedJSScriptProcessor extends BaseRegisterableScriptProcessor i
                 {
                     final Object obj = model.get(key);
                     // convert/wrap each object to JavaScript compatible
-                    final Object jsObject = Context.javaToJS(obj, scope);
+                    final Object jsObject = this.valueConverter.convertValueForScript(obj);
 
                     // insert into the root scope ready for access by the script
                     ScriptableObject.putProperty(scope, key, jsObject);
@@ -945,7 +958,7 @@ public class EnhancedJSScriptProcessor extends BaseRegisterableScriptProcessor i
         final Context cx = Context.enter();
         try
         {
-            cx.setWrapFactory(WRAP_FACTORY);
+            cx.setWrapFactory(new DelegatingWrapFactory(this.valueConverter));
             // make sure scripts always have the relevant processor extensions available
             for (final ProcessorExtension ex : this.processorExtensions.values())
             {
@@ -1048,4 +1061,14 @@ public class EnhancedJSScriptProcessor extends BaseRegisterableScriptProcessor i
     {
         this.standardScriptLoader = standardScriptLoader;
     }
+
+    /**
+     * @param valueConverter
+     *            the valueConverter to set
+     */
+    public void setValueConverter(final ValueConverter valueConverter)
+    {
+        this.valueConverter = valueConverter;
+    }
+
 }

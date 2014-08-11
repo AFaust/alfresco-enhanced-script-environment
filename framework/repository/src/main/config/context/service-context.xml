@@ -9,6 +9,50 @@
     <bean id="javaScriptProcessor.postProcessor" class="org.nabucco.alfresco.enhScriptEnv.repo.script.SwitchableScriptProcessor">
         <property name="activeScriptProcessor" value="${script.processor.activeProcessorName}" />
     </bean>
+    
+    <bean id="javaScriptProcessor.rhinoValueConverter" class="org.nabucco.alfresco.enhScriptEnv.common.script.converter.GenericGlobalValueConverter" />
+    
+    <bean id="javaScriptProcessor.rhinoValueConverter.abstractInstanceConverter" abstract="true">
+        <property name="registry" ref="javaScriptProcessor.rhinoValueConverter" />
+    </bean>
+    
+    <bean id="javaScriptProcessor.rhinoValueConverter.wrapFactoryConverter" class="org.nabucco.alfresco.enhScriptEnv.common.script.converter.rhino.WrapFactoryConverter" parent="javaScriptProcessor.rhinoValueConverter.abstractInstanceConverter" />
+    
+    <bean id="javaScriptProcessor.rhinoValueConverter.surfNativeMapConverter" class="org.nabucco.alfresco.enhScriptEnv.common.script.converter.rhino.SurfNativeMapConverter" parent="javaScriptProcessor.rhinoValueConverter.abstractInstanceConverter" />
+    
+    <!-- <bean id="javaScriptProcessor.rhinoValueConverter.stringConverter" class="org.nabucco.alfresco.enhScriptEnv.common.script.converter.rhino.StringConverter" parent="javaScriptProcessor.rhinoValueConverter.abstractInstanceConverter" /> -->
+    
+    <bean id="javaScriptProcessor.rhinoValueConverter.simpleJSONObjectConverter" class="org.nabucco.alfresco.enhScriptEnv.common.script.converter.rhino.SimpleJSONObjectConverter" parent="javaScriptProcessor.rhinoValueConverter.abstractInstanceConverter" />
+    
+    <bean id="javaScriptProcessor.rhinoValueConverter.nativeArrayConverter" class="org.nabucco.alfresco.enhScriptEnv.common.script.converter.rhino.NativeArrayConverter" parent="javaScriptProcessor.rhinoValueConverter.abstractInstanceConverter" />
+    
+    <bean id="javaScriptProcessor.rhinoValueConverter.scriptableObjectConverterConverter" class="org.nabucco.alfresco.enhScriptEnv.common.script.converter.rhino.ScriptableObjectConverter" parent="javaScriptProcessor.rhinoValueConverter.abstractInstanceConverter" />
+    
+    <bean id="javaScriptProcessor.rhinoValueConverter.dateConverter" class="org.nabucco.alfresco.enhScriptEnv.common.script.converter.rhino.DateConverter" parent="javaScriptProcessor.rhinoValueConverter.abstractInstanceConverter" />
+    
+    <bean id="javaScriptProcessor.rhinoValueConverter.mapConverter" class="org.nabucco.alfresco.enhScriptEnv.common.script.converter.general.MapConverter" parent="javaScriptProcessor.rhinoValueConverter.abstractInstanceConverter" />
+    
+    <bean id="javaScriptProcessor.rhinoValueConverter.numberConverter" class="org.nabucco.alfresco.enhScriptEnv.common.script.converter.general.NumberConverter" parent="javaScriptProcessor.rhinoValueConverter.abstractInstanceConverter" />
+    
+    <bean id="javaScriptProcessor.rhinoValueConverter.arrayConverter" class="org.nabucco.alfresco.enhScriptEnv.common.script.converter.general.ArrayConverter" parent="javaScriptProcessor.rhinoValueConverter.abstractInstanceConverter" />
+    
+    <bean id="javaScriptProcessor.rhinoValueConverter.repoNativeMapConverter" class="${basePackage}.script.converter.rhino.RepoNativeMapConverter" parent="javaScriptProcessor.rhinoValueConverter.abstractInstanceConverter" />
+    
+    <bean id="javaScriptProcessor.rhinoValueConverter.associationConverter" class="${basePackage}.script.converter.rhino.AssociationConverter" parent="javaScriptProcessor.rhinoValueConverter.abstractInstanceConverter">
+        <property name="serviceRegistry" ref="ServiceRegistry" />
+    </bean>
+    
+    <bean id="javaScriptProcessor.rhinoValueConverter.childAssociationConverter" class="${basePackage}.script.converter.rhino.ChildAssociationConverter" parent="javaScriptProcessor.rhinoValueConverter.abstractInstanceConverter">
+        <property name="serviceRegistry" ref="ServiceRegistry" />
+    </bean>
+    
+    <bean id="javaScriptProcessor.rhinoValueConverter.qnameStoreRefConverter" class="${basePackage}.script.converter.rhino.QNameStoreRefConverter" parent="javaScriptProcessor.rhinoValueConverter.abstractInstanceConverter" />
+    
+    <bean id="javaScriptProcessor.rhinoValueConverter.scriptNodeConverter" class="${basePackage}.script.converter.rhino.ScriptNodeConverter" parent="javaScriptProcessor.rhinoValueConverter.abstractInstanceConverter">
+        <property name="serviceRegistry" ref="ServiceRegistry" />
+        <property name="nodeService" ref="NodeService" />
+        <property name="dictionaryService" ref="DictionaryService" />
+    </bean>
 
     <bean id="javaScriptProcessor.enhancedRhinoProcessor" class="${basePackage}.script.EnhancedRhinoScriptProcessor">
         <property name="name" value="javascript" />
@@ -19,26 +63,20 @@
         <property name="scriptService" ref="scriptService" />
         <property name="serviceRegistry" ref="ServiceRegistry" />
         
-        <property name="valueConverter">
-            <bean class="${basePackage}.script.RhinoRepositoryValueConverterAdapter" />
-        </property>
+        <property name="valueConverter" ref="javaScriptProcessor.rhinoValueConverter" />
     </bean>
 
     <bean id="javaScriptProcessor.scriptLocatorRegistry" class="org.nabucco.alfresco.enhScriptEnv.common.script.locator.SimpleScriptLocatorRegistry" />
 
     <bean id="javaScriptProcessor.enhancedRhinoProcessor.scriptImportFunction" class="org.nabucco.alfresco.enhScriptEnv.common.script.functions.RhinoImportScriptFunction">
         <property name="scriptProcessor" ref="javaScriptProcessor.enhancedRhinoProcessor" />
-        <property name="valueConverter">
-            <bean class="${basePackage}.script.RhinoRepositoryValueConverterAdapter" />
-        </property>
+        <property name="valueConverter" ref="javaScriptProcessor.rhinoValueConverter" />
         <property name="locatorRegistry" ref="javaScriptProcessor.scriptLocatorRegistry" />
     </bean>
 
     <bean id="javaScriptProcessor.enhancedRhinoProcessor.scriptLogger" class="org.nabucco.alfresco.enhScriptEnv.common.script.functions.RhinoLogFunction">
         <property name="scriptProcessor" ref="javaScriptProcessor.enhancedRhinoProcessor" />
-        <property name="valueConverter">
-            <bean class="${basePackage}.script.RhinoRepositoryValueConverterAdapter" />
-        </property>
+        <property name="valueConverter" ref="javaScriptProcessor.rhinoValueConverter" />
         <property name="defaultLoggerPrefix" value="org.alfresco.repo.jscript.executions" />
     </bean>
 

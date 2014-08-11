@@ -32,8 +32,8 @@ import org.alfresco.util.PropertyCheck;
 import org.nabucco.alfresco.enhScriptEnv.common.script.EnhancedScriptProcessor;
 import org.nabucco.alfresco.enhScriptEnv.common.script.ReferenceScript;
 import org.nabucco.alfresco.enhScriptEnv.common.script.ScopeContributor;
-import org.nabucco.alfresco.enhScriptEnv.common.script.ValueConverter;
 import org.nabucco.alfresco.enhScriptEnv.common.script.ReferenceScript.ReferencePathType;
+import org.nabucco.alfresco.enhScriptEnv.common.script.converter.ValueConverter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.InitializingBean;
@@ -197,8 +197,6 @@ public abstract class AbstractLogFunction implements InitializingBean, ScopeCont
 
     protected void handleOut(final String message)
     {
-        ParameterCheck.mandatoryString("message", message);
-
         final ReferenceScript contextScriptLocation = this.scriptProcessor.getContextScriptLocation();
         this.getLogger().warn("Script {} logging to System.out: {}", contextScriptLocation, message);
         System.out.println(message);

@@ -328,7 +328,7 @@ public class RhinoLogFunction extends AbstractLogFunction implements IdFunctionC
         final Collection<Logger> loggers = this.getLoggers(scope, true);
         final Object scriptLogger = this.getScriptLogger();
 
-        if (args.length == 0 || args[0] == Undefined.instance || args[0] == null)
+        if (args.length == 0 || args[0] == Undefined.instance)
         {
             throw new IllegalArgumentException("No message provided");
         }

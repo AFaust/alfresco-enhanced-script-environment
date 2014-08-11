@@ -32,22 +32,13 @@ import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 import org.alfresco.error.AlfrescoRuntimeException;
-import org.alfresco.model.ContentModel;
-import org.alfresco.model.RenditionModel;
 import org.alfresco.processor.ProcessorExtension;
-import org.alfresco.repo.jscript.CategoryNode;
 import org.alfresco.repo.jscript.ClasspathScriptLocation;
-import org.alfresco.repo.jscript.NativeMap;
 import org.alfresco.repo.jscript.RhinoScriptProcessor;
 import org.alfresco.repo.jscript.Scopeable;
-import org.alfresco.repo.jscript.ScriptNode;
-import org.alfresco.repo.jscript.ScriptableHashMap;
 import org.alfresco.repo.processor.BaseProcessor;
-import org.alfresco.repo.thumbnail.script.ScriptThumbnail;
 import org.alfresco.scripts.ScriptException;
-import org.alfresco.service.cmr.dictionary.DictionaryService;
 import org.alfresco.service.cmr.repository.NodeRef;
-import org.alfresco.service.cmr.repository.NodeService;
 import org.alfresco.service.cmr.repository.ScriptLocation;
 import org.alfresco.service.cmr.repository.ScriptProcessor;
 import org.alfresco.service.namespace.QName;
@@ -61,14 +52,14 @@ import org.mozilla.javascript.NativeJavaObject;
 import org.mozilla.javascript.Script;
 import org.mozilla.javascript.Scriptable;
 import org.mozilla.javascript.ScriptableObject;
-import org.mozilla.javascript.WrapFactory;
 import org.mozilla.javascript.WrappedException;
 import org.mozilla.javascript.debug.DebuggableScript;
 import org.nabucco.alfresco.enhScriptEnv.common.script.EnhancedScriptProcessor;
 import org.nabucco.alfresco.enhScriptEnv.common.script.ReferenceScript;
 import org.nabucco.alfresco.enhScriptEnv.common.script.ReferenceScript.CommonReferencePath;
+import org.nabucco.alfresco.enhScriptEnv.common.script.converter.ValueConverter;
+import org.nabucco.alfresco.enhScriptEnv.common.script.converter.rhino.DelegatingWrapFactory;
 import org.nabucco.alfresco.enhScriptEnv.common.script.ScopeContributor;
-import org.nabucco.alfresco.enhScriptEnv.common.script.ValueConverter;
 import org.nabucco.alfresco.enhScriptEnv.common.util.SourceFileVisitor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -92,34 +83,6 @@ public class EnhancedRhinoScriptProcessor extends BaseProcessor implements Enhan
     private static final String CLASSPATH_RESOURCE_IMPORT_PATTERN = "<import(\\s*\\n*\\s+)+resource(\\s*\\n*\\s+)*=(\\s*\\n*\\s+)*\"classpath:(/)?([^\"]+)\"(\\s*\\n*\\s+)*(/)?>";
     private static final String CLASSPATH_RESOURCE_IMPORT_REPLACEMENT = "importScript(\"classpath\", \"/$5\", true);";
 
-    // TODO: externalize this to ValueConverter.convertValueForScript (with a bit more flourish)
-    protected static final WrapFactory DEFAULT_WRAP_FACTORY = new WrapFactory()
-    {
-        /**
-         *
-         * {@inheritDoc}
-         */
-        @Override
-        public Scriptable wrapAsJavaObject(final Context cx, final Scriptable scope, final Object javaObject,
-                @SuppressWarnings("rawtypes") final Class staticType)
-        {
-            final Scriptable result;
-            if (javaObject instanceof Map<?, ?> && !(javaObject instanceof ScriptableHashMap<?, ?>))
-            {
-                // no client passing a map to JS should make any assumption about stored object types
-                @SuppressWarnings("unchecked")
-                final Map<Object, Object> map = (Map<Object, Object>) javaObject;
-                result = new NativeMap(scope, map);
-            }
-            else
-            {
-                result = super.wrapAsJavaObject(cx, scope, javaObject, staticType);
-            }
-
-            return result;
-        }
-    };
-
     private static final Logger LOGGER = LoggerFactory.getLogger(EnhancedRhinoScriptProcessor.class);
     private static final Logger LEGACY_CALL_LOGGER = LoggerFactory.getLogger(RhinoScriptProcessor.class.getName() + ".calls");
 
@@ -128,8 +91,6 @@ public class EnhancedRhinoScriptProcessor extends BaseProcessor implements Enhan
     // used WeakHashMap here before to avoid accidental leaks but measures for proper cleanup have proven themselves during tests
     protected final Map<Context, List<ReferenceScript>> activeScriptLocationChain = new ConcurrentHashMap<Context, List<ReferenceScript>>();
     protected final Map<Context, List<List<ReferenceScript>>> recursionScriptLocationChains = new ConcurrentHashMap<Context, List<List<ReferenceScript>>>();
-
-    protected WrapFactory wrapFactory = DEFAULT_WRAP_FACTORY;
 
     protected boolean shareScopes = true;
 
@@ -176,7 +137,7 @@ public class EnhancedRhinoScriptProcessor extends BaseProcessor implements Enhan
         Context cx = Context.enter();
         try
         {
-            cx.setWrapFactory(this.wrapFactory);
+            cx.setWrapFactory(new DelegatingWrapFactory(this.valueConverter));
             this.restrictedShareableScope = this.setupScope(cx, false, true);
         }
         finally
@@ -187,7 +148,7 @@ public class EnhancedRhinoScriptProcessor extends BaseProcessor implements Enhan
         cx = Context.enter();
         try
         {
-            cx.setWrapFactory(this.wrapFactory);
+            cx.setWrapFactory(new DelegatingWrapFactory(this.valueConverter));
             this.unrestrictedShareableScope = this.setupScope(cx, true, true);
         }
         finally
@@ -715,15 +676,6 @@ public class EnhancedRhinoScriptProcessor extends BaseProcessor implements Enhan
     }
 
     /**
-     * @param wrapFactory
-     *            the wrapFactory to set
-     */
-    public final void setWrapFactory(final WrapFactory wrapFactory)
-    {
-        this.wrapFactory = wrapFactory;
-    }
-
-    /**
      * @param valueConverter
      *            the valueConverter to set
      */
@@ -1041,7 +993,7 @@ public class EnhancedRhinoScriptProcessor extends BaseProcessor implements Enhan
         final Context cx = Context.enter();
         try
         {
-            cx.setWrapFactory(this.wrapFactory);
+            cx.setWrapFactory(new DelegatingWrapFactory(this.valueConverter));
 
             final Scriptable scope;
             if (this.shareScopes)
@@ -1068,7 +1020,7 @@ public class EnhancedRhinoScriptProcessor extends BaseProcessor implements Enhan
                 }
 
                 // convert/wrap each object to JavaScript compatible
-                final Object jsObject = Context.javaToJS(obj, scope);
+                final Object jsObject = this.valueConverter.convertValueForScript(obj);
 
                 // insert into the root scope ready for access by the script
                 ScriptableObject.putProperty(scope, key, jsObject);
@@ -1124,7 +1076,7 @@ public class EnhancedRhinoScriptProcessor extends BaseProcessor implements Enhan
                     }
 
                     // convert/wrap each to JavaScript compatible
-                    final Object jsObject = Context.javaToJS(ex, scope);
+                    final Object jsObject = this.valueConverter.convertValueForScript(ex);
 
                     // insert into the scope ready for access by the script
                     ScriptableObject.putProperty(scope, ex.getExtensionName(), jsObject);
@@ -1176,34 +1128,13 @@ public class EnhancedRhinoScriptProcessor extends BaseProcessor implements Enhan
         if (model != null)
         {
             newModel = new HashMap<String, Object>(model.size());
-            final DictionaryService dictionaryService = this.services.getDictionaryService();
-            final NodeService nodeService = this.services.getNodeService();
 
             for (final Map.Entry<String, Object> entry : model.entrySet())
             {
                 final String key = entry.getKey();
                 final Object value = entry.getValue();
-                if (value instanceof NodeRef)
-                {
-                    final QName type = nodeService.getType((NodeRef) value);
-                    if (dictionaryService.isSubClass(type, ContentModel.TYPE_CATEGORY))
-                    {
-                        newModel.put(key, new CategoryNode((NodeRef) value, this.services));
-                    }
-                    else if (dictionaryService.isSubClass(type, ContentModel.TYPE_THUMBNAIL)
-                            || nodeService.hasAspect((NodeRef) value, RenditionModel.ASPECT_RENDITION))
-                    {
-                        newModel.put(key, new ScriptThumbnail((NodeRef) value, this.services, null));
-                    }
-                    else
-                    {
-                        newModel.put(key, new ScriptNode((NodeRef) value, this.services));
-                    }
-                }
-                else
-                {
-                    newModel.put(key, value);
-                }
+
+                newModel.put(key, this.valueConverter.convertValueForScript(value));
             }
         }
         else
