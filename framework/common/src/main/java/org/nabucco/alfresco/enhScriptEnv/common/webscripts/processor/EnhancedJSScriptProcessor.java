@@ -865,6 +865,19 @@ public class EnhancedJSScriptProcessor extends BaseRegisterableScriptProcessor i
             scope.delete("java");
         }
 
+        // With Alfresco 4.2.2/4.1.8, NativeJSON backported from Rhino 1.7R4 is added
+        // reflectively check availability and initialize in scope
+        try
+        {
+            final Class<?> nativeJSON = Class.forName("org.mozilla.javascript.NativeJSON");
+            final Method init = nativeJSON.getMethod("init", new Class[] { Scriptable.class, boolean.class });
+            init.invoke(null, new Object[] { scope, Boolean.valueOf(!mutableScope) });
+        }
+        catch (final Exception ex)
+        {
+            // NO-OP - earlier versions simply don't support it
+        }
+
         synchronized (this.registeredContributors)
         {
             for (final ScopeContributor contributor : this.registeredContributors)
