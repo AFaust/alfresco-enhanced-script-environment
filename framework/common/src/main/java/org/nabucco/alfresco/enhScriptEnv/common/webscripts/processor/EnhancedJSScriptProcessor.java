@@ -14,6 +14,7 @@
  */
 package org.nabucco.alfresco.enhScriptEnv.common.webscripts.processor;
 
+import java.lang.reflect.Method;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.text.MessageFormat;
