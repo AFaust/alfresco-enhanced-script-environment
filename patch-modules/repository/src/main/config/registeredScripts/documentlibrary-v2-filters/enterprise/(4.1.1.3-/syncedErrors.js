@@ -1,3 +1,3 @@
 var filterQuery = constructPathQuery(parsedArgs);
-filterQuery += ' +ASPECT:"sync:syncFailed"';
+filterQuery += ' +ASPECT:"sync:failed"';
 query = filterQuery;
