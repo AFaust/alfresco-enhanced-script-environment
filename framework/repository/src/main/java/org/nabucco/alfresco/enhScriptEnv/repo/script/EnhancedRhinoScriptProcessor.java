@@ -19,7 +19,6 @@ import java.io.IOException;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
@@ -66,12 +65,14 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.InitializingBean;
 import org.springframework.context.ApplicationListener;
 import org.springframework.context.event.ContextRefreshedEvent;
+import org.springframework.extensions.surf.util.I18NUtil;
 import org.springframework.util.FileCopyUtils;
 
 /**
  * @author Axel Faust, <a href="http://www.prodyna.com">PRODYNA AG</a>
  */
-public class EnhancedRhinoScriptProcessor extends BaseProcessor implements EnhancedScriptProcessor<ScriptLocation>, ScriptProcessor,
+public class EnhancedRhinoScriptProcessor extends BaseProcessor implements EnhancedScriptProcessor<ScriptLocation>,
+        ScriptProcessor,
         InitializingBean, ApplicationListener<ContextRefreshedEvent>
 {
     private static final String NODE_REF_RESOURCE_IMPORT_PATTERN = "<import(\\s*\\n*\\s+)+resource(\\s*\\n*\\s*+)*=(\\s*\\n*\\s+)*\"(([^:]+)://([^/]+)/([^\"]+))\"(\\s*\\n*\\s+)*(/)?>";
@@ -84,11 +85,13 @@ public class EnhancedRhinoScriptProcessor extends BaseProcessor implements Enhan
     private static final String CLASSPATH_RESOURCE_IMPORT_REPLACEMENT = "importScript(\"classpath\", \"/$5\", true);";
 
     private static final Logger LOGGER = LoggerFactory.getLogger(EnhancedRhinoScriptProcessor.class);
-    private static final Logger LEGACY_CALL_LOGGER = LoggerFactory.getLogger(RhinoScriptProcessor.class.getName() + ".calls");
+    private static final Logger LEGACY_CALL_LOGGER = LoggerFactory.getLogger(RhinoScriptProcessor.class.getName()
+            + ".calls");
 
     private static final int DEFAULT_MAX_SCRIPT_CACHE_SIZE = 200;
 
-    // used WeakHashMap here before to avoid accidental leaks but measures for proper cleanup have proven themselves during tests
+    // used WeakHashMap here before to avoid accidental leaks but measures for proper cleanup have proven themselves
+    // during tests
     protected final Map<Context, List<ReferenceScript>> activeScriptLocationChain = new ConcurrentHashMap<Context, List<ReferenceScript>>();
     protected final Map<Context, List<List<ReferenceScript>>> recursionScriptLocationChains = new ConcurrentHashMap<Context, List<List<ReferenceScript>>>();
 
@@ -134,26 +137,35 @@ public class EnhancedRhinoScriptProcessor extends BaseProcessor implements Enhan
     @Override
     public void onApplicationEvent(final ContextRefreshedEvent event)
     {
-        Context cx = Context.enter();
+        final ValueConverter previousConverter = ValueConverter.GLOBAL_CONVERTER.get();
+        ValueConverter.GLOBAL_CONVERTER.set(this.valueConverter);
         try
         {
-            cx.setWrapFactory(new DelegatingWrapFactory(this.valueConverter));
-            this.restrictedShareableScope = this.setupScope(cx, false, true);
-        }
-        finally
-        {
-            Context.exit();
-        }
+            Context cx = Context.enter();
+            try
+            {
+                cx.setWrapFactory(new DelegatingWrapFactory());
+                this.restrictedShareableScope = this.setupScope(cx, false, true);
+            }
+            finally
+            {
+                Context.exit();
+            }
 
-        cx = Context.enter();
-        try
-        {
-            cx.setWrapFactory(new DelegatingWrapFactory(this.valueConverter));
-            this.unrestrictedShareableScope = this.setupScope(cx, true, true);
+            cx = Context.enter();
+            try
+            {
+                cx.setWrapFactory(new DelegatingWrapFactory());
+                this.unrestrictedShareableScope = this.setupScope(cx, true, true);
+            }
+            finally
+            {
+                Context.exit();
+            }
         }
         finally
         {
-            Context.exit();
+            ValueConverter.GLOBAL_CONVERTER.set(previousConverter);
         }
     }
 
@@ -230,8 +242,9 @@ public class EnhancedRhinoScriptProcessor extends BaseProcessor implements Enhan
 
         if (script == null)
         {
-            debugScriptName = this.compileScripts ? ("string://Cached-DynamicJS-" + digest) : ("string://DynamicJS-" + String
-                    .valueOf(this.dynamicScriptCounter.getAndIncrement()));
+            debugScriptName = this.compileScripts ? ("string://Cached-DynamicJS-" + digest)
+                    : ("string://DynamicJS-" + String
+                            .valueOf(this.dynamicScriptCounter.getAndIncrement()));
             script = this.getCompiledScript(source, debugScriptName);
 
             if (this.compileScripts)
@@ -301,8 +314,9 @@ public class EnhancedRhinoScriptProcessor extends BaseProcessor implements Enhan
 
         if (script == null)
         {
-            debugScriptName = this.compileScripts ? ("string://Cached-DynamicJS-" + digest) : ("string://DynamicJS-" + String
-                    .valueOf(this.dynamicScriptCounter.getAndIncrement()));
+            debugScriptName = this.compileScripts ? ("string://Cached-DynamicJS-" + digest)
+                    : ("string://DynamicJS-" + String
+                            .valueOf(this.dynamicScriptCounter.getAndIncrement()));
             script = this.getCompiledScript(source, debugScriptName);
 
             if (this.compileScripts)
@@ -333,9 +347,15 @@ public class EnhancedRhinoScriptProcessor extends BaseProcessor implements Enhan
         LEGACY_CALL_LOGGER.debug("{} Start", debugScriptName);
 
         final long startTime = System.currentTimeMillis();
+
+        final ValueConverter previousConverter = ValueConverter.GLOBAL_CONVERTER.get();
+        ValueConverter.GLOBAL_CONVERTER.set(this.valueConverter);
+
         final Context cx = Context.enter();
         try
         {
+            cx.setWrapFactory(new DelegatingWrapFactory());
+
             List<ReferenceScript> currentChain = this.activeScriptLocationChain.get(cx);
             boolean newChain = false;
             if (currentChain == null)
@@ -406,6 +426,8 @@ public class EnhancedRhinoScriptProcessor extends BaseProcessor implements Enhan
         {
             Context.exit();
 
+            ValueConverter.GLOBAL_CONVERTER.set(previousConverter);
+
             final long endTime = System.currentTimeMillis();
             LOGGER.info("{} End {} ms", debugScriptName, Long.valueOf(endTime - startTime));
             LEGACY_CALL_LOGGER.debug("{} End {} ms", debugScriptName, Long.valueOf(endTime - startTime));
@@ -432,9 +454,15 @@ public class EnhancedRhinoScriptProcessor extends BaseProcessor implements Enhan
         LEGACY_CALL_LOGGER.debug("{} Start", debugScriptName);
 
         final long startTime = System.currentTimeMillis();
+
+        final ValueConverter previousConverter = ValueConverter.GLOBAL_CONVERTER.get();
+        ValueConverter.GLOBAL_CONVERTER.set(this.valueConverter);
+
         final Context cx = Context.enter();
         try
         {
+            cx.setWrapFactory(new DelegatingWrapFactory());
+
             List<ReferenceScript> currentChain = this.activeScriptLocationChain.get(cx);
             boolean newChain = false;
             if (currentChain == null)
@@ -507,6 +535,8 @@ public class EnhancedRhinoScriptProcessor extends BaseProcessor implements Enhan
         {
             Context.exit();
 
+            ValueConverter.GLOBAL_CONVERTER.set(previousConverter);
+
             final long endTime = System.currentTimeMillis();
             LOGGER.info("{} End {} ms", debugScriptName, Long.valueOf(endTime - startTime));
             LEGACY_CALL_LOGGER.debug("{} End {} ms", debugScriptName, Long.valueOf(endTime - startTime));
@@ -522,13 +552,20 @@ public class EnhancedRhinoScriptProcessor extends BaseProcessor implements Enhan
         ParameterCheck.mandatory("location", location);
 
         final Scriptable scope;
+
+        final ValueConverter previousConverter = ValueConverter.GLOBAL_CONVERTER.get();
+        ValueConverter.GLOBAL_CONVERTER.set(this.valueConverter);
+
         final Context cx = Context.enter();
         try
         {
+            cx.setWrapFactory(new DelegatingWrapFactory());
+
             final boolean secureScript = location.isSecure();
             if (this.shareScopes)
             {
-                final Scriptable sharedScope = secureScript ? this.unrestrictedShareableScope : this.restrictedShareableScope;
+                final Scriptable sharedScope = secureScript ? this.unrestrictedShareableScope
+                        : this.restrictedShareableScope;
                 scope = cx.newObject(sharedScope);
                 scope.setPrototype(sharedScope);
                 scope.setParentScope(null);
@@ -541,6 +578,8 @@ public class EnhancedRhinoScriptProcessor extends BaseProcessor implements Enhan
         finally
         {
             Context.exit();
+
+            ValueConverter.GLOBAL_CONVERTER.set(previousConverter);
         }
 
         return scope;
@@ -640,7 +679,8 @@ public class EnhancedRhinoScriptProcessor extends BaseProcessor implements Enhan
     {
         if (contributor != null)
         {
-            // can use synchronized here since scope creation / registration should not occur that often in a relevant production scenario
+            // can use synchronized here since scope creation / registration should not occur that often in a relevant
+            // production scenario
             // (when immutable scopes are shared)
             synchronized (this.registeredContributors)
             {
@@ -778,7 +818,8 @@ public class EnhancedRhinoScriptProcessor extends BaseProcessor implements Enhan
             }
             else
             {
-                // we always want to have a fully-qualified file-protocol path (unless we can generalize all to classpath-relative
+                // we always want to have a fully-qualified file-protocol path (unless we can generalize all to
+                // classpath-relative
                 // locations)
                 final String resourcePath = path.substring(path.indexOf(':') + 1);
                 URL resource = this.getClass().getClassLoader().getResource(resourcePath);
@@ -871,7 +912,8 @@ public class EnhancedRhinoScriptProcessor extends BaseProcessor implements Enhan
                         {
                             // unfortunately, all exceptions emitted from compilation are RuntimeExceptions
                             // but at the least, they are RuntimeException specifically
-                            if (!this.failoverToLessOptimization || !ex.getClass().isAssignableFrom(RuntimeException.class))
+                            if (!this.failoverToLessOptimization
+                                    || !ex.getClass().isAssignableFrom(RuntimeException.class))
                             {
                                 // if failover is not to be attempted or exception is a specialized RuntimeException
                                 throw ex;
@@ -886,7 +928,9 @@ public class EnhancedRhinoScriptProcessor extends BaseProcessor implements Enhan
                             else
                             {
                                 // we do at least log
-                                LOGGER.info("Compilation failed of {} failed with runtime exception {} - no further attempt", path,
+                                LOGGER.info(
+                                        "Compilation failed of {} failed with runtime exception {} - no further attempt",
+                                        path,
                                         ex.getMessage());
                             }
                         }
@@ -914,8 +958,8 @@ public class EnhancedRhinoScriptProcessor extends BaseProcessor implements Enhan
     }
 
     /**
-     * Resolves the import directives in the specified script to proper import API calls. Supported import directives are of the following
-     * form:
+     * Resolves the import directives in the specified script to proper import API calls. Supported import directives
+     * are of the following form:
      *
      * <pre>
      * <import resource="classpath:alfresco/includeme.js">
@@ -933,10 +977,12 @@ public class EnhancedRhinoScriptProcessor extends BaseProcessor implements Enhan
     @SuppressWarnings("static-method")
     protected String resolveScriptImports(final String script)
     {
-        final String classpathResolvedScript = script.replaceAll(CLASSPATH_RESOURCE_IMPORT_PATTERN, CLASSPATH_RESOURCE_IMPORT_REPLACEMENT);
+        final String classpathResolvedScript = script.replaceAll(CLASSPATH_RESOURCE_IMPORT_PATTERN,
+                CLASSPATH_RESOURCE_IMPORT_REPLACEMENT);
         final String nodeRefResolvedScript = classpathResolvedScript.replaceAll(NODE_REF_RESOURCE_IMPORT_PATTERN,
                 NODE_REF_RESOURCE_IMPORT_REPLACEMENT);
-        final String legacyNamePathResolvedScript = nodeRefResolvedScript.replaceAll(LEGACY_NAME_PATH_RESOURCE_IMPORT_PATTERN,
+        final String legacyNamePathResolvedScript = nodeRefResolvedScript.replaceAll(
+                LEGACY_NAME_PATH_RESOURCE_IMPORT_PATTERN,
                 LEGACY_NAME_PATH_RESOURCE_IMPORT_REPLACEMENT);
 
         return legacyNamePathResolvedScript;
@@ -957,7 +1003,8 @@ public class EnhancedRhinoScriptProcessor extends BaseProcessor implements Enhan
         return script;
     }
 
-    protected void updateScriptCache(final Map<String, Script> cache, final ReadWriteLock lock, final String key, final Script script)
+    protected void updateScriptCache(final Map<String, Script> cache, final ReadWriteLock lock, final String key,
+            final Script script)
     {
         lock.writeLock().lock();
         try
@@ -980,25 +1027,27 @@ public class EnhancedRhinoScriptProcessor extends BaseProcessor implements Enhan
         }
     }
 
-    protected Object executeScriptImpl(final Script script, final Map<String, Object> argModel, final boolean secureScript,
+    protected Object executeScriptImpl(final Script script, final Map<String, Object> model,
+            final boolean secureScript,
             final String debugScriptName) throws AlfrescoRuntimeException
     {
         final long startTime = System.currentTimeMillis();
         LOGGER.info("{} Start", debugScriptName);
         LEGACY_CALL_LOGGER.debug("{} Start", debugScriptName);
 
-        // Convert the model
-        final Map<String, Object> model = this.convertToRhinoModel(argModel);
+        final ValueConverter previousConverter = ValueConverter.GLOBAL_CONVERTER.get();
+        ValueConverter.GLOBAL_CONVERTER.set(this.valueConverter);
 
         final Context cx = Context.enter();
         try
         {
-            cx.setWrapFactory(new DelegatingWrapFactory(this.valueConverter));
+            cx.setWrapFactory(new DelegatingWrapFactory());
 
             final Scriptable scope;
             if (this.shareScopes)
             {
-                final Scriptable sharedScope = secureScript ? this.unrestrictedShareableScope : this.restrictedShareableScope;
+                final Scriptable sharedScope = secureScript ? this.unrestrictedShareableScope
+                        : this.restrictedShareableScope;
                 scope = cx.newObject(sharedScope);
                 scope.setPrototype(sharedScope);
                 scope.setParentScope(null);
@@ -1050,6 +1099,8 @@ public class EnhancedRhinoScriptProcessor extends BaseProcessor implements Enhan
         {
             Context.exit();
 
+            ValueConverter.GLOBAL_CONVERTER.set(previousConverter);
+
             final long endTime = System.currentTimeMillis();
             LOGGER.info("{} End {} ms", debugScriptName, Long.valueOf(endTime - startTime));
             LEGACY_CALL_LOGGER.debug("{} End {} ms", debugScriptName, Long.valueOf(endTime - startTime));
@@ -1061,6 +1112,8 @@ public class EnhancedRhinoScriptProcessor extends BaseProcessor implements Enhan
         final Context cx = Context.enter();
         try
         {
+            cx.setLocale(I18NUtil.getLocale());
+
             if (this.compileScripts)
             {
                 cx.setOptimizationLevel(9);
@@ -1084,6 +1137,7 @@ public class EnhancedRhinoScriptProcessor extends BaseProcessor implements Enhan
             }
 
             final Object scriptResult = script.exec(cx, scope);
+
             // extract java object result if wrapped by Rhino
             final Object result = this.valueConverter.convertValueForJava(scriptResult);
             return result;
@@ -1094,7 +1148,8 @@ public class EnhancedRhinoScriptProcessor extends BaseProcessor implements Enhan
         }
     }
 
-    protected Scriptable setupScope(final Context executionContext, final boolean trustworthyScript, final boolean mutableScope)
+    protected Scriptable setupScope(final Context executionContext, final boolean trustworthyScript,
+            final boolean mutableScope)
     {
         final Scriptable scope;
         if (trustworthyScript)
@@ -1120,28 +1175,5 @@ public class EnhancedRhinoScriptProcessor extends BaseProcessor implements Enhan
         }
 
         return scope;
-    }
-
-    protected Map<String, Object> convertToRhinoModel(final Map<String, Object> model)
-    {
-        final Map<String, Object> newModel;
-        if (model != null)
-        {
-            newModel = new HashMap<String, Object>(model.size());
-
-            for (final Map.Entry<String, Object> entry : model.entrySet())
-            {
-                final String key = entry.getKey();
-                final Object value = entry.getValue();
-
-                newModel.put(key, this.valueConverter.convertValueForScript(value));
-            }
-        }
-        else
-        {
-            newModel = new HashMap<String, Object>(1, 1.0f);
-        }
-
-        return newModel;
     }
 }

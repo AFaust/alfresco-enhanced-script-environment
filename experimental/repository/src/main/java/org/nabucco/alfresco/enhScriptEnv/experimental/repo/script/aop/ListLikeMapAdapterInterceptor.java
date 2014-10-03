@@ -41,12 +41,11 @@ public class ListLikeMapAdapterInterceptor implements MethodInterceptor
         final Method method = invocation.getMethod();
         final Class<?> declaringClass = method.getDeclaringClass();
         final Object this1 = invocation.getThis();
-        if ((List.class.equals(declaringClass) || Collection.class.equals(declaringClass)) && !(this1 instanceof List<?>)
-                && this1 instanceof Map<?, ?>)
+        if ((List.class.equals(declaringClass) || Collection.class.equals(declaringClass)) && !(this1 instanceof List<?>))
         {
-            final Map<?, ?> map = (Map<?, ?>) this1;
-            if (invocation instanceof ProxyMethodInvocation)
+            if (invocation instanceof ProxyMethodInvocation && ((ProxyMethodInvocation)invocation).getProxy() instanceof Map<?, ?>)
             {
+                final Map<?, ?> map = (Map<?, ?>)((ProxyMethodInvocation)invocation).getProxy();
                 final String methodName = method.getName();
 
                 boolean proceedInvocation = false;
@@ -150,20 +149,20 @@ public class ListLikeMapAdapterInterceptor implements MethodInterceptor
                         }
 
                         int idx = 0;
-                        Object removed = null;
-                        final Iterator<?> valueIterator = map.values().iterator();
-                        while (valueIterator.hasNext())
+                        final Iterator<?> keyIterator = map.keySet().iterator();
+                        Object keyToRemove = null;
+                        while (keyIterator.hasNext())
                         {
-                            final Object el = valueIterator.next();
+                            final Object el = keyIterator.next();
                             if (idx == targetIdx)
                             {
-                                valueIterator.remove();
-                                removed = el;
+                                keyToRemove = el;
                                 break;
                             }
                             idx++;
                         }
-                        adaptedResult = removed;
+
+                        adaptedResult = keyToRemove != null ? map.remove(keyToRemove) : null;
                     }
                     else
                     {

@@ -122,6 +122,103 @@ public class ScriptNodeConverter implements ValueInstanceConverter, Initializing
      * {@inheritDoc}
      */
     @Override
+    public int getForScriptConversionConfidence(final Class<?> valueInstanceClass, final Class<?> expectedClass)
+    {
+        final int confidence;
+        if (NodeRef.class.isAssignableFrom(valueInstanceClass)
+                && (expectedClass.isAssignableFrom(ScriptThumbnail.class) || expectedClass
+                        .isAssignableFrom(CategoryNode.class)))
+        {
+            confidence = HIGHEST_CONFIDENCE;
+        }
+        else
+        {
+            confidence = LOWEST_CONFIDENCE;
+        }
+        return confidence;
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public boolean canConvertValueForScript(final Object value, final ValueConverter globalDelegate,
+            final Class<?> expectedClass)
+    {
+        boolean canConvert = value instanceof NodeRef
+                && (expectedClass.isAssignableFrom(ScriptThumbnail.class) || expectedClass
+                        .isAssignableFrom(CategoryNode.class));
+
+        if (canConvert)
+        {
+            if (!this.nodeService.exists((NodeRef) value))
+            {
+                canConvert = false;
+            }
+            else
+            {
+                final QName type = this.nodeService.getType((NodeRef) value);
+                if (!this.dictionaryService.isSubClass(type, ContentModel.TYPE_CATEGORY)
+                        && expectedClass.equals(CategoryNode.class))
+                {
+                    canConvert = false;
+                }
+                else if (!(this.dictionaryService.isSubClass(type, ContentModel.TYPE_THUMBNAIL)
+                        || this.nodeService.hasAspect((NodeRef) value, RenditionModel.ASPECT_RENDITION))
+                        && expectedClass.equals(ScriptThumbnail.class))
+                {
+                    canConvert = false;
+                }
+            }
+        }
+
+        return canConvert;
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public Object convertValueForScript(final Object value, final ValueConverter globalDelegate,
+            final Class<?> expectedClass)
+    {
+        if (!(value instanceof NodeRef))
+        {
+            throw new IllegalArgumentException("value must be a " + NodeRef.class);
+        }
+
+        final NodeRef nodeRef = (NodeRef) value;
+
+        final ScriptNode result;
+        final QName type = this.nodeService.getType(nodeRef);
+        if (this.dictionaryService.isSubClass(type, ContentModel.TYPE_CATEGORY)
+                && expectedClass.isAssignableFrom(CategoryNode.class))
+        {
+            result = new CategoryNode(nodeRef, this.serviceRegistry, DUMMY_SCOPE);
+        }
+        else if ((this.dictionaryService.isSubClass(type, ContentModel.TYPE_THUMBNAIL)
+                || this.nodeService.hasAspect(nodeRef, RenditionModel.ASPECT_RENDITION))
+                && expectedClass.isAssignableFrom(ScriptThumbnail.class))
+        {
+            result = new ScriptThumbnail(nodeRef, this.serviceRegistry, DUMMY_SCOPE);
+        }
+        else if (expectedClass.isAssignableFrom(ScriptNode.class))
+        {
+            result = new ScriptNode(nodeRef, this.serviceRegistry);
+        }
+        else
+        {
+            result = null;
+        }
+
+        return result;
+    }
+
+    /**
+     *
+     * {@inheritDoc}
+     */
+    @Override
     public int getForJavaConversionConfidence(final Class<?> valueInstanceClass, final Class<?> expectedClass)
     {
         final int confidence;
@@ -140,7 +237,8 @@ public class ScriptNodeConverter implements ValueInstanceConverter, Initializing
      * {@inheritDoc}
      */
     @Override
-    public boolean canConvertValueForJava(final Object value, final ValueConverter globalDelegate, final Class<?> expectedClass)
+    public boolean canConvertValueForJava(final Object value, final ValueConverter globalDelegate,
+            final Class<?> expectedClass)
     {
         final boolean canConvert = value instanceof ScriptNode && expectedClass.isAssignableFrom(NodeRef.class);
         return canConvert;
@@ -150,79 +248,17 @@ public class ScriptNodeConverter implements ValueInstanceConverter, Initializing
      * {@inheritDoc}
      */
     @Override
-    public Object convertValueForJava(final Object value, final ValueConverter globalDelegate, final Class<?> expectedClass)
+    public Object convertValueForJava(final Object value, final ValueConverter globalDelegate,
+            final Class<?> expectedClass)
     {
         if (!(value instanceof ScriptNode))
         {
-            throw new IllegalArgumentException("value must be a ScriptNode");
+            throw new IllegalArgumentException("value must be a " + ScriptNode.class);
         }
 
         final ScriptNode scriptNode = (ScriptNode) value;
         final NodeRef nodeRef = scriptNode.getNodeRef();
 
         return nodeRef;
-    }
-
-    /**
-     *
-     * {@inheritDoc}
-     */
-    @Override
-    public int getForScriptConversionConfidence(final Class<?> valueInstanceClass, final Class<?> expectedClass)
-    {
-        final int confidence;
-        if (NodeRef.class.isAssignableFrom(valueInstanceClass)
-                && (expectedClass.isAssignableFrom(ScriptThumbnail.class) || expectedClass.isAssignableFrom(CategoryNode.class)))
-        {
-            confidence = HIGHEST_CONFIDENCE;
-        }
-        else
-        {
-            confidence = LOWEST_CONFIDENCE;
-        }
-        return confidence;
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public boolean canConvertValueForScript(final Object value, final ValueConverter globalDelegate, final Class<?> expectedClass)
-    {
-        final boolean canConvert = value instanceof NodeRef
-                && (expectedClass.isAssignableFrom(ScriptThumbnail.class) || expectedClass.isAssignableFrom(CategoryNode.class));
-        return canConvert;
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public Object convertValueForScript(final Object value, final ValueConverter globalDelegate, final Class<?> expectedClass)
-    {
-        if (!(value instanceof NodeRef))
-        {
-            throw new IllegalArgumentException("value must be a NodeRef");
-        }
-
-        final NodeRef nodeRef = (NodeRef) value;
-
-        final QName type = this.nodeService.getType(nodeRef);
-        final ScriptNode result;
-        if (this.dictionaryService.isSubClass(type, ContentModel.TYPE_CATEGORY))
-        {
-            result = new CategoryNode(nodeRef, this.serviceRegistry, DUMMY_SCOPE);
-        }
-        else if (this.dictionaryService.isSubClass(type, ContentModel.TYPE_THUMBNAIL)
-                || this.nodeService.hasAspect(nodeRef, RenditionModel.ASPECT_RENDITION))
-        {
-            result = new ScriptThumbnail(nodeRef, this.serviceRegistry, DUMMY_SCOPE);
-        }
-        else
-        {
-            result = new ScriptNode(nodeRef, this.serviceRegistry);
-        }
-
-        return result;
     }
 }

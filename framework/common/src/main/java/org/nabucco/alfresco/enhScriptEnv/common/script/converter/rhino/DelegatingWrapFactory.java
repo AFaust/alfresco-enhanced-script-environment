@@ -14,7 +14,6 @@
  */
 package org.nabucco.alfresco.enhScriptEnv.common.script.converter.rhino;
 
-import org.alfresco.util.ParameterCheck;
 import org.mozilla.javascript.Context;
 import org.mozilla.javascript.Scriptable;
 import org.mozilla.javascript.WrapFactory;
@@ -26,21 +25,14 @@ import org.nabucco.alfresco.enhScriptEnv.common.script.converter.ValueConverter;
 public class DelegatingWrapFactory extends WrapFactory
 {
 
-    protected final ValueConverter valueConverter;
-
     protected final ThreadLocal<Boolean> recursionGuard = new ThreadLocal<Boolean>();
-
-    public DelegatingWrapFactory(final ValueConverter valueConverter)
-    {
-        ParameterCheck.mandatory("valueConverter", valueConverter);
-        this.valueConverter = valueConverter;
-    }
 
     /**
      *
      * {@inheritDoc}
      */
-    @Override @SuppressWarnings("rawtypes")
+    @Override
+    @SuppressWarnings("rawtypes")
     public Object wrap(final Context cx, final Scriptable scope, final Object obj, final Class staticType)
     {
         final Object wrapped = super.wrap(cx, scope, obj, staticType);
@@ -49,7 +41,8 @@ public class DelegatingWrapFactory extends WrapFactory
         this.recursionGuard.set(Boolean.TRUE);
         try
         {
-            final Object result = wrapped instanceof String ? this.valueConverter.convertValueForScript(wrapped) : wrapped;
+            final Object result = wrapped instanceof String ? ValueConverter.GLOBAL_CONVERTER.get()
+                    .convertValueForScript(wrapped) : wrapped;
 
             return result;
         }
@@ -62,13 +55,16 @@ public class DelegatingWrapFactory extends WrapFactory
     /**
      * {@inheritDoc}
      */
-    @Override @SuppressWarnings("rawtypes")
-    public Scriptable wrapAsJavaObject(final Context cx, final Scriptable scope, final Object javaObject, final Class staticType)
+    @Override
+    @SuppressWarnings("rawtypes")
+    public Scriptable wrapAsJavaObject(final Context cx, final Scriptable scope, final Object javaObject,
+            final Class staticType)
     {
         final Scriptable result;
 
         final Boolean guardValue = this.recursionGuard.get();
-        if (Boolean.TRUE.equals(guardValue) || !this.valueConverter.canConvertValueForScript(javaObject, Scriptable.class))
+        if (Boolean.TRUE.equals(guardValue)
+                || !ValueConverter.GLOBAL_CONVERTER.get().canConvertValueForScript(javaObject, Scriptable.class))
         {
             result = super.wrapAsJavaObject(cx, scope, javaObject, staticType);
         }
@@ -77,7 +73,8 @@ public class DelegatingWrapFactory extends WrapFactory
             this.recursionGuard.set(Boolean.TRUE);
             try
             {
-                result = (Scriptable) this.valueConverter.convertValueForScript(javaObject, Scriptable.class);
+                result = (Scriptable) ValueConverter.GLOBAL_CONVERTER.get().convertValueForScript(javaObject,
+                        Scriptable.class);
                 if (!(javaObject instanceof Scriptable) && result.getParentScope() == null)
                 {
                     result.setParentScope(scope);

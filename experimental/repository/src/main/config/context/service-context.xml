@@ -5,12 +5,143 @@
     <!-- Note: All beans should be prefixed ${project.artifactId} in their ID in general -->
     <!-- Exceptions: service beans (unique name) and beans with name conventions (e.g. web scripts) -->
 
-    <bean id="jdk.scriptEngineManager" class="javax.script.ScriptEngineManager" />
+    <bean id="jdk.nashornScriptEngine" class="${basePackage}.script.factory.NashornScriptEngineFactory">
+        <property name="persistentCache" value="${script.nashorn.persistentCodeCache}" />
+        <property name="strict" value="${script.nashorn.strict}" />
+        <property name="verifyCode" value="${script.nashorn.verifyCode}" />
+        <property name="dumpOnError" value="${script.nashorn.dumpOnError}" />
+        <property name="timezone" value="${script.nashorn.timezone}" />
+        <property name="locale" value="${script.nashorn.locale}" />
+    </bean>
 
-    <bean id="jdk.nashornScriptEngine" factory-bean="jdk.scriptEngineManager" factory-method="getEngineByName">
-        <constructor-arg>
-            <value>nashorn</value>
-        </constructor-arg>
+    <bean id="javaScriptProcessor.nashornProcessor.cachedBindings" class="${basePackage}.script.TransactionalBindingsThreadLocal">
+        <property name="scriptEngine" ref="jdk.nashornScriptEngine" />
+    </bean>
+
+    <bean id="javaScriptProcessor.nashornValueConverter" class="org.nabucco.alfresco.enhScriptEnv.common.script.converter.GenericGlobalValueConverter" />
+
+    <bean id="javaScriptProcessor.nashornValueConverter.abstractInstanceConverter" abstract="true">
+        <property name="registry" ref="javaScriptProcessor.nashornValueConverter" />
+    </bean>
+
+    <bean id="javaScriptProcessor.nashornValueConverter.abstractScriptBasedInstanceConverter" abstract="true" parent="javaScriptProcessor.nashornValueConverter.abstractInstanceConverter">
+        <property name="cachedBindings" ref="javaScriptProcessor.nashornProcessor.cachedBindings" />
+        <property name="scriptEngine" ref="jdk.nashornScriptEngine" />
+    </bean>
+
+    <bean id="javaScriptProcessor.nashornValueConverter.mapConverter" class="org.nabucco.alfresco.enhScriptEnv.common.script.converter.general.MapConverter" parent="javaScriptProcessor.nashornValueConverter.abstractInstanceConverter" />
+
+    <bean id="javaScriptProcessor.nashornValueConverter.numberConverter" class="org.nabucco.alfresco.enhScriptEnv.common.script.converter.general.NumberConverter" parent="javaScriptProcessor.nashornValueConverter.abstractInstanceConverter" />
+    
+    <bean id="javaScriptProcessor.nashornValueConverter.stringToNumberConverter" class="org.nabucco.alfresco.enhScriptEnv.common.script.converter.general.StringToNumberConverter" parent="javaScriptProcessor.nashornValueConverter.abstractInstanceConverter" />
+
+    <bean id="javaScriptProcessor.nashornValueConverter.arrayConverter" class="org.nabucco.alfresco.enhScriptEnv.common.script.converter.general.ArrayConverter" parent="javaScriptProcessor.nashornValueConverter.abstractInstanceConverter" />
+    
+    <bean id="javaScriptProcessor.nashornValueConverter.standardToSimpleJSONObjectConverter" class="org.nabucco.alfresco.enhScriptEnv.common.script.converter.general.StandardToSimpleJSONObjectConverter" parent="javaScriptProcessor.nashornValueConverter.abstractInstanceConverter" />
+
+    <bean id="javaScriptProcessor.nashornValueConverter.nativeStringConverter" class="${basePackage}.script.converter.nashorn.NativeStringConverter" parent="javaScriptProcessor.nashornValueConverter.abstractInstanceConverter" />
+
+    <bean id="javaScriptProcessor.nashornValueConverter.nativeBooleanConverter" class="${basePackage}.script.converter.nashorn.NativeBooleanConverter" parent="javaScriptProcessor.nashornValueConverter.abstractInstanceConverter" />
+
+    <bean id="javaScriptProcessor.nashornValueConverter.nativeDateConverter" class="${basePackage}.script.converter.nashorn.NativeDateConverter" parent="javaScriptProcessor.nashornValueConverter.abstractScriptBasedInstanceConverter" />
+
+    <bean id="javaScriptProcessor.nashornValueConverter.nativeNumberConverter" class="${basePackage}.script.converter.nashorn.NativeNumberConverter" parent="javaScriptProcessor.nashornValueConverter.abstractInstanceConverter" />
+
+    <bean id="javaScriptProcessor.nashornValueConverter.nativeArrayConverter" class="${basePackage}.script.converter.nashorn.NativeArrayConverter" parent="javaScriptProcessor.nashornValueConverter.abstractInstanceConverter" />
+
+    <bean id="javaScriptProcessor.nashornValueConverter.transparentMapConverter" class="${basePackage}.script.converter.nashorn.GenericTransparentMapConverter" parent="javaScriptProcessor.nashornValueConverter.abstractInstanceConverter" />
+
+    <bean id="javaScriptProcessor.nashornValueConverter.linkedHashMapConverter" class="${basePackage}.script.converter.nashorn.LinkedHashMapConverter" parent="javaScriptProcessor.nashornValueConverter.abstractInstanceConverter" />
+
+    <bean id="javaScriptProcessor.nashornValueConverter.joConverter" class="${basePackage}.script.converter.nashorn.JOConverter" parent="javaScriptProcessor.nashornValueConverter.abstractInstanceConverter" />
+
+    <bean id="javaScriptProcessor.nashornValueConverter.adapterObjectConverter" class="${basePackage}.script.converter.general.AdapterObjectConverter" parent="javaScriptProcessor.nashornValueConverter.abstractInstanceConverter" />
+
+    <bean id="javaScriptProcessor.nashornValueConverter.rhino.nativeDateConverter" class="${basePackage}.script.converter.rhino2nashorn.NativeDateConverter" parent="javaScriptProcessor.nashornValueConverter.abstractInstanceConverter" />
+
+    <bean id="javaScriptProcessor.nashornValueConverter.rhino.nativeArrayConverter" class="${basePackage}.script.converter.rhino2nashorn.NativeArrayConverter" parent="javaScriptProcessor.nashornValueConverter.abstractInstanceConverter" />
+
+    <bean id="javaScriptProcessor.nashornValueConverter.rhino.nativeJavaObjectConverter" class="${basePackage}.script.converter.rhino2nashorn.NativeJavaObjectConverter" parent="javaScriptProcessor.nashornValueConverter.abstractInstanceConverter" />
+
+    <bean id="javaScriptProcessor.nashornValueConverter.rhino.toNativeObjectConverter" class="${basePackage}.script.converter.rhino2nashorn.ToNativeObjectConverter" parent="javaScriptProcessor.nashornValueConverter.abstractInstanceConverter" />
+    
+    <bean id="javaScriptProcessor.nashornValueConverter.rhino.toNativeArrayConverter" class="${basePackage}.script.converter.rhino2nashorn.ToNativeArrayConverter" parent="javaScriptProcessor.nashornValueConverter.abstractInstanceConverter" />
+    
+    <bean id="javaScriptProcessor.nashornValueConverter.rhino.toWrappedStringConverter" class="${basePackage}.script.converter.rhino2nashorn.ToWrappedStringConverter" parent="javaScriptProcessor.nashornValueConverter.abstractInstanceConverter" />
+    
+    <bean id="javaScriptProcessor.nashornValueConverter.rhino.nativeObjectToJOConverter" class="${basePackage}.script.converter.rhino2nashorn.NativeObjectToJOConverter" parent="javaScriptProcessor.nashornValueConverter.abstractInstanceConverter" />
+
+    <bean id="javaScriptProcessor.nashornValueConverter.rhino.alfrescoNativeMapConverter" class="${basePackage}.script.converter.rhino2nashorn.AlfrescoNativeMapConverter" parent="javaScriptProcessor.nashornValueConverter.abstractInstanceConverter" />
+
+    <bean id="javaScriptProcessor.nashornValueConverter.rhino.surfNativeMapConverter" class="${basePackage}.script.converter.rhino2nashorn.SurfNativeMapConverter" parent="javaScriptProcessor.nashornValueConverter.abstractInstanceConverter" />
+
+    <bean id="javaScriptProcessor.nashornValueConverter.rhino.scriptableConverter" class="${basePackage}.script.converter.rhino2nashorn.GenericScriptableConverter" parent="javaScriptProcessor.nashornValueConverter.abstractInstanceConverter" />
+
+    <bean id="javaScriptProcessor.nashornValueConverter.rhino.scriptableMapConverter" class="${basePackage}.script.converter.rhino2nashorn.ScriptableMapConverter" parent="javaScriptProcessor.nashornValueConverter.abstractInstanceConverter" />
+
+    <bean id="javaScriptProcessor.nashornValueConverter.rhino.scriptableHashMapConverter" class="${basePackage}.script.converter.rhino2nashorn.ScriptableHashMapConverter" parent="javaScriptProcessor.nashornValueConverter.abstractInstanceConverter" />
+
+    <bean id="javaScriptProcessor.nashornValueConverter.rhino.qnameMapConverter" class="${basePackage}.script.converter.rhino2nashorn.QNameMapConverter" parent="javaScriptProcessor.nashornValueConverter.abstractInstanceConverter" />
+
+    <bean id="javaScriptProcessor.nashornValueConverter.rhino.contentAwareScriptableQNameMapConverter" class="${basePackage}.script.converter.rhino2nashorn.ContentAwareScriptableQNameMapConverter" parent="javaScriptProcessor.nashornValueConverter.abstractInstanceConverter" />
+
+    <bean id="${project.artifactId}-javaScriptProcessor.nashornValueConverter.rhino-signatureMappings" class="org.springframework.beans.factory.config.PropertiesFactoryBean">
+        <property name="locations">
+            <list>
+                <value>classpath:alfresco/module/${project.artifactId}/context/javaScriptProcessor.nashornValueConverter.signatureMappings.properties</value>
+                <value>classpath*:alfresco/module/*/context/javaScriptProcessor.nashornValueConverter.signatureMappings.properties</value>
+                <value>classpath*:alfresco/extension/javaScriptProcessor.nashornValueConverter.signatureMappings.properties</value>
+            </list>
+        </property>
+    </bean>
+    
+    <bean id="javaScriptProcessor.nashornValueConverter.rhino.abstractRhinoSpecificBean" class="${basePackage}.script.converter.rhino2nashorn.SimpleJSObjectSubClassProxyConverter" parent="javaScriptProcessor.nashornValueConverter.abstractInstanceConverter" abstract="true">
+        <property name="signatureMappings" ref="${project.artifactId}-javaScriptProcessor.nashornValueConverter.rhino-signatureMappings" />
+    </bean>
+
+    <bean id="javaScriptProcessor.nashornValueConverter.rhino.simpleRhinoSpecificBean" class="${basePackage}.script.converter.rhino2nashorn.SimpleJSObjectSubClassProxyConverter" parent="javaScriptProcessor.nashornValueConverter.rhino.abstractRhinoSpecificBean">
+        <property name="javaBaseClass" value="org.alfresco.repo.jscript.BaseScopableProcessorExtension" />
+    </bean>
+
+    <bean id="javaScriptProcessor.nashornValueConverter.rhino.searchConverter" class="${basePackage}.script.converter.rhino2nashorn.SimpleJSObjectSubClassProxyConverter" parent="javaScriptProcessor.nashornValueConverter.rhino.abstractRhinoSpecificBean">
+        <property name="javaBaseClass" value="org.alfresco.repo.jscript.Search" />
+        <property name="confidence" value="1000" />
+    </bean>
+
+    <bean id="javaScriptProcessor.nashornValueConverter.rhino.siteConverter" class="${basePackage}.script.converter.rhino2nashorn.beans.SiteConverter" parent="javaScriptProcessor.nashornValueConverter.rhino.abstractRhinoSpecificBean" />
+
+    <bean id="javaScriptProcessor.nashornValueConverter.rhino.scriptNodeConverter" class="${basePackage}.script.converter.rhino2nashorn.beans.ScriptNodeConverter" parent="javaScriptProcessor.nashornValueConverter.rhino.abstractRhinoSpecificBean" />
+    
+    <bean id="javaScriptProcessor.nashornValueConverter.rhino.nodeRefToScriptNodeConverter" class="${basePackage}.script.converter.rhino2nashorn.beans.NodeRefToScriptNodeConverter" parent="javaScriptProcessor.nashornValueConverter.rhino.abstractRhinoSpecificBean">
+        <property name="dictionaryService" ref="DictionaryService" />
+        <property name="nodeService" ref="NodeService" />
+        <property name="serviceRegistry" ref="ServiceRegistry" />
+    </bean>
+    
+    <bean id="javaScriptProcessor.nashornValueConverter.rhino.childAssociationConverter" class="${basePackage}.script.converter.rhino2nashorn.beans.ChildAssociationConverter" parent="javaScriptProcessor.nashornValueConverter.rhino.abstractRhinoSpecificBean" />
+    
+    <bean id="javaScriptProcessor.nashornValueConverter.rhino.childAssociationRefToChildAssociationConverter" class="${basePackage}.script.converter.rhino2nashorn.beans.ChildAssociationRefToChildAssociationConverter" parent="javaScriptProcessor.nashornValueConverter.rhino.abstractRhinoSpecificBean">
+        <property name="serviceRegistry" ref="ServiceRegistry" />
+    </bean>
+    
+    <bean id="javaScriptProcessor.nashornValueConverter.rhino.associationConverter" class="${basePackage}.script.converter.rhino2nashorn.beans.AssociationConverter" parent="javaScriptProcessor.nashornValueConverter.rhino.abstractRhinoSpecificBean" />
+    
+    <bean id="javaScriptProcessor.nashornValueConverter.rhino.associationRefToAssociationConverter" class="${basePackage}.script.converter.rhino2nashorn.beans.AssociationRefToAssociationConverter" parent="javaScriptProcessor.nashornValueConverter.rhino.abstractRhinoSpecificBean">
+        <property name="serviceRegistry" ref="ServiceRegistry" />
+    </bean>
+    
+    <bean id="javaScriptProcessor.nashornValueConverter.rhino.scriptVersionConverter" class="${basePackage}.script.converter.rhino2nashorn.beans.ScriptVersionConverter" parent="javaScriptProcessor.nashornValueConverter.rhino.abstractRhinoSpecificBean" />
+    
+    <bean id="javaScriptProcessor.nashornValueConverter.rhino.scriptPagingNodesConverter" class="${basePackage}.script.converter.rhino2nashorn.beans.ScriptPagingNodesConverter" parent="javaScriptProcessor.nashornValueConverter.rhino.abstractRhinoSpecificBean" />
+
+    <bean id="javaScriptProcessor.nashornValueConverter.rhino.scriptGroupConverter" class="${basePackage}.script.converter.rhino2nashorn.beans.ScriptGroupConverter" parent="javaScriptProcessor.nashornValueConverter.rhino.abstractRhinoSpecificBean" />
+
+    <bean id="javaScriptProcessor.nashornValueConverter.rhino.scriptUserConverter" class="${basePackage}.script.converter.rhino2nashorn.beans.ScriptUserConverter" parent="javaScriptProcessor.nashornValueConverter.rhino.abstractRhinoSpecificBean" />
+    
+    <bean id="javaScriptProcessor.nashornValueConverter.rhino.scriptExecutionDetailsConverter" class="${basePackage}.script.converter.rhino2nashorn.beans.ScriptExecutionDetailsConverter" parent="javaScriptProcessor.nashornValueConverter.rhino.abstractRhinoSpecificBean" />
+    
+    <bean id="javaScriptProcessor.nashornValueConverter.rhino.JSONUtils" class="${basePackage}.script.converter.rhino2nashorn.SimpleJSObjectSubClassProxyConverter" parent="javaScriptProcessor.nashornValueConverter.rhino.abstractRhinoSpecificBean">
+        <property name="javaBaseClass" value="org.springframework.extensions.webscripts.json.JSONUtils" />
     </bean>
 
     <bean id="javaScriptProcessor.nashornProcessor" class="${basePackage}.script.NashornScriptProcessor">
@@ -20,72 +151,20 @@
         <property name="scriptService" ref="scriptService" />
         <property name="serviceRegistry" ref="ServiceRegistry" />
         <property name="scriptEngine" ref="jdk.nashornScriptEngine" />
-        <property name="valueConverter" ref="nashorn.valueConverter.registry" />
-    </bean>
-
-    <bean id="nashorn.valueConverter.registry" class="${basePackage}.script.NashornValueConverter">
-        <property name="scriptEngine" ref="jdk.nashornScriptEngine" />
-        <property name="serviceRegistry" ref="ServiceRegistry" />
-    </bean>
-
-    <bean id="nashorn.valueConverter.abstract" abstract="true">
-        <property name="scriptEngine" ref="jdk.nashornScriptEngine" />
-        <property name="registry" ref="nashorn.valueConverter.registry" />
-    </bean>
-
-    <bean id="nashorn.valueConverter.ScriptNode" class="${basePackage}.script.adapters.ScriptNodeConverter" parent="nashorn.valueConverter.abstract">
-        <property name="serviceRegistry" ref="ServiceRegistry" />
-    </bean>
-
-    <bean id="nashorn.valueConverter.SimpleRhinoSpecificBean" class="${basePackage}.script.adapters.SimpleRhinoSpecificBeanConverter" parent="nashorn.valueConverter.abstract">
-        <property name="convertableClass" value="org.alfresco.repo.processor.BaseProcessorExtension" />
-    </bean>
-    
-    <bean id="nashorn.valueConverter.Site" class="${basePackage}.script.adapters.SiteConverter" parent="nashorn.valueConverter.abstract">
-        <property name="convertableClass" value="org.alfresco.repo.site.script.Site" />
-        <property name="serviceRegistry" ref="ServiceRegistry" />
-        <property name="siteService" ref="siteService" />
-    </bean>
-    
-    <bean id="nashorn.valueConverter.ScriptExecutionDetails" class="${basePackage}.script.adapters.SimpleRhinoSpecificBeanConverter" parent="nashorn.valueConverter.abstract">
-        <property name="convertableClass" value="org.alfresco.repo.action.script.ScriptExecutionDetails" />
-    </bean>
-    
-    <bean id="nashorn.valueConverter.Association" class="${basePackage}.script.adapters.SimpleRhinoSpecificBeanConverter" parent="nashorn.valueConverter.abstract">
-        <property name="convertableClass" value="org.alfresco.repo.jscript.Association" />
-    </bean>
-    
-    <bean id="nashorn.valueConverter.ChildAssociation" class="${basePackage}.script.adapters.SimpleRhinoSpecificBeanConverter" parent="nashorn.valueConverter.abstract">
-        <property name="convertableClass" value="org.alfresco.repo.jscript.ChildAssociation" />
-    </bean>
-    
-    <bean id="nashorn.valueConverter.ScriptVersion" class="${basePackage}.script.adapters.SimpleRhinoSpecificBeanConverter" parent="nashorn.valueConverter.abstract">
-        <property name="convertableClass" value="org.alfresco.repo.jscript.ScriptVersion" />
-    </bean>
-    
-    <bean id="nashorn.valueConverter.ScriptGroup" class="${basePackage}.script.adapters.SimpleRhinoSpecificBeanConverter" parent="nashorn.valueConverter.abstract">
-        <property name="convertableClass" value="org.alfresco.repo.security.authority.script.ScriptGroup" />
-    </bean>
-    
-    <bean id="nashorn.valueConverter.ScriptUser" class="${basePackage}.script.adapters.SimpleRhinoSpecificBeanConverter" parent="nashorn.valueConverter.abstract">
-        <property name="convertableClass" value="org.alfresco.repo.security.authority.script.ScriptUser" />
-    </bean>
-    
-    <bean id="nashorn.valueConverter.ActivitiScriptBase" class="${basePackage}.script.adapters.SimpleRhinoSpecificBeanConverter" parent="nashorn.valueConverter.abstract">
-        <property name="convertableClass" value="org.alfresco.repo.workflow.activiti.script.ActivitiScriptBase" />
+        <property name="valueConverter" ref="javaScriptProcessor.nashornValueConverter" />
     </bean>
 
     <bean id="javaScriptProcessor.nashornProcessor.scriptImportFunction" class="org.nabucco.alfresco.enhScriptEnv.experimental.repo.script.functions.NashornImportScriptFunction">
         <property name="scriptProcessor" ref="javaScriptProcessor.nashornProcessor" />
         <property name="scriptEngine" ref="jdk.nashornScriptEngine" />
-        <property name="valueConverter" ref="nashorn.valueConverter.registry" />
+        <property name="valueConverter" ref="javaScriptProcessor.nashornValueConverter" />
         <property name="locatorRegistry" ref="javaScriptProcessor.scriptLocatorRegistry" />
     </bean>
 
     <bean id="javaScriptProcessor.nashornProcessor.logFunction" class="org.nabucco.alfresco.enhScriptEnv.experimental.repo.script.functions.NashornLogFunction">
         <property name="scriptProcessor" ref="javaScriptProcessor.nashornProcessor" />
         <property name="scriptEngine" ref="jdk.nashornScriptEngine" />
-        <property name="valueConverter" ref="nashorn.valueConverter.registry" />
+        <property name="valueConverter" ref="javaScriptProcessor.nashornValueConverter" />
         <property name="defaultLoggerPrefix" value="org.alfresco.repo.jscript.executions" />
     </bean>
 

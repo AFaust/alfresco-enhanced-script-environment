@@ -91,52 +91,6 @@ public class ChildAssociationConverter implements ValueInstanceConverter, Initia
      * {@inheritDoc}
      */
     @Override
-    public int getForJavaConversionConfidence(final Class<?> valueInstanceClass, final Class<?> expectedClass)
-    {
-        final int confidence;
-        if (ChildAssociation.class.isAssignableFrom(valueInstanceClass) && expectedClass.isAssignableFrom(ChildAssociationRef.class))
-        {
-            confidence = HIGHEST_CONFIDENCE;
-        }
-        else
-        {
-            confidence = LOWEST_CONFIDENCE;
-        }
-        return confidence;
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public boolean canConvertValueForJava(final Object value, final ValueConverter globalDelegate, final Class<?> expectedClass)
-    {
-        final boolean canConvert = value instanceof ChildAssociation && expectedClass.isAssignableFrom(ChildAssociationRef.class);
-        return canConvert;
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public Object convertValueForJava(final Object value, final ValueConverter globalDelegate, final Class<?> expectedClass)
-    {
-        if (!(value instanceof ChildAssociation))
-        {
-            throw new IllegalArgumentException("value must be a ChildAssociation");
-        }
-
-        final ChildAssociation childAssociation = (ChildAssociation) value;
-        final ChildAssociationRef childAssociationRef = childAssociation.getChildAssociationRef();
-
-        return childAssociationRef;
-    }
-
-    /**
-     *
-     * {@inheritDoc}
-     */
-    @Override
     public int getForScriptConversionConfidence(final Class<?> valueInstanceClass, final Class<?> expectedClass)
     {
         final int confidence;
@@ -169,7 +123,7 @@ public class ChildAssociationConverter implements ValueInstanceConverter, Initia
     {
         if (!(value instanceof ChildAssociationRef))
         {
-            throw new IllegalArgumentException("value must be a ChildAssociationRef");
+            throw new IllegalArgumentException("value must be a " + ChildAssociationRef.class);
         }
 
         final ChildAssociationRef childAssociationRef = (ChildAssociationRef) value;
@@ -177,5 +131,51 @@ public class ChildAssociationConverter implements ValueInstanceConverter, Initia
         final ChildAssociation result = new ChildAssociation(this.serviceRegistry, childAssociationRef, DUMMY_SCOPE);
 
         return result;
+    }
+
+    /**
+     *
+     * {@inheritDoc}
+     */
+    @Override
+    public int getForJavaConversionConfidence(final Class<?> valueInstanceClass, final Class<?> expectedClass)
+    {
+        final int confidence;
+        if (ChildAssociation.class.isAssignableFrom(valueInstanceClass) && expectedClass.isAssignableFrom(ChildAssociationRef.class))
+        {
+            confidence = HIGHEST_CONFIDENCE;
+        }
+        else
+        {
+            confidence = LOWEST_CONFIDENCE;
+        }
+        return confidence;
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public boolean canConvertValueForJava(final Object value, final ValueConverter globalDelegate, final Class<?> expectedClass)
+    {
+        final boolean canConvert = value instanceof ChildAssociation && expectedClass.isAssignableFrom(ChildAssociationRef.class);
+        return canConvert;
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public Object convertValueForJava(final Object value, final ValueConverter globalDelegate, final Class<?> expectedClass)
+    {
+        if (!(value instanceof ChildAssociation))
+        {
+            throw new IllegalArgumentException("value must be a " + ChildAssociation.class);
+        }
+
+        final ChildAssociation childAssociation = (ChildAssociation) value;
+        final ChildAssociationRef childAssociationRef = childAssociation.getChildAssociationRef();
+
+        return childAssociationRef;
     }
 }

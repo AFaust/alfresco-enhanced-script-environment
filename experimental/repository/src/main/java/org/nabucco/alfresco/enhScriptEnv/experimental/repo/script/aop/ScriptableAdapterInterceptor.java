@@ -50,6 +50,7 @@ public class ScriptableAdapterInterceptor implements MethodInterceptor
             boolean redirect = false;
             String redirectMethod = null;
             Object[] redirectParams = null;
+            @SuppressWarnings("rawtypes")
             Class[] redirectParamTypes = null;
             Class<?> redirectDeclaringClass = null;
             Object nonRedirectResult = null;
@@ -154,7 +155,7 @@ public class ScriptableAdapterInterceptor implements MethodInterceptor
             }
 
             final Class<?> returnType = method.getReturnType();
-            if (redirect)
+            if (redirect && redirectDeclaringClass != null)
             {
                 final Method redirectMethodHandle = redirectDeclaringClass.getMethod(redirectMethod, redirectParamTypes);
                 result = redirectMethodHandle.invoke(proxy, redirectParams);

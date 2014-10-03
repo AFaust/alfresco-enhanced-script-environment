@@ -55,6 +55,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.InitializingBean;
 import org.springframework.extensions.surf.core.processor.ProcessorExtension;
+import org.springframework.extensions.surf.util.I18NUtil;
 import org.springframework.extensions.webscripts.ScriptContent;
 import org.springframework.extensions.webscripts.ScriptLoader;
 import org.springframework.extensions.webscripts.ScriptProcessor;
@@ -211,9 +212,15 @@ public class EnhancedJSScriptProcessor extends BaseRegisterableScriptProcessor i
         LOGGER.info("{} Start", debugScriptName);
 
         final long startTime = System.currentTimeMillis();
+
+        final ValueConverter previousConverter = ValueConverter.GLOBAL_CONVERTER.get();
+        ValueConverter.GLOBAL_CONVERTER.set(this.valueConverter);
+
         final Context cx = Context.enter();
         try
         {
+            cx.setWrapFactory(new DelegatingWrapFactory());
+
             List<ReferenceScript> currentChain = this.activeScriptContentChain.get(cx);
             boolean newChain = false;
             if (currentChain == null)
@@ -284,6 +291,8 @@ public class EnhancedJSScriptProcessor extends BaseRegisterableScriptProcessor i
         {
             Context.exit();
 
+            ValueConverter.GLOBAL_CONVERTER.set(previousConverter);
+
             final long endTime = System.currentTimeMillis();
             LOGGER.info("{} End {} msg", debugScriptName, Long.valueOf(endTime - startTime));
         }
@@ -305,9 +314,15 @@ public class EnhancedJSScriptProcessor extends BaseRegisterableScriptProcessor i
         LOGGER.info("{} Start", debugScriptName);
 
         final long startTime = System.currentTimeMillis();
+
+        final ValueConverter previousConverter = ValueConverter.GLOBAL_CONVERTER.get();
+        ValueConverter.GLOBAL_CONVERTER.set(this.valueConverter);
+
         final Context cx = Context.enter();
         try
         {
+            cx.setWrapFactory(new DelegatingWrapFactory());
+
             List<ReferenceScript> currentChain = this.activeScriptContentChain.get(cx);
             boolean newChain = false;
             if (currentChain == null)
@@ -378,6 +393,8 @@ public class EnhancedJSScriptProcessor extends BaseRegisterableScriptProcessor i
         {
             Context.exit();
 
+            ValueConverter.GLOBAL_CONVERTER.set(previousConverter);
+
             final long endTime = System.currentTimeMillis();
             LOGGER.info("{} End {} msg", debugScriptName, Long.valueOf(endTime - startTime));
         }
@@ -392,9 +409,15 @@ public class EnhancedJSScriptProcessor extends BaseRegisterableScriptProcessor i
         ParameterCheck.mandatory("location", location);
 
         final Scriptable scope;
+
+        final ValueConverter previousConverter = ValueConverter.GLOBAL_CONVERTER.get();
+        ValueConverter.GLOBAL_CONVERTER.set(this.valueConverter);
+
         final Context cx = Context.enter();
         try
         {
+            cx.setWrapFactory(new DelegatingWrapFactory());
+
             final boolean secureScript = location.isSecure();
             if (this.shareScopes)
             {
@@ -411,6 +434,8 @@ public class EnhancedJSScriptProcessor extends BaseRegisterableScriptProcessor i
         finally
         {
             Context.exit();
+
+            ValueConverter.GLOBAL_CONVERTER.set(previousConverter);
         }
 
         return scope;
@@ -489,26 +514,35 @@ public class EnhancedJSScriptProcessor extends BaseRegisterableScriptProcessor i
     @Override
     public void init()
     {
-        Context cx = Context.enter();
+        final ValueConverter previousConverter = ValueConverter.GLOBAL_CONVERTER.get();
+        ValueConverter.GLOBAL_CONVERTER.set(this.valueConverter);
         try
         {
-            cx.setWrapFactory(new DelegatingWrapFactory(this.valueConverter));
-            this.unrestrictedShareableScope = this.setupScope(cx, true, false);
-        }
-        finally
-        {
-            Context.exit();
-        }
+            Context cx = Context.enter();
+            try
+            {
+                cx.setWrapFactory(new DelegatingWrapFactory());
+                this.unrestrictedShareableScope = this.setupScope(cx, true, false);
+            }
+            finally
+            {
+                Context.exit();
+            }
 
-        cx = Context.enter();
-        try
-        {
-            cx.setWrapFactory(new DelegatingWrapFactory(this.valueConverter));
-            this.restrictedShareableScope = this.setupScope(cx, false, false);
+            cx = Context.enter();
+            try
+            {
+                cx.setWrapFactory(new DelegatingWrapFactory());
+                this.restrictedShareableScope = this.setupScope(cx, false, false);
+            }
+            finally
+            {
+                Context.exit();
+            }
         }
         finally
         {
-            Context.exit();
+            ValueConverter.GLOBAL_CONVERTER.set(previousConverter);
         }
     }
 
@@ -895,10 +929,13 @@ public class EnhancedJSScriptProcessor extends BaseRegisterableScriptProcessor i
         final long startTime = System.currentTimeMillis();
         LOGGER.info("{} Start", debugScriptName);
 
+        final ValueConverter previousConverter = ValueConverter.GLOBAL_CONVERTER.get();
+        ValueConverter.GLOBAL_CONVERTER.set(this.valueConverter);
+
         final Context cx = Context.enter();
         try
         {
-            cx.setWrapFactory(new DelegatingWrapFactory(this.valueConverter));
+            cx.setWrapFactory(new DelegatingWrapFactory());
 
             final Scriptable scope;
             if (this.shareScopes)
@@ -948,6 +985,8 @@ public class EnhancedJSScriptProcessor extends BaseRegisterableScriptProcessor i
         {
             Context.exit();
 
+            ValueConverter.GLOBAL_CONVERTER.set(previousConverter);
+
             final long endTime = System.currentTimeMillis();
             LOGGER.info("{} End {} ms", debugScriptName, Long.valueOf(endTime - startTime));
         }
@@ -958,7 +997,8 @@ public class EnhancedJSScriptProcessor extends BaseRegisterableScriptProcessor i
         final Context cx = Context.enter();
         try
         {
-            cx.setWrapFactory(new DelegatingWrapFactory(this.valueConverter));
+            cx.setLocale(I18NUtil.getLocale());
+
             // make sure scripts always have the relevant processor extensions available
             for (final ProcessorExtension ex : this.processorExtensions.values())
             {

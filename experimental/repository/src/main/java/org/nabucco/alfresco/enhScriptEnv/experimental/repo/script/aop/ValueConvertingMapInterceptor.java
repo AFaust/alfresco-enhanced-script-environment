@@ -20,7 +20,7 @@ import java.util.Map;
 import org.alfresco.util.ParameterCheck;
 import org.aopalliance.intercept.MethodInterceptor;
 import org.aopalliance.intercept.MethodInvocation;
-import org.nabucco.alfresco.enhScriptEnv.experimental.repo.script.ValueConverter;
+import org.nabucco.alfresco.enhScriptEnv.common.script.converter.ValueConverter;
 
 /**
  * @author Axel Faust, <a href="http://www.prodyna.com">PRODYNA AG</a>
@@ -74,11 +74,10 @@ public class ValueConvertingMapInterceptor implements MethodInterceptor
             }
 
             final Object[] arguments = invocation.getArguments();
-            // final Class<?>[] parameterTypes = method.getParameterTypes();
+            final Class<?>[] parameterTypes = method.getParameterTypes();
             for (final int argIdx : argIdxToConvert)
             {
-                // TODO: include parameter type when interface is extended to permit "expectedClass"
-                arguments[argIdx] = this.valueConverter.convertValueForJava(arguments[argIdx]);
+                arguments[argIdx] = this.valueConverter.convertValueForJava(arguments[argIdx], parameterTypes[argIdx]);
             }
 
             final Object actualResult = invocation.proceed();
@@ -86,7 +85,7 @@ public class ValueConvertingMapInterceptor implements MethodInterceptor
             if (convertResult)
             {
                 final Class<?> expectedClass = method.getReturnType();
-                result = this.valueConverter.convertValueForNashorn(actualResult, expectedClass);
+                result = this.valueConverter.convertValueForScript(actualResult, expectedClass);
             }
             else
             {

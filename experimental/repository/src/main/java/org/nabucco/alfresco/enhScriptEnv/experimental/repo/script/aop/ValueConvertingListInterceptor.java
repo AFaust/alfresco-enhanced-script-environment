@@ -20,16 +20,13 @@ import java.util.List;
 import org.alfresco.util.ParameterCheck;
 import org.aopalliance.intercept.MethodInterceptor;
 import org.aopalliance.intercept.MethodInvocation;
-import org.nabucco.alfresco.enhScriptEnv.experimental.repo.script.ValueConverter;
-import org.springframework.aop.framework.ProxyFactory;
+import org.nabucco.alfresco.enhScriptEnv.common.script.converter.ValueConverter;
 
 /**
  * @author Axel Faust, <a href="http://www.prodyna.com">PRODYNA AG</a>
  */
 public class ValueConvertingListInterceptor implements MethodInterceptor
 {
-
-    protected final ProxyFactory listProxyFactory = new ProxyFactory(List.class, this);
 
     protected final ValueConverter valueConverter;
 
@@ -110,30 +107,18 @@ public class ValueConvertingListInterceptor implements MethodInterceptor
             default: // NO-OP
             }
 
-            // final Class<?>[] parameterTypes = method.getParameterTypes();
             final Object[] arguments = invocation.getArguments();
+            final Class<?>[] parameterTypes = invocation.getMethod().getParameterTypes();
             for (final int argIdx : argIdxToConvert)
             {
-                // TODO: include parameter type when interface is extended to permit "expectedClass"
-                arguments[argIdx] = this.valueConverter.convertValueForJava(arguments[argIdx]);
+                arguments[argIdx] = this.valueConverter.convertValueForJava(arguments[argIdx], parameterTypes[argIdx]);
             }
 
             final Object actualResult = invocation.proceed();
 
             if (convertResult)
             {
-                if ("subList".equals(method.getName()))
-                {
-                    synchronized (this.listProxyFactory)
-                    {
-                        this.listProxyFactory.setTarget(actualResult);
-                        result = this.listProxyFactory.getProxy();
-                    }
-                }
-                else
-                {
-                    result = this.valueConverter.convertValueForNashorn(actualResult, expectedClass);
-                }
+                result = this.valueConverter.convertValueForScript(actualResult, expectedClass);
             }
             else
             {

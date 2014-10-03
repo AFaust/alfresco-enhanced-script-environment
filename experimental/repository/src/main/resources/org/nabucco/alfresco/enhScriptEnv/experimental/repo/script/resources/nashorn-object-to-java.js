@@ -3,20 +3,28 @@ function convert(obj)
     var result, type, arr, idx, max, key, convertedKey, el, convertedEl, mapType = Java.type("java.util.Map"), listType = Java
             .type("java.util.List");
 
-    print(obj);
-
     if (obj === undefined || obj === null)
     {
         result = obj;
     }
-    else if (typeof obj === 'string' || (obj.trim !== undefined && obj.toUpperCase !== undefined))
+    // TODO: remove null checks when 8u20 b16 ships
+    else if (typeof obj === 'string'
+            || (obj.trim !== undefined && obj.toUpperCase !== undefined && obj.trim !== null && obj.toUpperCase !== null))
     {
         type = Java.type("java.lang.String");
         result = new type(obj);
     }
     else if (typeof obj === 'number' && isFinite(obj))
     {
-        type = Java.type("java.lang.Double");
+        // check for (representable) integer
+        if (obj === obj | 0)
+        {
+            type = Java.type("java.lang.Integer");
+        }
+        else
+        {
+            type = Java.type("java.lang.Double");
+        }
         result = type.valueOf(String(obj));
     }
     else if (typeof obj === 'boolean')
@@ -24,7 +32,8 @@ function convert(obj)
         type = Java.type("java.lang.Boolean");
         result = type.valueOf(String(obj));
     }
-    else if (obj.getClass !== undefined)
+    // TODO: remove null checks when 8u20 b16 ships
+    else if (obj.getClass !== undefined && obj.getClass !== null)
     {
         if (obj instanceof listType)
         {
@@ -43,24 +52,22 @@ function convert(obj)
         {
             for (key in obj)
             {
-                if (obj.hasOwnProperty(key))
-                {
-                    el = obj[key];
-                    convertedKey = convert(key);
-                    convertedEl = convert(el);
+                el = obj[key];
+                convertedKey = convert(key);
+                convertedEl = convert(el);
 
-                    if (convertedKey !== key || convertedEl !== el)
-                    {
-                        delete obj[key];
-                        obj[convertedKey] = convertedEl;
-                    }
+                if (convertedKey !== key || convertedEl !== el)
+                {
+                    delete obj[key];
+                    obj[convertedKey] = convertedEl;
                 }
             }
         }
         // return as is
         result = obj;
     }
-    else if (obj.length !== undefined)
+    // TODO: remove null checks when 8u20 b16 ships
+    else if (obj.length !== undefined && obj.length !== null)
     {
         // simple array
         arr = [];

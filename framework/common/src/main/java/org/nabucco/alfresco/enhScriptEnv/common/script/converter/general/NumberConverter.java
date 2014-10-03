@@ -63,46 +63,6 @@ public class NumberConverter implements ValueInstanceConverter, InitializingBean
      * {@inheritDoc}
      */
     @Override
-    public int getForJavaConversionConfidence(final Class<?> valueInstanceClass, final Class<?> expectedClass)
-    {
-        final int confidence;
-        if (Number.class.isAssignableFrom(valueInstanceClass)
-                && (expectedClass.isAssignableFrom(Number.class) || SIMPLE_NUMBER_CLASSES.contains(expectedClass)))
-        {
-            confidence = MEDIUM_CONFIDENCE;
-        }
-        else
-        {
-            confidence = LOWEST_CONFIDENCE;
-        }
-        return confidence;
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public boolean canConvertValueForJava(final Object value, final ValueConverter globalDelegate, final Class<?> expectedClass)
-    {
-        final boolean canConvert = value instanceof Number
-                && (expectedClass.isAssignableFrom(Number.class) || SIMPLE_NUMBER_CLASSES.contains(expectedClass));
-        return canConvert;
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public Object convertValueForJava(final Object value, final ValueConverter globalDelegate, final Class<?> expectedClass)
-    {
-        return this.convertNumber(value, expectedClass);
-    }
-
-    /**
-     *
-     * {@inheritDoc}
-     */
-    @Override
     public int getForScriptConversionConfidence(final Class<?> valueInstanceClass, final Class<?> expectedClass)
     {
         final int confidence;
@@ -138,11 +98,51 @@ public class NumberConverter implements ValueInstanceConverter, InitializingBean
         return this.convertNumber(value, expectedClass);
     }
 
+    /**
+     *
+     * {@inheritDoc}
+     */
+    @Override
+    public int getForJavaConversionConfidence(final Class<?> valueInstanceClass, final Class<?> expectedClass)
+    {
+        final int confidence;
+        if (Number.class.isAssignableFrom(valueInstanceClass)
+                && (expectedClass.isAssignableFrom(Number.class) || SIMPLE_NUMBER_CLASSES.contains(expectedClass)))
+        {
+            confidence = MEDIUM_CONFIDENCE;
+        }
+        else
+        {
+            confidence = LOWEST_CONFIDENCE;
+        }
+        return confidence;
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public boolean canConvertValueForJava(final Object value, final ValueConverter globalDelegate, final Class<?> expectedClass)
+    {
+        final boolean canConvert = value instanceof Number
+                && (expectedClass.isAssignableFrom(Number.class) || SIMPLE_NUMBER_CLASSES.contains(expectedClass));
+        return canConvert;
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public Object convertValueForJava(final Object value, final ValueConverter globalDelegate, final Class<?> expectedClass)
+    {
+        return this.convertNumber(value, expectedClass);
+    }
+
     protected Object convertNumber(final Object value, final Class<?> expectedClass)
     {
         if (!(value instanceof Number))
         {
-            throw new IllegalArgumentException("value must be a Number");
+            throw new IllegalArgumentException("value must be a " + Number.class);
         }
 
         final Number resultNumber;

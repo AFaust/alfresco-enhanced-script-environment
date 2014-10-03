@@ -25,6 +25,7 @@ import java.util.Map;
 import java.util.Set;
 
 import org.alfresco.util.ParameterCheck;
+import org.nabucco.alfresco.enhScriptEnv.common.util.ClassUtils;
 
 /**
  * @author Axel Faust, <a href="http://www.prodyna.com">PRODYNA AG</a>
@@ -72,7 +73,8 @@ public class GenericGlobalValueConverter implements ValueConverter, ValueInstanc
         final boolean result;
         if (value != null)
         {
-            final ValueInstanceConverter bestFittingConverter = this.lookupBestFittingConverter(value, expectedClass, false);
+            final ValueInstanceConverter bestFittingConverter = this.lookupBestFittingConverter(value, expectedClass,
+                    false);
             result = bestFittingConverter != null || expectedClass.isInstance(value);
         }
         else
@@ -102,14 +104,15 @@ public class GenericGlobalValueConverter implements ValueConverter, ValueInstanc
         final Object result;
         if (value != null)
         {
-            final ValueInstanceConverter bestFittingConverter = this.lookupBestFittingConverter(value, expectedClass, false);
+            final ValueInstanceConverter bestFittingConverter = this.lookupBestFittingConverter(value, expectedClass,
+                    false);
             if (bestFittingConverter != null)
             {
                 result = bestFittingConverter.convertValueForJava(value, this, expectedClass);
             }
-            else if (expectedClass.isInstance(value))
+            else if (ClassUtils.isInstance(value, expectedClass))
             {
-                result = expectedClass.cast(value);
+                result = value;
             }
             else
             {
@@ -143,7 +146,8 @@ public class GenericGlobalValueConverter implements ValueConverter, ValueInstanc
         final boolean result;
         if (value != null)
         {
-            final ValueInstanceConverter bestFittingConverter = this.lookupBestFittingConverter(value, expectedClass, true);
+            final ValueInstanceConverter bestFittingConverter = this.lookupBestFittingConverter(value, expectedClass,
+                    true);
             result = bestFittingConverter != null || expectedClass.isInstance(value);
         }
         else
@@ -173,14 +177,15 @@ public class GenericGlobalValueConverter implements ValueConverter, ValueInstanc
         final Object result;
         if (value != null)
         {
-            final ValueInstanceConverter bestFittingConverter = this.lookupBestFittingConverter(value, expectedClass, true);
+            final ValueInstanceConverter bestFittingConverter = this.lookupBestFittingConverter(value, expectedClass,
+                    true);
             if (bestFittingConverter != null)
             {
                 result = bestFittingConverter.convertValueForScript(value, this, expectedClass);
             }
-            else if (expectedClass.isInstance(value))
+            else if (ClassUtils.isInstance(value, expectedClass))
             {
-                result = expectedClass.cast(value);
+                result = value;
             }
             else
             {
@@ -194,15 +199,18 @@ public class GenericGlobalValueConverter implements ValueConverter, ValueInstanc
         return result;
     }
 
-    protected ValueInstanceConverter lookupBestFittingConverter(final Object valueInstance, final Class<?> expectedClass,
+    protected ValueInstanceConverter lookupBestFittingConverter(final Object valueInstance,
+            final Class<?> expectedClass,
             final boolean javaToScript)
     {
-        final Collection<ValueInstanceConverter> converters = this.lookupPrioritizedConverters(valueInstance, expectedClass, javaToScript);
+        final Collection<ValueInstanceConverter> converters = this.lookupPrioritizedConverters(valueInstance,
+                expectedClass, javaToScript);
 
         ValueInstanceConverter bestFittingConverter = null;
         for (final ValueInstanceConverter converter : converters)
         {
-            final boolean canConvert = javaToScript ? converter.canConvertValueForScript(valueInstance, this, expectedClass) : converter
+            final boolean canConvert = javaToScript ? converter.canConvertValueForScript(valueInstance, this,
+                    expectedClass) : converter
                     .canConvertValueForJava(valueInstance, this, expectedClass);
             if (canConvert)
             {
@@ -214,7 +222,8 @@ public class GenericGlobalValueConverter implements ValueConverter, ValueInstanc
         return bestFittingConverter;
     }
 
-    protected Collection<ValueInstanceConverter> lookupPrioritizedConverters(final Object valueInstance, final Class<?> expectedClass,
+    protected Collection<ValueInstanceConverter> lookupPrioritizedConverters(final Object valueInstance,
+            final Class<?> expectedClass,
             final boolean javaToScript)
     {
         Collection<ValueInstanceConverter> converters = new HashSet<ValueInstanceConverter>();
@@ -230,6 +239,7 @@ public class GenericGlobalValueConverter implements ValueConverter, ValueInstanc
 
                 currentClass = currentClass.getSuperclass();
             }
+            classesToCheck.add(Object.class);
 
             for (final Class<?> cls : classesToCheck)
             {
@@ -244,7 +254,8 @@ public class GenericGlobalValueConverter implements ValueConverter, ValueInstanc
             {
                 converters = new ArrayList<ValueInstanceConverter>(converters);
                 Collections.sort((List<ValueInstanceConverter>) converters,
-                        new ValueInstanceConverterConfidenceComparator(valueInstance.getClass(), expectedClass, javaToScript));
+                        new ValueInstanceConverterConfidenceComparator(valueInstance.getClass(), expectedClass,
+                                javaToScript));
             }
         }
 

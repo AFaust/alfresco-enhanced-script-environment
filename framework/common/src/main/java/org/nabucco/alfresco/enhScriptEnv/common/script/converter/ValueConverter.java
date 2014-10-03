@@ -26,6 +26,11 @@ public interface ValueConverter
 {
 
     /**
+     * The thread-local holder for the global converter instance of the current execution context.
+     */
+    public static ThreadLocal<ValueConverter> GLOBAL_CONVERTER = new ThreadLocal<ValueConverter>();
+
+    /**
      * Checks if a specific value from the script environment can be converted to a value that can be used in regular Java components. This
      * operation provides a way to pre-emptively check the support without incurring the actual conversion overhead.
      *

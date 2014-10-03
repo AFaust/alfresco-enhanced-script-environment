@@ -19,6 +19,7 @@
     </properties>
 
     <modules>
+        <module>agent</module>
         <module>repository</module>
         <module>share</module>
     </modules>

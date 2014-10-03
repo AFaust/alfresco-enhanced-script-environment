@@ -1,6 +1,6 @@
 (function(logger)
 {
-    var logScope = this, Throwable = Java.type("java.lang.Throwable"), MessageFormat = Java.type("java.text.MessageFormat"), loggerDelegate = logger, rootLogger = new Object(), system = new Object(), createLogFn = function(
+    var logScope = this, Throwable = Java.type("java.lang.Throwable"), MessageFormat = Java.type("java.text.MessageFormat"), loggerDelegate = logger, rootLogger = new Object(), system = new Object(), existingLoggerProp, createLogFn = function(
             level, name)
     {
         var logLevel = level, fnName = name, fn = function(message, opt)
@@ -64,207 +64,213 @@
         return fn;
     };
 
-    Object.defineProperty(system, "out",
+    // might have been defined already
+    existingLoggerProp = Object.getOwnPropertyDescriptor(this, "logger");
+    if (existingLoggerProp === undefined || existingLoggerProp.configurable === true)
     {
-        configurable : false,
-        enumerable : true,
-        writable : false,
-        value : function(message)
+
+        Object.defineProperty(system, "out",
         {
-            loggerDelegate.out(message);
-        }
-    });
-
-    Object.freeze(system);
-
-    Object.defineProperty(rootLogger, "getSystem",
-    {
-        configurable : false,
-        enumerable : true,
-        writable : false,
-        value : function()
-        {
-            return system;
-        }
-    });
-
-    Object.defineProperty(rootLogger, "registerChildScope",
-    {
-        configurable : false,
-        enumerable : true,
-        writable : false,
-        value : function(childScope)
-        {
-            loggerDelegate.registerChildScope(logScope, childScope);
-        }
-    });
-
-    Object.defineProperty(rootLogger, "setLogger",
-    {
-        configurable : false,
-        enumerable : true,
-        writable : false,
-        value : function(logger)
-        {
-            loggerDelegate.setLogger(logScope, logger);
-        }
-    });
-
-    Object.defineProperty(rootLogger, "setInheritLoggerContext",
-    {
-        configurable : false,
-        enumerable : true,
-        writable : false,
-        value : function(inheritLoggerContext)
-        {
-            loggerDelegate.setInheritLoggerContext(logScope, inheritLoggerContext);
-        }
-    });
-
-    Object.defineProperty(rootLogger, "trace",
-    {
-        configurable : false,
-        enumerable : true,
-        writable : false,
-        value : createLogFn("trace", "trace")
-    });
-
-    Object.defineProperty(rootLogger, "debug",
-    {
-        configurable : false,
-        enumerable : true,
-        writable : false,
-        value : createLogFn("debug", "log")
-    });
-
-    Object.defineProperty(rootLogger, "log",
-    {
-        configurable : false,
-        enumerable : true,
-        writable : false,
-        value : createLogFn("debug", "log")
-    });
-
-    Object.defineProperty(rootLogger, "info",
-    {
-        configurable : false,
-        enumerable : true,
-        writable : false,
-        value : createLogFn("info", "info")
-    });
-
-    Object.defineProperty(rootLogger, "warn",
-    {
-        configurable : false,
-        enumerable : true,
-        writable : false,
-        value : createLogFn("warn", "warn")
-    });
-
-    Object.defineProperty(rootLogger, "error",
-    {
-        configurable : false,
-        enumerable : true,
-        writable : false,
-        value : createLogFn("error", "error")
-    });
-
-    Object.defineProperty(rootLogger, "isTraceEnabled",
-    {
-        configurable : false,
-        enumerable : true,
-        writable : false,
-        value : createLogEnabledFn("trace")
-    });
-
-    Object.defineProperty(rootLogger, "isDebugEnabled",
-    {
-        configurable : false,
-        enumerable : true,
-        writable : false,
-        value : createLogEnabledFn("debug")
-    });
-
-    Object.defineProperty(rootLogger, "isDebugLoggingEnabled",
-    {
-        configurable : false,
-        enumerable : true,
-        writable : false,
-        value : rootLogger.isDebugEnabled
-    });
-
-    Object.defineProperty(rootLogger, "isLoggingEnabled",
-    {
-        configurable : false,
-        enumerable : true,
-        writable : false,
-        value : rootLogger.isDebugEnabled
-    });
-
-    Object.defineProperty(rootLogger, "isInfoEnabled",
-    {
-        configurable : false,
-        enumerable : true,
-        writable : false,
-        value : createLogEnabledFn("info")
-    });
-
-    Object.defineProperty(rootLogger, "isInfoLoggingEnabled",
-    {
-        configurable : false,
-        enumerable : true,
-        writable : false,
-        value : rootLogger.isInfoEnabled
-    });
-
-    Object.defineProperty(rootLogger, "isWarnEnabled",
-    {
-        configurable : false,
-        enumerable : true,
-        writable : false,
-        value : createLogEnabledFn("warn")
-    });
-
-    Object.defineProperty(rootLogger, "isWarnLoggingEnabled",
-    {
-        configurable : false,
-        enumerable : true,
-        writable : false,
-        value : rootLogger.isWarnEnabled
-    });
-
-    Object.defineProperty(rootLogger, "isErrorEnabled",
-    {
-        configurable : false,
-        enumerable : true,
-        writable : false,
-        value : createLogEnabledFn("error")
-    });
-
-    Object.defineProperty(rootLogger, "isErrorLoggingEnabled",
-    {
-        configurable : false,
-        enumerable : true,
-        writable : false,
-        value : rootLogger.isErrorEnabled
-    });
-
-    Object.freeze(rootLogger);
-
-    Object.defineProperty(this, "logger",
-    {
-        configurable : false,
-        enumerable : false,
-        get : function()
-        {
-            return rootLogger;
-        },
-        set : function(logger)
-        {
-            if (logger !== rootLogger)
+            configurable : false,
+            enumerable : true,
+            writable : false,
+            value : function(message)
             {
-                loggerDelegate.setScriptLogger(logger);
+                loggerDelegate.out(message);
             }
-        }
-    });
+        });
+
+        Object.freeze(system);
+
+        Object.defineProperty(rootLogger, "getSystem",
+        {
+            configurable : false,
+            enumerable : true,
+            writable : false,
+            value : function()
+            {
+                return system;
+            }
+        });
+
+        Object.defineProperty(rootLogger, "registerChildScope",
+        {
+            configurable : false,
+            enumerable : true,
+            writable : false,
+            value : function(childScope)
+            {
+                loggerDelegate.registerChildScope(logScope, childScope);
+            }
+        });
+
+        Object.defineProperty(rootLogger, "setLogger",
+        {
+            configurable : false,
+            enumerable : true,
+            writable : false,
+            value : function(logger)
+            {
+                loggerDelegate.setLogger(logScope, logger);
+            }
+        });
+
+        Object.defineProperty(rootLogger, "setInheritLoggerContext",
+        {
+            configurable : false,
+            enumerable : true,
+            writable : false,
+            value : function(inheritLoggerContext)
+            {
+                loggerDelegate.setInheritLoggerContext(logScope, inheritLoggerContext);
+            }
+        });
+
+        Object.defineProperty(rootLogger, "trace",
+        {
+            configurable : false,
+            enumerable : true,
+            writable : false,
+            value : createLogFn("trace", "trace")
+        });
+
+        Object.defineProperty(rootLogger, "debug",
+        {
+            configurable : false,
+            enumerable : true,
+            writable : false,
+            value : createLogFn("debug", "log")
+        });
+
+        Object.defineProperty(rootLogger, "log",
+        {
+            configurable : false,
+            enumerable : true,
+            writable : false,
+            value : createLogFn("debug", "log")
+        });
+
+        Object.defineProperty(rootLogger, "info",
+        {
+            configurable : false,
+            enumerable : true,
+            writable : false,
+            value : createLogFn("info", "info")
+        });
+
+        Object.defineProperty(rootLogger, "warn",
+        {
+            configurable : false,
+            enumerable : true,
+            writable : false,
+            value : createLogFn("warn", "warn")
+        });
+
+        Object.defineProperty(rootLogger, "error",
+        {
+            configurable : false,
+            enumerable : true,
+            writable : false,
+            value : createLogFn("error", "error")
+        });
+
+        Object.defineProperty(rootLogger, "isTraceEnabled",
+        {
+            configurable : false,
+            enumerable : true,
+            writable : false,
+            value : createLogEnabledFn("trace")
+        });
+
+        Object.defineProperty(rootLogger, "isDebugEnabled",
+        {
+            configurable : false,
+            enumerable : true,
+            writable : false,
+            value : createLogEnabledFn("debug")
+        });
+
+        Object.defineProperty(rootLogger, "isDebugLoggingEnabled",
+        {
+            configurable : false,
+            enumerable : true,
+            writable : false,
+            value : rootLogger.isDebugEnabled
+        });
+
+        Object.defineProperty(rootLogger, "isLoggingEnabled",
+        {
+            configurable : false,
+            enumerable : true,
+            writable : false,
+            value : rootLogger.isDebugEnabled
+        });
+
+        Object.defineProperty(rootLogger, "isInfoEnabled",
+        {
+            configurable : false,
+            enumerable : true,
+            writable : false,
+            value : createLogEnabledFn("info")
+        });
+
+        Object.defineProperty(rootLogger, "isInfoLoggingEnabled",
+        {
+            configurable : false,
+            enumerable : true,
+            writable : false,
+            value : rootLogger.isInfoEnabled
+        });
+
+        Object.defineProperty(rootLogger, "isWarnEnabled",
+        {
+            configurable : false,
+            enumerable : true,
+            writable : false,
+            value : createLogEnabledFn("warn")
+        });
+
+        Object.defineProperty(rootLogger, "isWarnLoggingEnabled",
+        {
+            configurable : false,
+            enumerable : true,
+            writable : false,
+            value : rootLogger.isWarnEnabled
+        });
+
+        Object.defineProperty(rootLogger, "isErrorEnabled",
+        {
+            configurable : false,
+            enumerable : true,
+            writable : false,
+            value : createLogEnabledFn("error")
+        });
+
+        Object.defineProperty(rootLogger, "isErrorLoggingEnabled",
+        {
+            configurable : false,
+            enumerable : true,
+            writable : false,
+            value : rootLogger.isErrorEnabled
+        });
+
+        Object.freeze(rootLogger);
+
+        Object.defineProperty(this, "logger",
+        {
+            configurable : false,
+            enumerable : false,
+            get : function()
+            {
+                return rootLogger;
+            },
+            set : function(logger)
+            {
+                if (logger !== rootLogger)
+                {
+                    loggerDelegate.setScriptLogger(logger);
+                }
+            }
+        });
+    }
 }(NashornLogFunction));

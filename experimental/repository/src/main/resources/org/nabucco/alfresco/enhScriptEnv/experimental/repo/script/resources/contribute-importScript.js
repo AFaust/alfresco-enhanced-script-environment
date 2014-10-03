@@ -1,6 +1,6 @@
 (function(importer)
 {
-    var importerDelegate = importer, asObject = function(obj, allowJavaObj)
+    var importerDelegate = importer, existingImportScriptProp, asObject = function(obj, allowJavaObj)
     {
         var result;
 
@@ -27,17 +27,22 @@
         return result;
     };
 
-    Object.defineProperty(this, "importScript",
+    // might have been defined already
+    existingImportScriptProp = Object.getOwnPropertyDescriptor(this, "importScript");
+    if (existingImportScriptProp === undefined || existingImportScriptProp.configurable === true)
     {
-        configurable : false,
-        enumerable : false,
-        writable : false,
-        value : function(locatorType, locationValue, failOnMissingScript, resolutionParams, executionScope)
+        Object.defineProperty(this, "importScript",
         {
-            var resolutionParamObj = asObject(resolutionParams, true), executionScopeObj = asObject(executionScope, false);
+            configurable : false,
+            enumerable : false,
+            writable : false,
+            value : function(locatorType, locationValue, failOnMissingScript, resolutionParams, executionScope)
+            {
+                var resolutionParamObj = asObject(resolutionParams, true), executionScopeObj = asObject(executionScope, false);
 
-            return importerDelegate.importScript(locatorType, locationValue, failOnMissingScript === true, resolutionParamObj, this,
-                    executionScopeObj);
-        }
-    });
+                return importerDelegate.importScript(locatorType, locationValue, failOnMissingScript === true, resolutionParamObj, this,
+                        executionScopeObj);
+            }
+        });
+    }
 }(NashornImportScriptFunction));

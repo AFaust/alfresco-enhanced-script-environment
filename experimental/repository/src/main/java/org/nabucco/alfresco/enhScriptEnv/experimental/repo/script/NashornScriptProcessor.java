@@ -35,19 +35,12 @@ import javax.script.ScriptEngine;
 import javax.script.ScriptEngineManager;
 import javax.script.SimpleScriptContext;
 
-import org.alfresco.model.ContentModel;
-import org.alfresco.model.RenditionModel;
 import org.alfresco.processor.ProcessorExtension;
-import org.alfresco.repo.jscript.CategoryNode;
 import org.alfresco.repo.jscript.ClasspathScriptLocation;
 import org.alfresco.repo.jscript.RhinoScriptProcessor;
-import org.alfresco.repo.jscript.ScriptNode;
 import org.alfresco.repo.processor.BaseProcessor;
-import org.alfresco.repo.thumbnail.script.ScriptThumbnail;
 import org.alfresco.scripts.ScriptException;
-import org.alfresco.service.cmr.dictionary.DictionaryService;
 import org.alfresco.service.cmr.repository.NodeRef;
-import org.alfresco.service.cmr.repository.NodeService;
 import org.alfresco.service.cmr.repository.ScriptLocation;
 import org.alfresco.service.cmr.repository.ScriptProcessor;
 import org.alfresco.service.namespace.QName;
@@ -58,6 +51,7 @@ import org.nabucco.alfresco.enhScriptEnv.common.script.EnhancedScriptProcessor;
 import org.nabucco.alfresco.enhScriptEnv.common.script.ReferenceScript;
 import org.nabucco.alfresco.enhScriptEnv.common.script.ReferenceScript.CommonReferencePath;
 import org.nabucco.alfresco.enhScriptEnv.common.script.ScopeContributor;
+import org.nabucco.alfresco.enhScriptEnv.common.script.converter.ValueConverter;
 import org.nabucco.alfresco.enhScriptEnv.repo.script.NodeScriptLocation;
 import org.nabucco.alfresco.enhScriptEnv.repo.script.ScriptLocationAdapter;
 import org.slf4j.Logger;
@@ -99,7 +93,7 @@ public class NashornScriptProcessor extends BaseProcessor implements Initializin
 
     protected final Collection<ScopeContributor> registeredContributors = new HashSet<ScopeContributor>();
 
-    protected ValueConverter valueConverter = new NashornValueConverter();
+    protected ValueConverter valueConverter;
 
     /**
      *
@@ -168,12 +162,13 @@ public class NashornScriptProcessor extends BaseProcessor implements Initializin
         try
         {
             final ReferenceScript script = this.toReferenceScript(source);
+            final String cleanSource = this.prepareSource(source);
 
             final ScriptContext thisContext = new SimpleScriptContext();
             final ScriptContext previousContext = this.beforeScriptExecution(thisContext, script, true);
             try
             {
-                final Object result = this.executeScriptImpl(source, model, false, script);
+                final Object result = this.executeScriptImpl(cleanSource, model, false, script);
                 return result;
             }
             finally
@@ -467,17 +462,19 @@ public class NashornScriptProcessor extends BaseProcessor implements Initializin
         return effectiveScriptName;
     }
 
-    // compiler can't know FileCopyUtils.copy closes both streams
     protected String toSource(final ScriptLocation location) throws IOException, UnsupportedEncodingException
     {
+        // TODO: can we somehow detect / remember which scripts needed cleanup to skip unnecessary efforts?
+
         final ByteArrayOutputStream os = new ByteArrayOutputStream();
         FileCopyUtils.copy(location.getInputStream(), os); // both streams are closed
         final byte[] bytes = os.toByteArray();
 
-        // TODO: is this safe - can we "assume" UTF-8?
+        // TODO Is this safe - can we "just assume" UTF-8?
         final String source = new String(bytes, "UTF-8");
+        final String cleanSource = this.prepareSource(source);
 
-        return source;
+        return cleanSource;
     }
 
     protected ScriptContext beforeScriptExecution(final ScriptContext thisContext, final ReferenceScript script, final boolean newRoot)
@@ -546,9 +543,8 @@ public class NashornScriptProcessor extends BaseProcessor implements Initializin
     protected String prepareSource(final String script)
     {
         final String importResolvedSource = this.resolveScriptImports(script);
-        final String constFixedSource = importResolvedSource.replaceAll(CONST_PATTERN, CONST_REPLACEMENT);
 
-        return constFixedSource;
+        return importResolvedSource;
     }
 
     protected Object executeScriptImpl(final String source, final Map<String, Object> argModel, final boolean secureScript,
@@ -572,13 +568,26 @@ public class NashornScriptProcessor extends BaseProcessor implements Initializin
             {
                 final Object obj = model.get(key);
 
-                scope.put(key, this.convertToNashornModel(obj));
+                // convert/wrap each object to JavaScript compatible
+                final Object jsObject = this.valueConverter.convertValueForScript(obj);
+                scope.put(key, jsObject);
             }
 
             // execute the script and return the result
             final Object scriptResult = this.executeScriptInScopeImpl(source, effectiveScriptName, scope);
 
-            // TODO: in-place cleaning of any parameters from argModel (e.g. Map / Collections modified within script)
+            // attempt in place cleanup of object put somewhere into the model (potentially accessed by client by-reference)
+            for (final String key : model.keySet())
+            {
+                final Object object = scope.get(key);
+                final Object originalObj = model.get(key);
+
+                if (object == originalObj && (object instanceof Map<?, ?> || object instanceof List<?>))
+                {
+                    // value converter SHOULD preserve object (do in-place cleanup)
+                    this.valueConverter.convertValueForJava(object);
+                }
+            }
 
             return scriptResult;
         }
@@ -687,7 +696,9 @@ public class NashornScriptProcessor extends BaseProcessor implements Initializin
             final String extensionName = ex.getExtensionName();
             if (!scope.containsKey(extensionName))
             {
-                scope.put(extensionName, this.convertToNashornModel(ex));
+                // convert/wrap each to JavaScript compatible
+                final Object jsObject = this.valueConverter.convertValueForScript(ex);
+                scope.put(extensionName, jsObject);
             }
         }
 
@@ -695,8 +706,19 @@ public class NashornScriptProcessor extends BaseProcessor implements Initializin
         scriptContext.setBindings(scope, ScriptContext.ENGINE_SCOPE);
         scriptContext.setAttribute(ScriptEngine.FILENAME, effectiveScriptName, ScriptContext.ENGINE_SCOPE);
 
-        final String cleanSource = this.prepareSource(source);
-        final Object scriptResult = this.scriptEngine.eval(cleanSource, scriptContext);
+        final Object scriptResult;
+
+        final ValueConverter previousConverter = ValueConverter.GLOBAL_CONVERTER.get();
+        ValueConverter.GLOBAL_CONVERTER.set(this.valueConverter);
+        try
+        {
+            scriptResult = this.scriptEngine.eval(source, scriptContext);
+        }
+        finally
+        {
+            ValueConverter.GLOBAL_CONVERTER.set(previousConverter);
+        }
+
         final Object result = this.valueConverter.convertValueForJava(scriptResult);
         return result;
 
@@ -722,7 +744,7 @@ public class NashornScriptProcessor extends BaseProcessor implements Initializin
         // will inheritently close mozReader
         this.scriptEngine.eval(mozReader, context);
 
-        // even secure scripts won't have access to these
+        // even secure scripts / contributors won't have access to these
         scope.remove("load");
         scope.remove("loadWithNewGlobal");
         scope.remove("exit");
@@ -750,55 +772,19 @@ public class NashornScriptProcessor extends BaseProcessor implements Initializin
         return scope;
     }
 
-    protected Object convertToNashornModel(final Object value)
-    {
-        final Object result;
-        if (this.valueConverter != null)
-        {
-            result = this.valueConverter.convertValueForNashorn(value);
-        }
-        else
-        {
-            result = value;
-        }
-        return result;
-    }
-
     protected Map<String, Object> convertToNashornModel(final Map<String, Object> model)
     {
         final Map<String, Object> newModel;
         if (model != null)
         {
             newModel = new HashMap<String, Object>(model.size());
-            final DictionaryService dictionaryService = this.services.getDictionaryService();
-            final NodeService nodeService = this.services.getNodeService();
 
-            // TODO: create proxies for Scopeable objects / procesor extensions
             for (final Map.Entry<String, Object> entry : model.entrySet())
             {
                 final String key = entry.getKey();
                 final Object value = entry.getValue();
-                if (value instanceof NodeRef)
-                {
-                    final QName type = nodeService.getType((NodeRef) value);
-                    if (dictionaryService.isSubClass(type, ContentModel.TYPE_CATEGORY))
-                    {
-                        newModel.put(key, new CategoryNode((NodeRef) value, this.services));
-                    }
-                    else if (dictionaryService.isSubClass(type, ContentModel.TYPE_THUMBNAIL)
-                            || nodeService.hasAspect((NodeRef) value, RenditionModel.ASPECT_RENDITION))
-                    {
-                        newModel.put(key, new ScriptThumbnail((NodeRef) value, this.services, null));
-                    }
-                    else
-                    {
-                        newModel.put(key, new ScriptNode((NodeRef) value, this.services));
-                    }
-                }
-                else
-                {
-                    newModel.put(key, value);
-                }
+
+                newModel.put(key, this.valueConverter.convertValueForScript(value));
             }
         }
         else
