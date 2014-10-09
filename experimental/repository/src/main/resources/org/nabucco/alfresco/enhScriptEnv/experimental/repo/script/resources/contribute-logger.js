@@ -12,9 +12,18 @@
                 {
                     loggerDelegate.log(logScope, logLevel, message, opt);
 
-                    if (scriptLogger !== null && scriptLogger.hasOwnProperty(fnName) && typeof scriptLogger[fnName] === "function")
+                    if (scriptLogger !== null && typeof scriptLogger[fnName] === "function")
                     {
-                        scriptLogger[fnName].call(scriptLogger, message + "\n" + opt.toString());
+                        if (typeof scriptLogger[fnName].hasOwnProperty === "function")
+                        {
+                            // native function
+                            scriptLogger[fnName].call(scriptLogger, message + "\n" + opt.toString());
+                        }
+                        else
+                        {
+                            // Java method
+                            scriptLogger[fnName](message + "\n" + opt.toString());
+                        }
                     }
                 }
                 else if (arguments.length > 2)
@@ -27,18 +36,36 @@
                     }
                     loggerDelegate.log(logScope, logLevel, message, params);
 
-                    if (scriptLogger !== null && scriptLogger.hasOwnProperty(fnName) && typeof scriptLogger[fnName] === "function")
+                    if (scriptLogger !== null && typeof scriptLogger[fnName] === "function")
                     {
-                        scriptLogger[fnName].call(scriptLogger, MessageFormat.format(message, params));
+                        if (typeof scriptLogger[fnName].hasOwnProperty === "function")
+                        {
+                            // native function
+                            scriptLogger[fnName].call(scriptLogger, MessageFormat.format(message, params));
+                        }
+                        else
+                        {
+                            // Java method
+                            scriptLogger[fnName](MessageFormat.format(message, params));
+                        }
                     }
                 }
                 else
                 {
                     loggerDelegate.log(logScope, logLevel, message, opt);
 
-                    if (scriptLogger !== null && scriptLogger.hasOwnProperty(fnName) && typeof scriptLogger[fnName] === "function")
+                    if (scriptLogger !== null && typeof scriptLogger[fnName] === "function")
                     {
-                        scriptLogger[fnName].call(scriptLogger, MessageFormat.format(message, opt));
+                        if (typeof scriptLogger[fnName].hasOwnProperty === "function")
+                        {
+                            // native function
+                            scriptLogger[fnName].call(scriptLogger, MessageFormat.format(message, opt));
+                        }
+                        else
+                        {
+                            // Java method
+                            scriptLogger[fnName](MessageFormat.format(message, opt));
+                        }
                     }
                 }
             }
@@ -46,9 +73,18 @@
             {
                 loggerDelegate.log(logScope, logLevel, message);
 
-                if (scriptLogger !== null && scriptLogger.hasOwnProperty(fnName) && typeof scriptLogger[fnName] === "function")
+                if (scriptLogger !== null && typeof scriptLogger[fnName] === "function")
                 {
-                    scriptLogger[fnName].call(scriptLogger);
+                    if (typeof scriptLogger[fnName].hasOwnProperty === "function")
+                    {
+                        // native function
+                    scriptLogger[fnName].call(scriptLogger, message);
+                    }
+                    else
+                    {
+                        // Java method
+                        scriptLogger[fnName](message);
+                    }
                 }
             }
         };
@@ -259,7 +295,7 @@
         Object.defineProperty(this, "logger",
         {
             configurable : false,
-            enumerable : false,
+            enumerable : true,
             get : function()
             {
                 return rootLogger;

@@ -14,10 +14,10 @@
  */
 package org.nabucco.alfresco.enhScriptEnv.experimental.agent;
 
-import org.springframework.asm.ClassAdapter;
-import org.springframework.asm.ClassVisitor;
-import org.springframework.asm.MethodVisitor;
-import org.springframework.asm.Opcodes;
+import org.objectweb.asm.ClassAdapter;
+import org.objectweb.asm.ClassVisitor;
+import org.objectweb.asm.MethodVisitor;
+import org.objectweb.asm.Opcodes;
 
 /**
  * @author Axel Faust, <a href="http://www.prodyna.com">PRODYNA AG</a>
@@ -40,6 +40,10 @@ public class RemoveFinalModifierClassAdapter extends ClassAdapter
         super.visit(version, access & ~Opcodes.ACC_FINAL, name, signature, superName, interfaces);
     }
 
+    /**
+     * {@inheritDoc}
+     */
+    @Override
     public MethodVisitor visitMethod(final int access, final String name, final String desc, final String signature,
             final String[] exceptions)
     {

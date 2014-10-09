@@ -42,7 +42,7 @@
                         </manifest>
                         <manifestEntries>
                             <Premain-Class>org.nabucco.alfresco.enhScriptEnv.experimental.agent.ScriptClassesTransformationAgent</Premain-Class>
-                            <Boot-Class-Path>org.springframework.asm-3.0.5.RELEASE.jar</Boot-Class-Path>
+                            <Boot-Class-Path>asm-3.3.1.jar</Boot-Class-Path>
                         </manifestEntries>
                     </archive>
                 </configuration>
@@ -58,9 +58,9 @@
 
     <dependencies>
         <dependency>
-            <groupId>org.springframework</groupId>
-            <artifactId>spring-asm</artifactId>
-            <version>3.0.5.RELEASE</version>
+            <groupId>asm</groupId>
+            <artifactId>asm</artifactId>
+            <version>3.3.1</version>
         </dependency>
     </dependencies>
 </project>

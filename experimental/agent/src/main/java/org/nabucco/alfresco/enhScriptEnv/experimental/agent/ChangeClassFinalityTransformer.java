@@ -18,6 +18,9 @@ import java.io.BufferedReader;
 import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.io.Reader;
 import java.lang.instrument.ClassFileTransformer;
 import java.lang.instrument.IllegalClassFormatException;
 import java.security.ProtectionDomain;
@@ -26,8 +29,8 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 
-import org.springframework.asm.ClassReader;
-import org.springframework.asm.ClassWriter;
+import org.objectweb.asm.ClassReader;
+import org.objectweb.asm.ClassWriter;
 
 /**
  * @author Axel Faust, <a href="http://www.prodyna.com">PRODYNA AG</a>
@@ -41,6 +44,23 @@ public class ChangeClassFinalityTransformer implements ClassFileTransformer
 
     public ChangeClassFinalityTransformer(final Map<String, String> arguments)
     {
+        final InputStream includedDefinalizeClassListFile = this.getClass().getResourceAsStream("definalizeClassList.txt");
+        final InputStreamReader reader = new InputStreamReader(includedDefinalizeClassListFile);
+        try
+        {
+            this.readDefinalizeClassList(reader);
+        }
+        finally
+        {
+            try
+            {
+                reader.close();
+            }
+            catch (final IOException ioex)
+            {
+                // ignore
+            }
+        }
 
         if (arguments.containsKey(DEFINALIZE_CLASS_LIST))
         {
@@ -48,28 +68,25 @@ public class ChangeClassFinalityTransformer implements ClassFileTransformer
 
             if (definalizeClassListFile != null && !definalizeClassListFile.isEmpty())
             {
+                FileReader fReader = null;
                 try
                 {
-                    final FileReader fReader = new FileReader(definalizeClassListFile);
-                    final BufferedReader bReader = new BufferedReader(fReader);
-                    try
-                    {
-                        String line = null;
-                        while ((line = bReader.readLine()) != null)
-                        {
-                            this.classesToTransform.add(line);
-                        }
-                    }
-                    catch (final IOException ioex)
-                    {
-                        System.err.println(MessageFormat.format("IO error reading file {0} defined by 'definalizeClassList'",
-                                definalizeClassListFile));
-                    }
-                    finally
+                    fReader = new FileReader(definalizeClassListFile);
+                    this.readDefinalizeClassList(fReader);
+                }
+                catch (final FileNotFoundException fex)
+                {
+                    System.err.println(MessageFormat.format(
+                            "ChangeClassFinalityTransformer: File {0} defined by 'definalizeClassList' does not exist",
+                            definalizeClassListFile));
+                }
+                finally
+                {
+                    if (fReader != null)
                     {
                         try
                         {
-                            bReader.close();
+                            fReader.close();
                         }
                         catch (final IOException ioex)
                         {
@@ -77,16 +94,37 @@ public class ChangeClassFinalityTransformer implements ClassFileTransformer
                         }
                     }
                 }
-                catch (final FileNotFoundException fex)
-                {
-                    System.err
-                            .println(MessageFormat
-                                    .format("File {0} defined by 'definalizeClassList' does not exist - agent will not remove final modifier for any class",
-                                            definalizeClassListFile));
-                }
             }
         }
 
+    }
+
+    private void readDefinalizeClassList(final Reader reader)
+    {
+        final BufferedReader bReader = new BufferedReader(reader);
+        try
+        {
+            String line = null;
+            while ((line = bReader.readLine()) != null)
+            {
+                this.classesToTransform.add(line);
+            }
+        }
+        catch (final IOException ioex)
+        {
+            System.err.println("IO error reading list of classes to de-finalize");
+        }
+        finally
+        {
+            try
+            {
+                bReader.close();
+            }
+            catch (final IOException ioex)
+            {
+                // ignore
+            }
+        }
     }
 
     /**
@@ -100,11 +138,13 @@ public class ChangeClassFinalityTransformer implements ClassFileTransformer
 
         if (this.classesToTransform.contains(className))
         {
+            System.out.println("ChangeClassFinalityTransformer: Transforming class " + className);
+
             final ClassReader cr = new ClassReader(classfileBuffer);
-            final ClassWriter cw = new ClassWriter(cr, true);
+            final ClassWriter cw = new ClassWriter(cr, ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS);
 
             final RemoveFinalModifierClassAdapter adapter = new RemoveFinalModifierClassAdapter(cw);
-            cr.accept(adapter, false);
+            cr.accept(adapter, 0);
 
             bytes = cw.toByteArray();
         }

@@ -563,6 +563,7 @@ public class NashornScriptProcessor extends BaseProcessor implements Initializin
         {
             final Bindings scope = this.setupScope(secureScript, true);
 
+            // TODO insert using script (pass model as converted map) - this will then correctly handle potential property descriptors
             // insert supplied object model into root of the default scope
             for (final String key : model.keySet())
             {
