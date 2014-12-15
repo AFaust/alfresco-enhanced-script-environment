@@ -257,7 +257,7 @@ public class LogFunction implements IdFunctionCall, InitializingBean, ScopeContr
         {
             // use a Java accessor with getter / setter as these don't require a top level call scope when being invoked e.g. as part of
             // model scope initialization
-            final LoggerAccessor accessor = new LoggerAccessor(scope, loggerObj);
+            final LoggerAccessor accessor = new LoggerAccessor(loggerObj);
             try
             {
                 final Method getter = LoggerAccessor.class.getMethod("get", new Class[] { Scriptable.class });
@@ -542,7 +542,7 @@ public class LogFunction implements IdFunctionCall, InitializingBean, ScopeContr
             else if (!this.isParentLoggerExplicit(context, scope, referenceScript))
             {
                 // Note: We previously included the legacy script logger explicitly here, but this is now handled separately
-                
+
                 if (referenceScript != null)
                 {
                     final Collection<ReferencePathType> supportedReferencePathTypes = referenceScript.getSupportedReferencePathTypes();
@@ -856,12 +856,10 @@ public class LogFunction implements IdFunctionCall, InitializingBean, ScopeContr
 
     protected class LoggerAccessor
     {
-        private final Scriptable scope;
         private final NativeObject logger;
 
-        protected LoggerAccessor(final Scriptable scope, final NativeObject logger)
+        protected LoggerAccessor(final NativeObject logger)
         {
-            this.scope = scope;
             this.logger = logger;
         }
 
@@ -872,7 +870,7 @@ public class LogFunction implements IdFunctionCall, InitializingBean, ScopeContr
 
         public void set(final Scriptable thisObj, final Scriptable logger)
         {
-            LogFunction.this.handleSetScriptLogger(Context.getCurrentContext(), this.scope, thisObj, new Object[] { logger });
+            LogFunction.this.handleSetScriptLogger(Context.getCurrentContext(), thisObj, thisObj, new Object[] { logger });
         }
     }
 
@@ -881,7 +879,9 @@ public class LogFunction implements IdFunctionCall, InitializingBean, ScopeContr
         private Collection<Logger> loggers;
         private String explicitLogger;
         private boolean inheritLoggerContext = true;
-        private Scriptable scriptLogger;
+
+        // avoid holding any native JS object in memory because it could in turn hold the key to scriptLoggerData map in memory
+        private WeakReference<Scriptable> scriptLogger;
 
         public LoggerData()
         {
@@ -944,7 +944,7 @@ public class LogFunction implements IdFunctionCall, InitializingBean, ScopeContr
          */
         public final Scriptable getScriptLogger()
         {
-            return this.scriptLogger;
+            return this.scriptLogger != null ? this.scriptLogger.get() : null;
         }
 
         /**
@@ -953,7 +953,7 @@ public class LogFunction implements IdFunctionCall, InitializingBean, ScopeContr
          */
         public final void setScriptLogger(final Scriptable scriptLogger)
         {
-            this.scriptLogger = scriptLogger;
+            this.scriptLogger = new WeakReference<Scriptable>(scriptLogger);
         }
 
     }
