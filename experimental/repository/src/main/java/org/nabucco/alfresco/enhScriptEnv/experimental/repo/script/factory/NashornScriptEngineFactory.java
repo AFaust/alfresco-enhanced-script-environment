@@ -1,11 +1,10 @@
 /*
- * Copyright 2013 PRODYNA AG
+ * Copyright 2014 PRODYNA AG
  *
  * Licensed under the Eclipse Public License (EPL), Version 1.0 (the "License"); you may not use
  * this file except in compliance with the License. You may obtain a copy of the License at
  *
- * http://www.opensource.org/licenses/eclipse-1.0.php or
- * http://www.nabucco.org/License.html
+ * https://www.eclipse.org/legal/epl-v10.html
  *
  * Unless required by applicable law or agreed to in writing, software distributed under the
  * License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND,
@@ -111,6 +110,9 @@ public class NashornScriptEngineFactory extends AbstractFactoryBean<ScriptEngine
 
         // never provide scripting extensions
         args.add("-scripting=false");
+
+        // this is true by default, but be explicit
+        args.add("--debug-lines=true");
 
         args.add("-doe=" + String.valueOf(this.dumpOnError));
         args.add("-pcc=" + String.valueOf(this.persistentCache));

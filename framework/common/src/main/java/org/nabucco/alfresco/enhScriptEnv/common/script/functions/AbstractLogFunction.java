@@ -1,11 +1,10 @@
 /*
- * Copyright 2013 PRODYNA AG
+ * Copyright 2014 PRODYNA AG
  *
  * Licensed under the Eclipse Public License (EPL), Version 1.0 (the "License"); you may not use
  * this file except in compliance with the License. You may obtain a copy of the License at
  *
- * http://www.opensource.org/licenses/eclipse-1.0.php or
- * http://www.nabucco.org/License.html
+ * https://www.eclipse.org/legal/epl-v10.html
  *
  * Unless required by applicable law or agreed to in writing, software distributed under the
  * License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND,
@@ -445,7 +444,7 @@ public abstract class AbstractLogFunction implements InitializingBean, ScopeCont
         loggerData = loggerDataByScript != null ? loggerDataByScript.get(script) : null;
         if (loggerDataByScript != null && loggerData == null && createIfNull)
         {
-            loggerData = new LoggerData();
+            loggerData = this.createLoggerData();
             loggerDataByScript.put(script, loggerData);
         }
 
@@ -475,6 +474,11 @@ public abstract class AbstractLogFunction implements InitializingBean, ScopeCont
         return loggerData;
     }
 
+    protected LoggerData createLoggerData()
+    {
+        return new LoggerData();
+    }
+
     protected Map<ReferenceScript, LoggerData> getScriptLoggerDataForContext(final Object scope, final boolean createIfNull)
     {
         Map<ReferenceScript, LoggerData> dataByScript = null;
@@ -490,7 +494,7 @@ public abstract class AbstractLogFunction implements InitializingBean, ScopeCont
 
         if (dataByScript == null && createIfNull)
         {
-            dataByScript = new IdentityHashMap<ReferenceScript, RhinoLogFunction.LoggerData>();
+            dataByScript = new IdentityHashMap<ReferenceScript, LoggerData>();
             this.scopeLoggerDataLock.writeLock().lock();
             try
             {

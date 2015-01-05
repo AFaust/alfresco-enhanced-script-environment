@@ -1,11 +1,10 @@
 /*
- * Copyright 2013 PRODYNA AG
+ * Copyright 2014 PRODYNA AG
  *
  * Licensed under the Eclipse Public License (EPL), Version 1.0 (the "License"); you may not use
  * this file except in compliance with the License. You may obtain a copy of the License at
  *
- * http://www.opensource.org/licenses/eclipse-1.0.php or
- * http://www.nabucco.org/License.html
+ * https://www.eclipse.org/legal/epl-v10.html
  *
  * Unless required by applicable law or agreed to in writing, software distributed under the
  * License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND,
@@ -14,12 +13,9 @@
  */
 package org.nabucco.alfresco.enhScriptEnv.experimental.repo.script.converter.nashorn;
 
-import javax.script.Bindings;
 import javax.script.ScriptContext;
 import javax.script.ScriptEngine;
 import javax.script.ScriptEngineManager;
-import javax.script.SimpleScriptContext;
-
 import org.alfresco.scripts.ScriptException;
 import org.alfresco.util.PropertyCheck;
 import org.nabucco.alfresco.enhScriptEnv.common.script.converter.ValueConverter;
@@ -40,7 +36,7 @@ public abstract class AbstractScriptEvaluationBasedConverter implements ValueIns
 
     protected ScriptEngine scriptEngine = new ScriptEngineManager().getEngineByName(NASHORN_ENGINE_NAME);
 
-    protected ThreadLocal<Bindings> cachedBindings;
+    protected ThreadLocal<ScriptContext> cachedContexts;
 
     protected ValueInstanceConverterRegistry registry;
 
@@ -64,12 +60,12 @@ public abstract class AbstractScriptEvaluationBasedConverter implements ValueIns
     }
 
     /**
-     * @param cachedBindings
-     *            the cachedBindings to set
+     * @param cachedContexts
+     *            the cachedContexts to set
      */
-    public final void setCachedBindings(final ThreadLocal<Bindings> cachedBindings)
+    public final void setCachedContexts(final ThreadLocal<ScriptContext> cachedContexts)
     {
-        this.cachedBindings = cachedBindings;
+        this.cachedContexts = cachedContexts;
     }
 
     /**
@@ -116,7 +112,7 @@ public abstract class AbstractScriptEvaluationBasedConverter implements ValueIns
     public void afterPropertiesSet()
     {
         PropertyCheck.mandatory(this, "scriptEngine", this.scriptEngine);
-        PropertyCheck.mandatory(this, "cachedBindings", this.cachedBindings);
+        PropertyCheck.mandatory(this, "cachedBindings", this.cachedContexts);
         PropertyCheck.mandatory(this, "registry", this.registry);
 
         PropertyCheck.mandatory(this, "javaBaseClass", this.javaBaseClass);
@@ -178,15 +174,13 @@ public abstract class AbstractScriptEvaluationBasedConverter implements ValueIns
         }
         else
         {
-            // this may be rather expensive per call, so use (potentially reuse) thead-local bindings
-            final Bindings bindings = this.cachedBindings.get();
+            // this may be rather expensive per call, so use (potentially reuse) thead-local script contexts
+            final ScriptContext ctxt = this.cachedContexts.get();
             try
             {
-                bindings.put(JAVA_OBJ, value);
-                final ScriptContext ctx = new SimpleScriptContext();
-                ctx.setBindings(bindings, ScriptContext.ENGINE_SCOPE);
-                this.executeForScriptConversionScript(ctx, this.scriptEngine);
-                result = bindings.get(NASHORN_OBJ);
+                ctxt.setAttribute(JAVA_OBJ, value, ScriptContext.GLOBAL_SCOPE);
+                this.executeForScriptConversionScript(ctxt, this.scriptEngine);
+                result = ctxt.getAttribute(NASHORN_OBJ);
             }
             catch (final javax.script.ScriptException scriptEx)
             {
@@ -195,8 +189,8 @@ public abstract class AbstractScriptEvaluationBasedConverter implements ValueIns
             finally
             {
                 // clean
-                bindings.remove(NASHORN_OBJ);
-                bindings.remove(JAVA_OBJ);
+                ctxt.removeAttribute(NASHORN_OBJ, ScriptContext.ENGINE_SCOPE);
+                ctxt.removeAttribute(JAVA_OBJ, ScriptContext.GLOBAL_SCOPE);
             }
         }
 
@@ -244,25 +238,23 @@ public abstract class AbstractScriptEvaluationBasedConverter implements ValueIns
         }
 
         final Object result;
-        // this may be rather expensive per call, so use (potentially reuse) thead-local bindings
-        final Bindings bindings = this.cachedBindings.get();
+        // this may be rather expensive per call, so use (potentially reuse) thead-local script contexts
+        final ScriptContext ctxt = this.cachedContexts.get();
         try
         {
-            bindings.put(NASHORN_OBJ, value);
-            final ScriptContext ctx = new SimpleScriptContext();
-            ctx.setBindings(bindings, ScriptContext.ENGINE_SCOPE);
-            this.executeForJavaConversionScript(ctx, this.scriptEngine);
-            result = bindings.get(JAVA_OBJ);
+            ctxt.setAttribute(NASHORN_OBJ, value, ScriptContext.GLOBAL_SCOPE);
+            this.executeForJavaConversionScript(ctxt, this.scriptEngine);
+            result = ctxt.getAttribute(JAVA_OBJ);
         }
         catch (final javax.script.ScriptException scriptEx)
         {
-            throw new ScriptException("Failed to convert object to Java", scriptEx);
+            throw new ScriptException("Failed to convert object to Nashorn", scriptEx);
         }
         finally
         {
             // clean
-            bindings.remove(NASHORN_OBJ);
-            bindings.remove(JAVA_OBJ);
+            ctxt.removeAttribute(JAVA_OBJ, ScriptContext.ENGINE_SCOPE);
+            ctxt.removeAttribute(NASHORN_OBJ, ScriptContext.GLOBAL_SCOPE);
         }
 
         return result;

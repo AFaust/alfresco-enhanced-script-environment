@@ -1,11 +1,10 @@
 /*
- * Copyright 2013 PRODYNA AG
+ * Copyright 2014 PRODYNA AG
  *
  * Licensed under the Eclipse Public License (EPL), Version 1.0 (the "License"); you may not use
  * this file except in compliance with the License. You may obtain a copy of the License at
  *
- * http://www.opensource.org/licenses/eclipse-1.0.php or
- * http://www.nabucco.org/License.html
+ * https://www.eclipse.org/legal/epl-v10.html
  *
  * Unless required by applicable law or agreed to in writing, software distributed under the
  * License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND,
@@ -14,26 +13,40 @@
  */
 package org.nabucco.alfresco.enhScriptEnv.experimental.repo.script;
 
-import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.Reader;
 import java.io.UnsupportedEncodingException;
+import java.net.MalformedURLException;
 import java.net.URL;
+import java.text.MessageFormat;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
+import java.util.Map.Entry;
+import java.util.Queue;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentLinkedQueue;
 
 import javax.script.Bindings;
 import javax.script.ScriptContext;
 import javax.script.ScriptEngine;
 import javax.script.ScriptEngineManager;
+import javax.script.SimpleBindings;
 import javax.script.SimpleScriptContext;
+
+import jdk.nashorn.api.scripting.ScriptObjectMirror;
+import jdk.nashorn.api.scripting.URLReader;
+import jdk.nashorn.internal.objects.Global;
+import jdk.nashorn.internal.runtime.Context;
+import jdk.nashorn.internal.runtime.Property;
 
 import org.alfresco.processor.ProcessorExtension;
 import org.alfresco.repo.jscript.ClasspathScriptLocation;
@@ -50,50 +63,98 @@ import org.alfresco.util.PropertyCheck;
 import org.nabucco.alfresco.enhScriptEnv.common.script.EnhancedScriptProcessor;
 import org.nabucco.alfresco.enhScriptEnv.common.script.ReferenceScript;
 import org.nabucco.alfresco.enhScriptEnv.common.script.ReferenceScript.CommonReferencePath;
+import org.nabucco.alfresco.enhScriptEnv.common.script.ReferenceScript.ReferencePathType;
 import org.nabucco.alfresco.enhScriptEnv.common.script.ScopeContributor;
 import org.nabucco.alfresco.enhScriptEnv.common.script.converter.ValueConverter;
+import org.nabucco.alfresco.enhScriptEnv.common.webscripts.processor.SurfReferencePath;
+import org.nabucco.alfresco.enhScriptEnv.experimental.repo.script.source.ScriptURLStreamHandler;
 import org.nabucco.alfresco.enhScriptEnv.repo.script.NodeScriptLocation;
+import org.nabucco.alfresco.enhScriptEnv.repo.script.RepositoryReferencePath;
 import org.nabucco.alfresco.enhScriptEnv.repo.script.ScriptLocationAdapter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.InitializingBean;
-import org.springframework.util.FileCopyUtils;
 
+/**
+ * @author Axel Faust, <a href="http://www.prodyna.com">PRODYNA AG</a>
+ */
+@SuppressWarnings("restriction")
 public class NashornScriptProcessor extends BaseProcessor implements InitializingBean, EnhancedScriptProcessor<ScriptLocation>,
         ScriptProcessor
 {
 
+    private static final String SIMPLE_URL_PATTERN = "^[^:/*]+:(?://)?.*";
+
     private static final String NASHORN_ENGINE_NAME = "nashorn";
-
-    private static final String NODE_REF_RESOURCE_IMPORT_PATTERN = "<import(\\s*\\n*\\s+)+resource(\\s*\\n*\\s*+)*=(\\s*\\n*\\s+)*\"(([^:]+)://([^/]+)/([^\"]+))\"(\\s*\\n*\\s+)*(/)?>";
-    private static final String NODE_REF_RESOURCE_IMPORT_REPLACEMENT = "importScript(\"node\", \"$4\", true);";
-
-    private static final String LEGACY_NAME_PATH_RESOURCE_IMPORT_PATTERN = "<import(\\s*\\n*\\s+)+resource(\\s*\\n*\\s+)*=(\\s*\\n*\\s+)*\"(/[^\"]+)\"(\\s*\\n*\\s+)*(/)?>";
-    private static final String LEGACY_NAME_PATH_RESOURCE_IMPORT_REPLACEMENT = "importScript(\"legacyNamePath\", \"$4\", true);";
-
-    private static final String CLASSPATH_RESOURCE_IMPORT_PATTERN = "<import(\\s*\\n*\\s+)+resource(\\s*\\n*\\s+)*=(\\s*\\n*\\s+)*\"classpath:(/)?([^\"]+)\"(\\s*\\n*\\s+)*(/)?>";
-    private static final String CLASSPATH_RESOURCE_IMPORT_REPLACEMENT = "importScript(\"classpath\", \"/$5\", true);";
-
-    private static final String CONST_PATTERN = "\\s*const ([^=]+=)";
-    private static final String CONST_REPLACEMENT = "var $1";
-
-    private static final int DEFAULT_MAX_SCRIPT_CACHE_SIZE = 200;
 
     private static final Logger LOGGER = LoggerFactory.getLogger(NashornScriptProcessor.class);
     private static final Logger LEGACY_CALL_LOGGER = LoggerFactory.getLogger(RhinoScriptProcessor.class.getName() + ".calls");
 
+    private static final List<ReferencePathType> REAL_PATH_SUCCESSION = Collections.<ReferencePathType> unmodifiableList(Arrays
+            .<ReferencePathType> asList(CommonReferencePath.FILE, CommonReferencePath.CLASSPATH, RepositoryReferencePath.FILE_FOLDER_PATH,
+                    SurfReferencePath.STORE));
+
     protected ScriptEngine scriptEngine = new ScriptEngineManager().getEngineByName(NASHORN_ENGINE_NAME);
 
-    // TODO: Is there (switchable) debugging support in Nashorn?
+    protected Global secureGlobal;
+    protected Global restrictedGlobal;
+    protected Context context;
+
+    // TODO Switchable debugging support (support in Nashorn is not really switchable)
+    // (also, there are currently no real "remote" debuggers in IDEs (apart from NetBeans))
     protected volatile boolean debuggerActive = false;
 
     protected final ThreadLocal<ScriptContext> currentScriptContext = new ThreadLocal<ScriptContext>();
     protected final Map<ScriptContext, List<ReferenceScript>> scriptLocationChainByRootContext = new ConcurrentHashMap<ScriptContext, List<ReferenceScript>>();
     protected final Map<ScriptContext, ScriptContext> scriptContextToRootContext = new ConcurrentHashMap<ScriptContext, ScriptContext>();
 
+    protected final Queue<ScriptContext> reusableScriptContexts = new ConcurrentLinkedQueue<ScriptContext>();
+
     protected final Collection<ScopeContributor> registeredContributors = new HashSet<ScopeContributor>();
 
     protected ValueConverter valueConverter;
+
+    protected ScriptURLStreamHandler urlStreamHandler = new ScriptURLStreamHandler();
+
+    /**
+     *
+     * {@inheritDoc}
+     */
+    @Override
+    public void afterPropertiesSet() throws Exception
+    {
+        PropertyCheck.mandatory(this, "scriptEngine", this.scriptEngine);
+        PropertyCheck.mandatory(this, "valueConverter", this.valueConverter);
+        PropertyCheck.mandatory(this, "urlStreamHandler", this.urlStreamHandler);
+        super.register();
+    }
+
+    /**
+     * @param valueConverter
+     *            the valueConverter to set
+     */
+    public void setValueConverter(final ValueConverter valueConverter)
+    {
+        this.valueConverter = valueConverter;
+    }
+
+    /**
+     * @param urlStreamHandler
+     *            the urlStreamHandler to set
+     */
+    public void setUrlStreamHandler(final ScriptURLStreamHandler urlStreamHandler)
+    {
+        this.urlStreamHandler = urlStreamHandler;
+    }
+
+    /**
+     * @param scriptEngine
+     *            the scriptEngine to set
+     */
+    public void setScriptEngine(final ScriptEngine scriptEngine)
+    {
+        this.scriptEngine = scriptEngine;
+    }
 
     /**
      *
@@ -104,15 +165,13 @@ public class NashornScriptProcessor extends BaseProcessor implements Initializin
     {
         ParameterCheck.mandatory("location", location);
 
-        final ReferenceScript script = new ScriptLocationAdapter(location);
+        final ScriptLocationAdapter script = new ScriptLocationAdapter(location);
 
-        final ScriptContext thisContext = new SimpleScriptContext();
+        final ScriptContext thisContext = this.getReusableScriptContext();
         final ScriptContext previousContext = this.beforeScriptExecution(thisContext, script, true);
         try
         {
-            final String source = this.toSource(location);
-
-            return this.executeScriptImpl(source, model, location.isSecure(), script);
+            return this.executeScriptImpl(script, model, location.isSecure());
         }
         catch (final Exception err)
         {
@@ -125,6 +184,7 @@ public class NashornScriptProcessor extends BaseProcessor implements Initializin
         finally
         {
             this.afterScriptExecution(thisContext, previousContext);
+            this.reusableScriptContexts.add(thisContext);
         }
     }
 
@@ -159,30 +219,19 @@ public class NashornScriptProcessor extends BaseProcessor implements Initializin
     {
         ParameterCheck.mandatoryString("source", source);
 
+        final ReferenceScript script = this.toReferenceScript(source);
+
+        final ScriptContext thisContext = this.getReusableScriptContext();
+        final ScriptContext previousContext = this.beforeScriptExecution(thisContext, script, true);
         try
         {
-            final ReferenceScript script = this.toReferenceScript(source);
-            final String cleanSource = this.prepareSource(source);
-
-            final ScriptContext thisContext = new SimpleScriptContext();
-            final ScriptContext previousContext = this.beforeScriptExecution(thisContext, script, true);
-            try
-            {
-                final Object result = this.executeScriptImpl(cleanSource, model, false, script);
-                return result;
-            }
-            finally
-            {
-                this.afterScriptExecution(thisContext, previousContext);
-            }
+            final Object result = this.executeScriptImpl(script, model, false);
+            return result;
         }
-        catch (final Throwable err)
+        finally
         {
-            if (err instanceof ScriptException)
-            {
-                throw (ScriptException) err;
-            }
-            throw new ScriptException("Failed to execute supplied script", err);
+            this.afterScriptExecution(thisContext, previousContext);
+            this.reusableScriptContexts.add(thisContext);
         }
     }
 
@@ -195,29 +244,18 @@ public class NashornScriptProcessor extends BaseProcessor implements Initializin
     {
         ParameterCheck.mandatoryString("source", source);
 
+        final ReferenceScript script = this.toReferenceScript(source);
+
+        final ScriptContext thisContext = scope instanceof ScriptContext ? (ScriptContext) scope : this.getReusableScriptContext();
+        final ScriptContext previousContext = this.beforeScriptExecution(thisContext, script, false);
         try
         {
-            final ReferenceScript script = this.toReferenceScript(source);
-
-            final ScriptContext thisContext = new SimpleScriptContext();
-            final ScriptContext previousContext = this.beforeScriptExecution(thisContext, script, false);
-            try
-            {
-                final Object result = this.executeScriptInScopeImpl(source, scope, script);
-                return result;
-            }
-            finally
-            {
-                this.afterScriptExecution(thisContext, previousContext);
-            }
+            return this.executeScriptInScopeImpl(script, scope);
         }
-        catch (final Throwable err)
+        finally
         {
-            if (err instanceof ScriptException)
-            {
-                throw (ScriptException) err;
-            }
-            throw new ScriptException("Failed to execute supplied script", err);
+            this.afterScriptExecution(thisContext, previousContext);
+            this.reusableScriptContexts.add(thisContext);
         }
     }
 
@@ -229,18 +267,15 @@ public class NashornScriptProcessor extends BaseProcessor implements Initializin
     {
         ParameterCheck.mandatory("location", location);
 
-        final ReferenceScript script = new ScriptLocationAdapter(location);
+        final ScriptLocationAdapter script = new ScriptLocationAdapter(location);
 
-        final ScriptContext thisContext = new SimpleScriptContext();
+        final ScriptContext thisContext = scope instanceof ScriptContext ? (ScriptContext) scope : this.getReusableScriptContext();
         final ScriptContext previousContext = this.beforeScriptExecution(thisContext, script, false);
         try
         {
-            final String source = this.toSource(location);
-
-            final Object result = this.executeScriptInScopeImpl(source, scope, script);
-            return result;
+            return this.executeScriptInScopeImpl(script, scope);
         }
-        catch (final Throwable err)
+        catch (final RuntimeException err)
         {
             if (err instanceof ScriptException)
             {
@@ -251,6 +286,7 @@ public class NashornScriptProcessor extends BaseProcessor implements Initializin
         finally
         {
             this.afterScriptExecution(thisContext, previousContext);
+            this.reusableScriptContexts.add(thisContext);
         }
     }
 
@@ -261,13 +297,12 @@ public class NashornScriptProcessor extends BaseProcessor implements Initializin
     public Object initializeScope(final ScriptLocation location)
     {
         ParameterCheck.mandatory("location", location);
-
         try
         {
-            final Bindings scope = this.setupScope(location.isSecure(), true);
+            final Bindings scope = this.setupScope(location.isSecure());
             return scope;
         }
-        catch (final Throwable err)
+        catch (final Exception err)
         {
             if (err instanceof ScriptException)
             {
@@ -308,18 +343,25 @@ public class NashornScriptProcessor extends BaseProcessor implements Initializin
     public List<ReferenceScript> getScriptCallChain()
     {
         final ScriptContext currentScriptContext = this.currentScriptContext.get();
-        ParameterCheck.mandatory("currentScriptContext", currentScriptContext);
-        final ScriptContext rootContext = this.scriptContextToRootContext.get(currentScriptContext);
-        final List<ReferenceScript> currentChain = this.scriptLocationChainByRootContext.get(rootContext);
-
         final List<ReferenceScript> result;
-        if (currentChain != null)
+
+        if (currentScriptContext != null)
         {
-            result = new ArrayList<ReferenceScript>(currentChain);
+            final ScriptContext rootContext = this.scriptContextToRootContext.get(currentScriptContext);
+            final List<ReferenceScript> currentChain = this.scriptLocationChainByRootContext.get(rootContext);
+
+            if (currentChain != null)
+            {
+                result = new ArrayList<ReferenceScript>(currentChain);
+            }
+            else
+            {
+                result = Collections.emptyList();
+            }
         }
         else
         {
-            result = null;
+            result = Collections.emptyList();
         }
         return result;
     }
@@ -333,7 +375,24 @@ public class NashornScriptProcessor extends BaseProcessor implements Initializin
     {
         ParameterCheck.mandatory("parentContext", parentContext);
 
-        // TODO
+        final ScriptContext currentContext = this.currentScriptContext.get();
+        final ScriptContext currentRootContext = this.scriptContextToRootContext.get(currentContext);
+
+        List<ReferenceScript> activeChain = this.scriptLocationChainByRootContext.get(currentRootContext);
+        if (activeChain != null)
+        {
+            throw new IllegalStateException("Context call chain has already been initialized");
+        }
+
+        final ScriptContext parentRootContext = this.scriptContextToRootContext.get(parentContext);
+        final List<ReferenceScript> parentChain = this.scriptLocationChainByRootContext.get(parentRootContext);
+        if (parentChain == null)
+        {
+            throw new IllegalArgumentException("Parent context has no call chain associated with it");
+        }
+
+        activeChain = new ArrayList<ReferenceScript>(parentChain);
+        this.scriptLocationChainByRootContext.put(currentRootContext, activeChain);
     }
 
     /**
@@ -384,97 +443,95 @@ public class NashornScriptProcessor extends BaseProcessor implements Initializin
         // NO-OP
     }
 
-    /**
-     *
-     * {@inheritDoc}
-     */
-    @Override
-    public void afterPropertiesSet() throws Exception
+    protected ScriptContext getReusableScriptContext()
     {
-        PropertyCheck.mandatory(this, "scriptEngine", this.scriptEngine);
-        PropertyCheck.mandatory(this, "valueConverter", this.valueConverter);
-        super.register();
-    }
-
-    /**
-     * @param valueConverter
-     *            the valueConverter to set
-     */
-    public final void setValueConverter(final ValueConverter valueConverter)
-    {
-        this.valueConverter = valueConverter;
-    }
-
-    /**
-     * @param scriptEngine
-     *            the scriptEngine to set
-     */
-    public final void setScriptEngine(final ScriptEngine scriptEngine)
-    {
-        this.scriptEngine = scriptEngine;
-    }
-
-    protected ReferenceScript toReferenceScript(final String source) throws UnsupportedEncodingException
-    {
-        final MD5 md5 = new MD5();
-        final String digest = md5.digest(source.getBytes("UTF-8"));
-        final String scriptName = "string://DynamicJS-" + digest;
-        final ReferenceScript script = new ReferenceScript.DynamicScript(scriptName);
-        return script;
-    }
-
-    protected String toEffectiveScriptName(final ReferenceScript script)
-    {
-        final String fullName = script.getFullName();
-        String effectiveScriptName = script.getReferencePath(CommonReferencePath.FILE);
-
-        if (effectiveScriptName == null)
+        ScriptContext ctxt = this.reusableScriptContexts.poll();
+        if (ctxt == null)
         {
-            // check if the path is in classpath form
-            // TODO: can we generalize external form file:// to a classpath-relative location? (best-effort)
-            if (!fullName.matches("^(classpath[*]?:).*$"))
-            {
-                // take path as is - can be anything depending on how content is loaded
-                effectiveScriptName = fullName;
-            }
-            else
-            {
-                // we always want to have a fully-qualified file-protocol path (unless we can generalize all to classpath-relative
-                // locations)
-                final String resourcePath = fullName.substring(fullName.indexOf(':') + 1);
-                URL resource = this.getClass().getClassLoader().getResource(resourcePath);
-                if (resource == null && resourcePath.startsWith("/"))
-                {
-                    resource = this.getClass().getClassLoader().getResource(resourcePath.substring(1));
-                }
+            ctxt = new SimpleScriptContext();
+            ctxt.setBindings(new SimpleBindings(), ScriptContext.GLOBAL_SCOPE);
+        }
+        else
+        {
+            // reset
+            ctxt.setBindings(new SimpleBindings(), ScriptContext.ENGINE_SCOPE);
+            ctxt.setBindings(new SimpleBindings(), ScriptContext.GLOBAL_SCOPE);
+        }
 
-                if (resource != null)
+        return ctxt;
+    }
+
+    protected ReferenceScript toReferenceScript(final String source)
+    {
+        try
+        {
+            final MD5 md5 = new MD5();
+            final String digest = md5.digest(source.getBytes("UTF-8"));
+            final String scriptName = MessageFormat.format("string:///DynamicJS-{0}.js", digest);
+            final ReferenceScript script = new ReferenceScript.DynamicScript(scriptName, source);
+            return script;
+        }
+        catch (final UnsupportedEncodingException err)
+        {
+            throw new ScriptException("Failed process supplied script", err);
+        }
+    }
+
+    protected URL toScriptURL(final ReferenceScript location)
+    {
+        URL url = null;
+
+        try
+        {
+            final Collection<ReferencePathType> supportedReferencePathTypes = location.getSupportedReferencePathTypes();
+            for (final ReferencePathType pathType : REAL_PATH_SUCCESSION)
+            {
+                if (url == null && supportedReferencePathTypes.contains(pathType))
                 {
-                    effectiveScriptName = resource.toExternalForm();
+                    final String referencePath = location.getReferencePath(pathType);
+
+                    if (referencePath != null)
+                    {
+                        if (referencePath.matches(SIMPLE_URL_PATTERN))
+                        {
+                            url = new URL(null, referencePath, this.urlStreamHandler);
+                        }
+                        else
+                        {
+                            url = new URL(pathType.toString().toLowerCase(Locale.ENGLISH), "", -1, referencePath, this.urlStreamHandler);
+                        }
+                    }
+                }
+            }
+
+            if (url == null)
+            {
+                final String path = location instanceof ScriptLocationAdapter ? ((ScriptLocationAdapter) location).getPath() : location
+                        .getFullName();
+
+                // check if the path is in classpath form
+                if (path.matches("^(classpath[*]?:).*$"))
+                {
+                    url = new URL("classpath", "", -1, path.substring(path.indexOf(':')), this.urlStreamHandler);
+                }
+                else if (path.matches(SIMPLE_URL_PATTERN))
+                {
+                    url = new URL(null, path, this.urlStreamHandler);
                 }
                 else
                 {
-                    // should not occur in normal circumstances, but since ScriptLocation can be anything...
-                    effectiveScriptName = fullName;
+                    LOGGER.info("Script path / name {} is not in URL form - assuming path", path);
+                    url = new URL("script", "", -1, path.startsWith("/") ? path.substring(1) : path, this.urlStreamHandler);
                 }
             }
         }
-        return effectiveScriptName;
-    }
+        catch (final MalformedURLException urlEx)
+        {
+            LOGGER.error("Malformed abstract script URL", urlEx);
+            throw new ScriptException("Failed to determine abstract script URL", urlEx);
+        }
 
-    protected String toSource(final ScriptLocation location) throws IOException, UnsupportedEncodingException
-    {
-        // TODO: can we somehow detect / remember which scripts needed cleanup to skip unnecessary efforts?
-
-        final ByteArrayOutputStream os = new ByteArrayOutputStream();
-        FileCopyUtils.copy(location.getInputStream(), os); // both streams are closed
-        final byte[] bytes = os.toByteArray();
-
-        // TODO Is this safe - can we "just assume" UTF-8?
-        final String source = new String(bytes, "UTF-8");
-        final String cleanSource = this.prepareSource(source);
-
-        return cleanSource;
+        return url;
     }
 
     protected ScriptContext beforeScriptExecution(final ScriptContext thisContext, final ReferenceScript script, final boolean newRoot)
@@ -482,7 +539,7 @@ public class NashornScriptProcessor extends BaseProcessor implements Initializin
         final ScriptContext previousContext = this.currentScriptContext.get();
         this.currentScriptContext.set(thisContext);
 
-        if (newRoot)
+        if (thisContext != previousContext && newRoot)
         {
             this.scriptContextToRootContext.put(thisContext, thisContext);
             this.scriptLocationChainByRootContext.compute(thisContext, (k, v) -> new ArrayList<ReferenceScript>()).add(script);
@@ -504,93 +561,65 @@ public class NashornScriptProcessor extends BaseProcessor implements Initializin
         final List<ReferenceScript> chain = this.scriptLocationChainByRootContext.get(rootContext);
         chain.remove(chain.size() - 1);
 
-        // remove all data directly associated with the current context
-        this.scriptLocationChainByRootContext.remove(thisContext);
-        this.scriptContextToRootContext.remove(thisContext);
-        this.currentScriptContext.set(previousContext);
+        if (thisContext != previousContext)
+        {
+            // remove all data directly associated with the current context
+            this.scriptLocationChainByRootContext.remove(thisContext);
+            this.scriptContextToRootContext.remove(thisContext);
+            this.currentScriptContext.set(previousContext);
+        }
     }
 
-    /**
-     * Resolves the import directives in the specified script to proper import API calls. Supported import directives are of the following
-     * form:
-     *
-     * <pre>
-     * <import resource="classpath:alfresco/includeme.js">
-     * <import resource="workspace://SpacesStore/6f73de1b-d3b4-11db-80cb-112e6c2ea048">
-     * <import resource="/Company Home/Data Dictionary/Scripts/includeme.js">
-     * </pre>
-     *
-     * Either a classpath resource, NodeRef or cm:name path based script can be imported.
-     *
-     * @param script
-     *            The script content to resolve imports in
-     *
-     * @return a valid script with all includes resolved to a proper import API call
-     */
-    @SuppressWarnings("static-method")
-    protected String resolveScriptImports(final String script)
+    @SuppressWarnings("resource")
+    protected Object executeScriptImpl(final ReferenceScript script, final Map<String, Object> argModel, final boolean secureScript)
     {
-        final String classpathResolvedScript = script.replaceAll(CLASSPATH_RESOURCE_IMPORT_PATTERN, CLASSPATH_RESOURCE_IMPORT_REPLACEMENT);
-        final String nodeRefResolvedScript = classpathResolvedScript.replaceAll(NODE_REF_RESOURCE_IMPORT_PATTERN,
-                NODE_REF_RESOURCE_IMPORT_REPLACEMENT);
-        final String legacyNamePathResolvedScript = nodeRefResolvedScript.replaceAll(LEGACY_NAME_PATH_RESOURCE_IMPORT_PATTERN,
-                LEGACY_NAME_PATH_RESOURCE_IMPORT_REPLACEMENT);
-
-        return legacyNamePathResolvedScript;
-    }
-
-    @SuppressWarnings("static-method")
-    protected String prepareSource(final String script)
-    {
-        final String importResolvedSource = this.resolveScriptImports(script);
-
-        return importResolvedSource;
-    }
-
-    protected Object executeScriptImpl(final String source, final Map<String, Object> argModel, final boolean secureScript,
-            final ReferenceScript script)
-    {
-        final String effectiveScriptName = this.toEffectiveScriptName(script);
+        final URL scriptUrl = this.toScriptURL(script);
+        final String effectiveScriptName = scriptUrl.toExternalForm();
 
         final long startTime = System.currentTimeMillis();
         LOGGER.debug("{} Start", effectiveScriptName);
         LEGACY_CALL_LOGGER.debug("{} Start", effectiveScriptName);
 
-        // Convert the model
-        final Map<String, Object> model = this.convertToNashornModel(argModel);
-
+        final ValueConverter previousConverter = ValueConverter.GLOBAL_CONVERTER.get();
+        ValueConverter.GLOBAL_CONVERTER.set(this.valueConverter);
         try
         {
-            final Bindings scope = this.setupScope(secureScript, true);
-
-            // TODO insert using script (pass model as converted map) - this will then correctly handle potential property descriptors
-            // insert supplied object model into root of the default scope
-            for (final String key : model.keySet())
+            final Bindings scope = this.setupScope(secureScript);
+            try
             {
-                final Object obj = model.get(key);
+                final ScriptContext ctxt = this.currentScriptContext.get();
+                ctxt.setBindings(scope, ScriptContext.ENGINE_SCOPE);
+                ctxt.setAttribute(ScriptEngine.FILENAME, effectiveScriptName, ScriptContext.ENGINE_SCOPE);
 
-                // convert/wrap each object to JavaScript compatible
-                final Object jsObject = this.valueConverter.convertValueForScript(obj);
-                scope.put(key, jsObject);
-            }
-
-            // execute the script and return the result
-            final Object scriptResult = this.executeScriptInScopeImpl(source, effectiveScriptName, scope);
-
-            // attempt in place cleanup of object put somewhere into the model (potentially accessed by client by-reference)
-            for (final String key : model.keySet())
-            {
-                final Object object = scope.get(key);
-                final Object originalObj = model.get(key);
-
-                if (object == originalObj && (object instanceof Map<?, ?> || object instanceof List<?>))
+                // insert supplied object model into root of the default scope
+                for (final String key : argModel.keySet())
                 {
-                    // value converter SHOULD preserve object (do in-place cleanup)
-                    this.valueConverter.convertValueForJava(object);
+                    final Object obj = argModel.get(key);
+
+                    // convert/wrap each object to JavaScript compatible
+                    final Object jsObject = this.valueConverter.convertValueForScript(obj);
+                    ctxt.setAttribute(key, jsObject, ScriptContext.GLOBAL_SCOPE);
+                }
+
+                // Note: reader will be auto-closed by eval()
+                this.urlStreamHandler.map(scriptUrl, script);
+                try
+                {
+                    final URLReader reader = new URLReader(scriptUrl);
+                    final Object scriptResult = this.scriptEngine.eval(reader, ctxt);
+                    final Object result = this.valueConverter.convertValueForJava(scriptResult);
+
+                    return result;
+                }
+                finally
+                {
+                    this.urlStreamHandler.unmap(scriptUrl);
                 }
             }
-
-            return scriptResult;
+            finally
+            {
+                // TODO return scope
+            }
         }
         catch (final Exception ex)
         {
@@ -601,73 +630,150 @@ public class NashornScriptProcessor extends BaseProcessor implements Initializin
         }
         finally
         {
+            ValueConverter.GLOBAL_CONVERTER.set(previousConverter);
+
             final long endTime = System.currentTimeMillis();
             LOGGER.debug("{} End {} ms", effectiveScriptName, Long.valueOf(endTime - startTime));
             LEGACY_CALL_LOGGER.debug("{} End {} ms", effectiveScriptName, Long.valueOf(endTime - startTime));
         }
     }
 
-    protected Object executeScriptInScopeImpl(final String source, final Object scope, final ReferenceScript script)
+    @SuppressWarnings("resource")
+    protected Object executeScriptInScopeImpl(final ReferenceScript script, final Object scope)
     {
-        final String fullName = script.getFullName();
-        String effectiveScriptName = script.getReferencePath(CommonReferencePath.FILE);
-
-        if (effectiveScriptName == null)
-        {
-            // check if the path is in classpath form
-            // TODO: can we generalize external form file:// to a classpath-relative location? (best-effort)
-            if (!fullName.matches("^(classpath[*]?:).*$"))
-            {
-                // take path as is - can be anything depending on how content is loaded
-                effectiveScriptName = fullName;
-            }
-            else
-            {
-                // we always want to have a fully-qualified file-protocol path (unless we can generalize all to classpath-relative
-                // locations)
-                final String resourcePath = fullName.substring(fullName.indexOf(':') + 1);
-                URL resource = this.getClass().getClassLoader().getResource(resourcePath);
-                if (resource == null && resourcePath.startsWith("/"))
-                {
-                    resource = this.getClass().getClassLoader().getResource(resourcePath.substring(1));
-                }
-
-                if (resource != null)
-                {
-                    effectiveScriptName = resource.toExternalForm();
-                }
-                else
-                {
-                    // should not occur in normal circumstances, but since ScriptLocation can be anything...
-                    effectiveScriptName = fullName;
-                }
-            }
-        }
+        final URL scriptUrl = this.toScriptURL(script);
+        final String effectiveScriptName = scriptUrl.toExternalForm();
 
         LOGGER.debug("{} Start", effectiveScriptName);
         LEGACY_CALL_LOGGER.debug("{} Start", effectiveScriptName);
 
         final long startTime = System.currentTimeMillis();
 
+        final ValueConverter previousConverter = ValueConverter.GLOBAL_CONVERTER.get();
+        ValueConverter.GLOBAL_CONVERTER.set(this.valueConverter);
         try
         {
-            final Bindings realScope;
+            final ScriptContext ctxt = this.currentScriptContext.get();
 
-            if (scope == null)
+            final boolean isolatedScope;
+            final Bindings realScope;
+            if (!(scope instanceof ScriptContext && scope == ctxt))
             {
-                realScope = this.setupScope(false, false);
-            }
-            else if (!(scope instanceof Bindings))
-            {
-                // TODO: check if scope is a script object / map and try to use as prototype / delegate
-                realScope = this.setupScope(false, true);
+                if (scope instanceof Global)
+                {
+                    realScope = (Bindings) ScriptObjectMirror.wrap(scope, scope);
+                    isolatedScope = false;
+                }
+                else if (scope instanceof ScriptObjectMirror)
+                {
+                    final Object unwrapped = ScriptObjectMirror.unwrap(scope, Global.instance());
+                    if (unwrapped instanceof Global)
+                    {
+                        realScope = (Bindings) scope;
+                        isolatedScope = false;
+                    }
+                    else
+                    {
+                        realScope = this.setupScope(false);
+
+                        final Bindings providedScope = (Bindings) scope;
+
+                        for (final String key : providedScope.keySet())
+                        {
+                            realScope.put(key, providedScope.get(key));
+                        }
+
+                        isolatedScope = true;
+                    }
+                }
+                else
+                {
+                    realScope = this.setupScope(false);
+                    isolatedScope = true;
+                }
+
+                ctxt.setBindings(realScope, ScriptContext.ENGINE_SCOPE);
+
+                if (isolatedScope)
+                {
+                    if (scope instanceof Bindings)
+                    {
+                        ctxt.setBindings((Bindings) scope, ScriptContext.GLOBAL_SCOPE);
+                    }
+                    else if (scope instanceof Map<?, ?>)
+                    {
+                        final Map<String, Object> scopeEntries = new HashMap<String, Object>();
+                        for (final Entry<?, ?> entry : ((Map<?, ?>) scope).entrySet())
+                        {
+                            final String key = String.valueOf(entry.getKey());
+                            scopeEntries.put(key, this.valueConverter.convertValueForScript(entry.getValue()));
+
+                            if (realScope.containsKey(key))
+                            {
+                                // override the value in original scope
+                                realScope.put(key, this.valueConverter.convertValueForScript(entry.getValue()));
+                            }
+                        }
+                        ctxt.setBindings(new SimpleBindings(scopeEntries), ScriptContext.GLOBAL_SCOPE);
+                    }
+                }
             }
             else
             {
-                realScope = (Bindings) scope;
+                realScope = ctxt.getBindings(ScriptContext.ENGINE_SCOPE);
+                isolatedScope = false;
             }
 
-            final Object result = this.executeScriptInScopeImpl(source, effectiveScriptName, realScope);
+            final Object previousScriptName = ctxt.getAttribute(ScriptEngine.FILENAME, ScriptContext.ENGINE_SCOPE);
+            ctxt.setAttribute(ScriptEngine.FILENAME, effectiveScriptName, ScriptContext.ENGINE_SCOPE);
+
+            final Object scriptResult;
+
+            // Note: reader will be auto-closed by eval()
+            this.urlStreamHandler.map(scriptUrl, script);
+            try
+            {
+                final URLReader reader = new URLReader(scriptUrl);
+                scriptResult = this.scriptEngine.eval(reader, ctxt);
+            }
+            finally
+            {
+                this.urlStreamHandler.unmap(scriptUrl);
+
+                if (previousScriptName instanceof String)
+                {
+                    ctxt.setAttribute(ScriptEngine.FILENAME, previousScriptName, ScriptContext.ENGINE_SCOPE);
+                }
+            }
+
+            // transfer back any (potential) value changes to members of provided scope
+            if (isolatedScope && scope instanceof Map<?, ?>)
+            {
+                for (final Entry<?, ?> entry : ((Map<?, ?>) scope).entrySet())
+                {
+                    final String key = String.valueOf(entry.getKey());
+
+                    if (realScope.containsKey(key))
+                    {
+                        @SuppressWarnings("unchecked")
+                        final Entry<String, Object> unsafeEntry = (Entry<String, Object>) entry;
+
+                        if (!(scope instanceof ScriptObjectMirror))
+                        {
+                            // scope is not a script object - so we need to do JS-to-Java conversion
+                            final Class<?> targetClass = entry.getValue() == null ? Object.class : entry.getValue().getClass();
+                            unsafeEntry.setValue(this.valueConverter.convertValueForJava(realScope.get(key), targetClass));
+                        }
+                        else
+                        {
+                            unsafeEntry.setValue(realScope.get(key));
+                        }
+                    }
+                }
+            }
+
+            final Object result = this.valueConverter.convertValueForJava(scriptResult);
+
             return result;
         }
         catch (final Exception err)
@@ -682,117 +788,126 @@ public class NashornScriptProcessor extends BaseProcessor implements Initializin
         }
         finally
         {
+            ValueConverter.GLOBAL_CONVERTER.set(previousConverter);
+
             final long endTime = System.currentTimeMillis();
             LOGGER.debug("{} End {} ms", effectiveScriptName, Long.valueOf(endTime - startTime));
             LEGACY_CALL_LOGGER.debug("{} End {} ms", effectiveScriptName, Long.valueOf(endTime - startTime));
         }
     }
 
-    protected Object executeScriptInScopeImpl(final String source, final String effectiveScriptName, final Bindings scope)
-            throws javax.script.ScriptException
+    protected Bindings setupScope(final boolean trustworthyScript) throws IOException, javax.script.ScriptException
     {
-        // make sure scripts always have the relevant processor extensions available
-        for (final ProcessorExtension ex : this.processorExtensions.values())
-        {
-            final String extensionName = ex.getExtensionName();
-            if (!scope.containsKey(extensionName))
-            {
-                // convert/wrap each to JavaScript compatible
-                final Object jsObject = this.valueConverter.convertValueForScript(ex);
-                scope.put(extensionName, jsObject);
-            }
-        }
+        // We tried to use shared prototypes to simplify / speed up scope setup, but a lot of side-effects came up and could not be
+        // resolved without dealing with a lot of internals
+        // TODO Can we perhaps "reuse" globals after initial use & reset the state (via PropertyMap & spill clone)?
+        final Bindings scope = this.scriptEngine.createBindings();
 
-        final ScriptContext scriptContext = this.currentScriptContext.get();
-        scriptContext.setBindings(scope, ScriptContext.ENGINE_SCOPE);
-        scriptContext.setAttribute(ScriptEngine.FILENAME, effectiveScriptName, ScriptContext.ENGINE_SCOPE);
-
-        final Object scriptResult;
-
-        final ValueConverter previousConverter = ValueConverter.GLOBAL_CONVERTER.get();
-        ValueConverter.GLOBAL_CONVERTER.set(this.valueConverter);
+        final ScriptContext ctxt = this.getReusableScriptContext();
         try
         {
-            scriptResult = this.scriptEngine.eval(source, scriptContext);
+            ctxt.setBindings(scope, ScriptContext.ENGINE_SCOPE);
+
+            this.applyScopeFixes(ctxt);
+
+            final NashornEngineInspector inspector = new NashornEngineInspector();
+            ctxt.setAttribute("inspector", inspector, ScriptContext.GLOBAL_SCOPE);
+            this.scriptEngine.eval("inspector.inspect();", ctxt);
+            ctxt.removeAttribute("inspector", ScriptContext.GLOBAL_SCOPE);
+
+            for (final ScopeContributor contributor : this.registeredContributors)
+            {
+                contributor.contributeToScope(ctxt, trustworthyScript, false);
+            }
+
+            // even secure scripts / contributors won't have access to these (or at least the way they are implemented by Nashorn)
+            final Global global = inspector.getGlobal();
+            deleteGlobalProperty(global, "exit");
+            deleteGlobalProperty(global, "quit");
+            deleteGlobalProperty(global, "load");
+            deleteGlobalProperty(global, "loadWithNewGlobal");
+            deleteGlobalProperty(global, "print");
+            deleteGlobalProperty(global, "printf");
+            deleteGlobalProperty(global, "sprintf");
+
+            if (!trustworthyScript)
+            {
+                deleteGlobalProperty(global, "JavaAdapter"); // mozilla_compat
+                deleteGlobalProperty(global, "importPackage");// mozilla_compat
+                deleteGlobalProperty(global, "importClass");// mozilla_compat
+
+                deleteGlobalProperty(global, "com");
+                deleteGlobalProperty(global, "edu");
+                deleteGlobalProperty(global, "java");
+                deleteGlobalProperty(global, "javafx");
+                deleteGlobalProperty(global, "javax");
+                deleteGlobalProperty(global, "org");
+                deleteGlobalProperty(global, "Java"); // javaApi
+                deleteGlobalProperty(global, "JavaImporter"); // javaImporter
+                deleteGlobalProperty(global, "JSAdapter"); // jsadapter
+                deleteGlobalProperty(global, "Packages"); // packages
+            }
+
+            // also deal with direct field access
+            global.exit = global.undefined;
+            global.quit = global.undefined;
+            global.load = global.undefined;
+            global.loadWithNewGlobal = global.undefined;
+            global.print = global.undefined;
+
+            if (!trustworthyScript)
+            {
+                global.com = this.restrictedGlobal.undefined;
+                global.edu = this.restrictedGlobal.undefined;
+                global.java = this.restrictedGlobal.undefined;
+                global.javafx = this.restrictedGlobal.undefined;
+                global.javax = this.restrictedGlobal.undefined;
+                global.org = this.restrictedGlobal.undefined;
+                global.javaApi = this.restrictedGlobal.undefined;
+                global.javaImporter = this.restrictedGlobal.undefined;
+                global.jsadapter = this.restrictedGlobal.undefined;
+                global.packages = this.restrictedGlobal.undefined;
+            }
+
+            for (final ProcessorExtension ex : this.processorExtensions.values())
+            {
+                final String extensionName = ex.getExtensionName();
+                if (!scope.containsKey(extensionName))
+                {
+                    // convert/wrap each to JavaScript compatible
+                    final Object jsObject = this.valueConverter.convertValueForScript(ex);
+                    scope.put(extensionName, jsObject);
+                }
+            }
         }
         finally
         {
-            ValueConverter.GLOBAL_CONVERTER.set(previousConverter);
-        }
-
-        final Object result = this.valueConverter.convertValueForJava(scriptResult);
-        return result;
-
-    }
-
-    @SuppressWarnings("resource")
-    protected Bindings setupScope(final boolean trustworthyScript, final boolean mutableScope) throws javax.script.ScriptException,
-            IOException
-    {
-        final Bindings scope = this.scriptEngine.createBindings();
-
-        final ScriptContext context = new SimpleScriptContext();
-        context.setBindings(scope, ScriptContext.ENGINE_SCOPE);
-
-        // re-initialize some of the global functions with scope-access to those globals we need to remove
-        final InputStream engineIs = this.getClass().getResource("resources/alt-engine.js").openStream();
-        final Reader engineReader = new InputStreamReader(engineIs);
-        // will inheritently close engineReader
-        this.scriptEngine.eval(engineReader, context);
-
-        final InputStream mozIs = this.getClass().getResource("resources/alt-mozilla-compat.js").openStream();
-        final Reader mozReader = new InputStreamReader(mozIs);
-        // will inheritently close mozReader
-        this.scriptEngine.eval(mozReader, context);
-
-        // even secure scripts / contributors won't have access to these
-        scope.remove("load");
-        scope.remove("loadWithNewGlobal");
-        scope.remove("exit");
-        scope.remove("quit");
-
-        synchronized (this.registeredContributors)
-        {
-            for (final ScopeContributor contributor : this.registeredContributors)
-            {
-                contributor.contributeToScope(scope, trustworthyScript, mutableScope);
-            }
-        }
-
-        if (!trustworthyScript)
-        {
-            // remove access to Java (after contributors had chance to use them)
-            scope.remove("Java");
-            scope.remove("java");
-            scope.remove("Packages");
-            scope.remove("JavaAdapter");
-            scope.remove("importPackage");
-            scope.remove("importClass");
+            this.reusableScriptContexts.add(ctxt);
         }
 
         return scope;
     }
 
-    protected Map<String, Object> convertToNashornModel(final Map<String, Object> model)
+    protected void applyScopeFixes(final ScriptContext ctxt) throws IOException, javax.script.ScriptException
     {
-        final Map<String, Object> newModel;
-        if (model != null)
+        ctxt.setAttribute(ScriptEngine.FILENAME, "scope-fix-engine.js", ScriptContext.ENGINE_SCOPE);
+        final InputStream engineIs = this.getClass().getResource("resources/scope-fix-engine.js").openStream();
+        try (final Reader engineReader = new InputStreamReader(engineIs);)
         {
-            newModel = new HashMap<String, Object>(model.size());
+            // will inheritently close engineReader
+            this.scriptEngine.eval(engineReader, ctxt);
+        }
+    }
 
-            for (final Map.Entry<String, Object> entry : model.entrySet())
+    protected static void deleteGlobalProperty(final Global global, final String property)
+    {
+        if (Arrays.binarySearch(global.getOwnKeys(true), property) >= 0)
+        {
+            final Property propertyDesc = global.getProperty(property);
+            if (propertyDesc != null)
             {
-                final String key = entry.getKey();
-                final Object value = entry.getValue();
-
-                newModel.put(key, this.valueConverter.convertValueForScript(value));
+                global.deleteOwnProperty(propertyDesc);
             }
         }
-        else
-        {
-            newModel = new HashMap<String, Object>(1, 1.0f);
-        }
-
-        return newModel;
     }
 }

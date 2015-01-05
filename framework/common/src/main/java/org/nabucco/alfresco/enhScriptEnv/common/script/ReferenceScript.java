@@ -1,11 +1,10 @@
 /*
- * Copyright 2013 PRODYNA AG
+ * Copyright 2014 PRODYNA AG
  *
  * Licensed under the Eclipse Public License (EPL), Version 1.0 (the "License"); you may not use
  * this file except in compliance with the License. You may obtain a copy of the License at
  *
- * http://www.opensource.org/licenses/eclipse-1.0.php or
- * http://www.nabucco.org/License.html
+ * https://www.eclipse.org/legal/epl-v10.html
  *
  * Unless required by applicable law or agreed to in writing, software distributed under the
  * License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND,
@@ -14,8 +13,14 @@
  */
 package org.nabucco.alfresco.enhScriptEnv.common.script;
 
+import java.io.ByteArrayInputStream;
+import java.io.InputStream;
+import java.io.Reader;
+import java.io.StringReader;
 import java.util.Collection;
 import java.util.Collections;
+
+import org.alfresco.util.ParameterCheck;
 
 /**
  *
@@ -50,9 +55,15 @@ public interface ReferenceScript
     {
         private final String name;
 
-        public DynamicScript(final String name)
+        private final String source;
+
+        public DynamicScript(final String name, final String source)
         {
+            ParameterCheck.mandatoryString("name", name);
+            ParameterCheck.mandatoryString("source", source);
+
             this.name = name;
+            this.source = source;
         }
 
         /**
@@ -66,14 +77,14 @@ public interface ReferenceScript
         }
 
         /**
-        *
-        * {@inheritDoc}
-        */
-       @Override
-       public String getFullName()
-       {
-           return this.name;
-       }
+         *
+         * {@inheritDoc}
+         */
+        @Override
+        public String getFullName()
+        {
+            return this.name;
+        }
 
         /**
          *
@@ -81,6 +92,16 @@ public interface ReferenceScript
          */
         @Override
         public boolean isSecure()
+        {
+            return false;
+        }
+
+        /**
+         *
+         * {@inheritDoc}
+         */
+        @Override
+        public boolean isCachable()
         {
             return false;
         }
@@ -105,6 +126,25 @@ public interface ReferenceScript
             return Collections.emptySet();
         }
 
+        /**
+         *
+         * {@inheritDoc}
+         */
+        @Override
+        public InputStream getInputStream()
+        {
+            return new ByteArrayInputStream(this.source.getBytes());
+        }
+
+        /**
+         *
+         * {@inheritDoc}
+         */
+        @Override
+        public Reader getReader()
+        {
+            return new StringReader(source);
+        }
     }
 
     /**
@@ -130,6 +170,14 @@ public interface ReferenceScript
     boolean isSecure();
 
     /**
+     * Returns true if the script content is considered cachedable - i.e. classpath located or similar. Else the content will be
+     * compiled/interpreted on every execution i.e. repo content.
+     *
+     * @return true if the script content is considered cachedable, false otherwise
+     */
+    boolean isCachable();
+
+    /**
      * Determines the reference path of this script instance that may be used for purposes of script importing or logging. Since the value
      * set of possible reference path types is unrestricted, a script is not expected to support any arbitrary type of reference path and
      * may in rare occasions support even none.
@@ -148,4 +196,18 @@ public interface ReferenceScript
      * @return the collection of supported reference path types
      */
     Collection<ReferencePathType> getSupportedReferencePathTypes();
+
+    /**
+     * Gets an input stream to the contents of the script
+     *
+     * @return the input stream
+     */
+    InputStream getInputStream();
+
+    /**
+     * Gets a reader to the contents of the script
+     *
+     * @return the reader
+     */
+    Reader getReader();
 }

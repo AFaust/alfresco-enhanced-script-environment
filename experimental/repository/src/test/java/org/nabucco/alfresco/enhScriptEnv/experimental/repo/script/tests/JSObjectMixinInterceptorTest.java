@@ -16,7 +16,6 @@ import org.junit.Before;
 import org.junit.BeforeClass;
 import org.junit.Test;
 import org.nabucco.alfresco.enhScriptEnv.common.script.converter.GenericGlobalValueConverter;
-import org.nabucco.alfresco.enhScriptEnv.experimental.repo.script.TransactionalBindingsThreadLocal;
 import org.nabucco.alfresco.enhScriptEnv.experimental.repo.script.aop.JSObjectMixinInterceptor;
 import org.nabucco.alfresco.enhScriptEnv.experimental.repo.script.converter.nashorn.JOConverter;
 import org.springframework.aop.framework.ProxyFactory;
@@ -216,8 +215,6 @@ public class JSObjectMixinInterceptorTest
         proxyFactory.addInterface(JSObject.class);
 
         final GenericGlobalValueConverter valueConverter = new GenericGlobalValueConverter();
-        final TransactionalBindingsThreadLocal cachedBindings = new TransactionalBindingsThreadLocal();
-        cachedBindings.setScriptEngine(nashornEngine);
 
         final JOConverter joConverter = new JOConverter();
         joConverter.setRegistry(valueConverter);

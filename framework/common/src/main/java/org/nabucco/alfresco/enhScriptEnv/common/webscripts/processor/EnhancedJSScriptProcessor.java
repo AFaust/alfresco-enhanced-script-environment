@@ -1,11 +1,10 @@
 /*
- * Copyright 2013 PRODYNA AG
+ * Copyright 2014 PRODYNA AG
  *
  * Licensed under the Eclipse Public License (EPL), Version 1.0 (the "License"); you may not use
  * this file except in compliance with the License. You may obtain a copy of the License at
  *
- * http://www.opensource.org/licenses/eclipse-1.0.php or
- * http://www.nabucco.org/License.html
+ * https://www.eclipse.org/legal/epl-v10.html
  *
  * Unless required by applicable law or agreed to in writing, software distributed under the
  * License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND,
@@ -16,6 +15,7 @@ package org.nabucco.alfresco.enhScriptEnv.common.webscripts.processor;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.io.UnsupportedEncodingException;
 import java.lang.reflect.Method;
 import java.text.MessageFormat;
 import java.util.ArrayList;
@@ -32,25 +32,24 @@ import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 import org.alfresco.error.AlfrescoRuntimeException;
+import org.alfresco.scripts.ScriptException;
 import org.alfresco.util.MD5;
 import org.alfresco.util.ParameterCheck;
 import org.alfresco.util.PropertyCheck;
 import org.mozilla.javascript.Context;
 import org.mozilla.javascript.ImporterTopLevel;
-import org.mozilla.javascript.NativeFunction;
 import org.mozilla.javascript.NativeJavaObject;
 import org.mozilla.javascript.Script;
 import org.mozilla.javascript.Scriptable;
 import org.mozilla.javascript.ScriptableObject;
 import org.mozilla.javascript.WrappedException;
-import org.mozilla.javascript.debug.DebuggableScript;
 import org.nabucco.alfresco.enhScriptEnv.common.script.EnhancedScriptProcessor;
 import org.nabucco.alfresco.enhScriptEnv.common.script.ReferenceScript;
 import org.nabucco.alfresco.enhScriptEnv.common.script.ReferenceScript.CommonReferencePath;
+import org.nabucco.alfresco.enhScriptEnv.common.script.ReferenceScript.DynamicScript;
 import org.nabucco.alfresco.enhScriptEnv.common.script.ScopeContributor;
 import org.nabucco.alfresco.enhScriptEnv.common.script.converter.ValueConverter;
 import org.nabucco.alfresco.enhScriptEnv.common.script.converter.rhino.DelegatingWrapFactory;
-import org.nabucco.alfresco.enhScriptEnv.common.util.SourceFileVisitor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.InitializingBean;
@@ -119,7 +118,7 @@ public class EnhancedJSScriptProcessor extends BaseRegisterableScriptProcessor i
 
     protected final AtomicLong dynamicScriptCounter = new AtomicLong();
 
-    protected final Map<String, Script> dynamicScriptByHashCache = new LinkedHashMap<String, Script>();
+    protected final Map<String, Script> dynamicScriptCache = new LinkedHashMap<String, Script>();
     protected final ReadWriteLock dynamicScriptCacheLock = new ReentrantReadWriteLock(true);
 
     protected int maxScriptCacheSize = DEFAULT_MAX_SCRIPT_CACHE_SIZE;
@@ -165,49 +164,9 @@ public class EnhancedJSScriptProcessor extends BaseRegisterableScriptProcessor i
     {
         ParameterCheck.mandatoryString("source", source);
 
-        // compile the script based on the node content
-        Script script = null;
-        final MD5 md5 = new MD5();
-        final String digest = md5.digest(source.getBytes());
-
-        script = this.lookupScriptCache(this.dynamicScriptByHashCache, this.dynamicScriptCacheLock, digest);
-
-        final String debugScriptName;
-        if (script == null)
-        {
-            debugScriptName = "string://DynamicJS-" + String.valueOf(this.dynamicScriptCounter.getAndIncrement());
-            script = this.getCompiledScript(source, debugScriptName);
-
-            if (this.compileScripts)
-            {
-                this.updateScriptCache(this.dynamicScriptByHashCache, this.dynamicScriptCacheLock, digest, script);
-            }
-        }
-        else if (script instanceof NativeFunction)
-        {
-            final DebuggableScript debuggableView = ((NativeFunction) script).getDebuggableView();
-            if (debuggableView != null)
-            {
-                debugScriptName = debuggableView.getSourceName();
-            }
-            else
-            {
-                // obviously not an interpreted script
-                if (ASM_AVAILABLE)
-                {
-                    final String sourceFileName = SourceFileVisitor.readSourceFile(script.getClass());
-                    debugScriptName = sourceFileName != null ? sourceFileName : ("string://Cached-DynamicJS-" + digest);
-                }
-                else
-                {
-                    debugScriptName = "string://Cached-DynamicJS-" + digest;
-                }
-            }
-        }
-        else
-        {
-            debugScriptName = "string://Cached-DynamicJS-" + digest;
-        }
+        final ReferenceScript referenceScript = this.toReferenceScript(source);
+        final String debugScriptName = referenceScript.getFullName();
+        final Script script = this.getCompiledScript(referenceScript);
 
         LOGGER.info("{} Start", debugScriptName);
 
@@ -230,7 +189,7 @@ public class EnhancedJSScriptProcessor extends BaseRegisterableScriptProcessor i
                 newChain = true;
             }
             // else: assume the original script chain is continued
-            currentChain.add(new ReferenceScript.DynamicScript(debugScriptName));
+            currentChain.add(new ReferenceScript.DynamicScript(debugScriptName, source));
 
             try
             {
@@ -307,8 +266,8 @@ public class EnhancedJSScriptProcessor extends BaseRegisterableScriptProcessor i
     {
         ParameterCheck.mandatory("content", content);
 
-        final Script script = this.getCompiledScript(content);
         final ScriptContentAdapter contentAdapter = new ScriptContentAdapter(content, this.standardScriptLoader);
+        final Script script = this.getCompiledScript(contentAdapter);
         final String debugScriptName = contentAdapter.getName();
 
         LOGGER.info("{} Start", debugScriptName);
@@ -593,8 +552,8 @@ public class EnhancedJSScriptProcessor extends BaseRegisterableScriptProcessor i
     public Object executeScript(final ScriptContent content, final Map<String, Object> model)
     {
         ParameterCheck.mandatory("content", content);
-        final Script script = this.getCompiledScript(content);
         final ScriptContentAdapter contentAdapter = new ScriptContentAdapter(content, this.standardScriptLoader);
+        final Script script = this.getCompiledScript(contentAdapter);
         final String debugScriptName = contentAdapter.getName();
 
         final Context cx = Context.enter();
@@ -646,7 +605,7 @@ public class EnhancedJSScriptProcessor extends BaseRegisterableScriptProcessor i
         this.dynamicScriptCacheLock.writeLock().lock();
         try
         {
-            this.dynamicScriptByHashCache.clear();
+            this.dynamicScriptCache.clear();
         }
         finally
         {
@@ -692,45 +651,62 @@ public class EnhancedJSScriptProcessor extends BaseRegisterableScriptProcessor i
         }
     }
 
-    protected Script getCompiledScript(final ScriptContent content)
+    protected ReferenceScript toReferenceScript(final String source)
+    {
+        try
+        {
+            final MD5 md5 = new MD5();
+            final String digest = md5.digest(source.getBytes("UTF-8"));
+            final String scriptName = MessageFormat.format("string:///DynamicJS-{0}.js", digest);
+            final ReferenceScript script = new ReferenceScript.DynamicScript(scriptName, source);
+            return script;
+        }
+        catch (final UnsupportedEncodingException err)
+        {
+            throw new ScriptException("Failed process supplied script", err);
+        }
+    }
+
+    protected Script getCompiledScript(final ReferenceScript content)
     {
         Script script = null;
-        final String path = content.getPath();
         String realPath = null;
 
-        if (content instanceof ReferenceScript)
-        {
-            realPath = ((ReferenceScript) content).getReferencePath(CommonReferencePath.FILE);
-        }
+        realPath = content.getReferencePath(CommonReferencePath.FILE);
 
         if (realPath == null)
         {
+            final String path = content instanceof ScriptContentAdapter ? ((ScriptContentAdapter) content).getPath() : content
+                    .getFullName();
+
             // check if the path is in classpath form
-            // TODO: can we generalize external form file:// to a classpath-relative location? (best-effort)
-            if (!path.matches("^(classpath(\\*)?:)+.*$"))
-            {
-                // take path as is - can be anything depending on how content is loaded
-                realPath = path;
-            }
-            else
+            if (path.matches("^(classpath[*]?:)+.*$"))
             {
                 // we always want to have a fully-qualified file-protocol path (unless we can generalize all to classpath-relative
                 // locations)
                 realPath = this.getClass().getClassLoader().getResource(path.substring(path.indexOf(':') + 1)).toExternalForm();
             }
+            else
+            {
+                // TODO: can we generalize external form file:// to a classpath-relative location? (best-effort)
+                // take path as is - can be anything depending on how content is loaded
+                realPath = path;
+            }
         }
 
         // store since it may be reset between cache-check and cache-put, and we don't want debug-enabled scripts cached
         final boolean debuggerActive = this.debuggerActive;
+        final boolean dynamicScript = content instanceof DynamicScript;
         // test the cache for a pre-compiled script matching our path
-        if (this.compileScripts && !debuggerActive && content.isCachable())
+        if (this.compileScripts && !debuggerActive && (dynamicScript || content.isCachable()))
         {
-            script = this.lookupScriptCache(this.scriptCache, this.scriptCacheLock, content.getPath());
+            script = this.lookupScriptCache(dynamicScript ? this.dynamicScriptCache : this.scriptCache,
+                    dynamicScript ? this.dynamicScriptCacheLock : this.scriptCacheLock, realPath);
         }
 
         if (script == null)
         {
-            LOGGER.debug("Resolving and compiling script path: {}", path);
+            LOGGER.debug("Resolving and compiling script path: {}", realPath);
 
             try
             {
@@ -746,16 +722,17 @@ public class EnhancedJSScriptProcessor extends BaseRegisterableScriptProcessor i
                 throw new WebScriptException(MessageFormat.format("Failed to load supplied script: {0}", ex.getMessage()), ex);
             }
 
-            if (this.compileScripts && !debuggerActive && content.isCachable())
+            if (this.compileScripts && !debuggerActive && (dynamicScript || content.isCachable()))
             {
-                this.updateScriptCache(this.scriptCache, this.scriptCacheLock, path, script);
-
+                this.updateScriptCache(dynamicScript ? this.dynamicScriptCache : this.scriptCache,
+                        dynamicScript ? this.dynamicScriptCacheLock : this.scriptCacheLock, realPath, script);
             }
-            LOGGER.debug("Compiled script for {}", path);
+
+            LOGGER.debug("Compiled script for {}", realPath);
         }
         else
         {
-            LOGGER.debug("Using previously compiled script for {}", path);
+            LOGGER.debug("Using previously compiled script for {}", realPath);
         }
 
         return script;

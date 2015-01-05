@@ -1,11 +1,10 @@
 /*
- * Copyright 2013 PRODYNA AG
+ * Copyright 2014 PRODYNA AG
  *
  * Licensed under the Eclipse Public License (EPL), Version 1.0 (the "License"); you may not use
  * this file except in compliance with the License. You may obtain a copy of the License at
  *
- * http://www.opensource.org/licenses/eclipse-1.0.php or
- * http://www.nabucco.org/License.html
+ * https://www.eclipse.org/legal/epl-v10.html
  *
  * Unless required by applicable law or agreed to in writing, software distributed under the
  * License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND,
@@ -23,8 +22,8 @@ public interface EnhancedScriptProcessor<SL>
 {
 
     /**
-     * Executes a script in a provided scope. When the scope is mutable, execution of the script may result in
-     * modifications of its state depending on the script being executed.
+     * Executes a script in a provided scope. When the scope is mutable, execution of the script may result in modifications of its state
+     * depending on the script being executed.
      *
      * @param location
      *            the location of the script
@@ -37,8 +36,8 @@ public interface EnhancedScriptProcessor<SL>
     Object executeInScope(SL location, Object scope);
 
     /**
-     * Executes a script in a provided scope. When the scope is mutable, execution of the script may result in
-     * modifications of its state depending on the script being executed.
+     * Executes a script in a provided scope. When the scope is mutable, execution of the script may result in modifications of its state
+     * depending on the script being executed.
      *
      * @param source
      *            the source code of the script to execute
@@ -50,30 +49,28 @@ public interface EnhancedScriptProcessor<SL>
     Object executeInScope(String source, Object scope);
 
     /**
-     * Retrieves the script location for the current script execution context. This result of this method heavily
-     * depends on the state of execution of the current thread and the chain of script executions that resulted in the
-     * invocation of the caller.
+     * Retrieves the script location for the current script execution context. This result of this method heavily depends on the state of
+     * execution of the current thread and the chain of script executions that resulted in the invocation of the caller.
      *
-     * @return the script location object for the script currently being executed resulting in the invocation of the
-     *         caller. This may be {@code null} if no script is currently being executed.
+     * @return the script location object for the script currently being executed resulting in the invocation of the caller. This may be
+     *         {@code null} if no script is currently being executed.
      */
     ReferenceScript getContextScriptLocation();
 
     /**
-     * Retrieves the chain of scripts for the current script execution context. This method will not return all the
-     * scripts that the current callers thread is currently nested in - instead it will return those scripts that
-     * through an unbroken chain of importScript API calls have invoked each other.
+     * Retrieves the chain of scripts for the current script execution context. This method will not return all the scripts that the current
+     * callers thread is currently nested in - instead it will return those scripts that through an unbroken chain of importScript API calls
+     * have invoked each other.
      *
-     * @return the chain scripts leading to the call on the script currently being executed in the order they have been
-     *         called, i.e. with first script at an index position of zero. This may be {@code null} if no script is
-     *         currently being executed.
+     * @return the chain scripts leading to the call on the script currently being executed in the order they have been called, i.e. with
+     *         first script at an index position of zero. This may be {@code null} or an empty list if no script is currently being
+     *         executed.
      */
     List<ReferenceScript> getScriptCallChain();
 
     /**
-     * Inherits and initializes the call chain for the current context from the provided parent context. Clients may use
-     * this operation to initialize necessary call chain information in situations where execution is not performed
-     * linearly in the same thread / context.
+     * Inherits and initializes the call chain for the current context from the provided parent context. Clients may use this operation to
+     * initialize necessary call chain information in situations where execution is not performed linearly in the same thread / context.
      *
      * @param parentContext
      *            the context to inherit the call chain from
@@ -92,8 +89,8 @@ public interface EnhancedScriptProcessor<SL>
     Object initializeScope(SL location);
 
     /**
-     * Registers a scope contributor to be invoked whenever a new scripting scope is initialized for contribution of
-     * additional values / functionality to that scope.
+     * Registers a scope contributor to be invoked whenever a new scripting scope is initialized for contribution of additional values /
+     * functionality to that scope.
      *
      * @param contributor
      *            the contributor to register
@@ -101,14 +98,14 @@ public interface EnhancedScriptProcessor<SL>
     void registerScopeContributor(ScopeContributor contributor);
 
     /**
-     * Notifies the script processor that a debugger has been attached to the script environment. Depending on the
-     * internal implementation, this may affect compilation and optimization behavior of the processor.
+     * Notifies the script processor that a debugger has been attached to the script environment. Depending on the internal implementation,
+     * this may affect compilation and optimization behavior of the processor.
      */
     void debuggerAttached();
 
     /**
-     * Notifies the script processor that a debugger has been detached from the script environment. Depending on the
-     * internal implementation, this may affect compilation and optimization behavior of the processor.
+     * Notifies the script processor that a debugger has been detached from the script environment. Depending on the internal
+     * implementation, this may affect compilation and optimization behavior of the processor.
      */
     void debuggerDetached();
 }

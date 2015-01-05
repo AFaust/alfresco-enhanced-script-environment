@@ -1,11 +1,10 @@
 /*
- * Copyright 2013 PRODYNA AG
+ * Copyright 2014 PRODYNA AG
  *
  * Licensed under the Eclipse Public License (EPL), Version 1.0 (the "License"); you may not use
  * this file except in compliance with the License. You may obtain a copy of the License at
  *
- * http://www.opensource.org/licenses/eclipse-1.0.php or
- * http://www.nabucco.org/License.html
+ * https://www.eclipse.org/legal/epl-v10.html
  *
  * Unless required by applicable law or agreed to in writing, software distributed under the
  * License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND,
@@ -35,7 +34,7 @@ import org.slf4j.LoggerFactory;
  *
  * @author Axel Faust, <a href="http://www.prodyna.com">PRODYNA AG</a>
  */
-public class RhinoImportScriptFunction<Script extends ReferenceScript> extends AbstractImportScriptFunction<Script> implements
+public class RhinoImportScriptFunction<Script extends ReferenceScript> extends AbstractImportScriptFunction<Script, Scriptable> implements
         IdFunctionCall
 {
     private static final Logger LOGGER = LoggerFactory.getLogger(RhinoImportScriptFunction.class);
@@ -115,9 +114,9 @@ public class RhinoImportScriptFunction<Script extends ReferenceScript> extends A
         }
     }
 
-    protected Object prepareExecutionScope(final Script location, final Object sourceScope, final Object executionScopeParam)
+    protected Scriptable prepareExecutionScope(final Script location, final Scriptable sourceScope, final Object executionScopeParam)
     {
-        final Object result;
+        final Scriptable result;
         if (executionScopeParam instanceof Scriptable)
         {
             final Scriptable executionScope = (Scriptable) executionScopeParam;

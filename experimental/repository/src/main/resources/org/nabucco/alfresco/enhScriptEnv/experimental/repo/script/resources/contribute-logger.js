@@ -1,9 +1,8 @@
-(function(logger)
+(function contributeLogger(logger)
 {
-    var logScope = this, Throwable = Java.type("java.lang.Throwable"), MessageFormat = Java.type("java.text.MessageFormat"), loggerDelegate = logger, rootLogger = new Object(), system = new Object(), existingLoggerProp, createLogFn = function(
-            level, name)
+    var logScope = this, Throwable = Java.type("java.lang.Throwable"), MessageFormat = Java.type("java.text.MessageFormat"), loggerDelegate = logger, rootLogger = new Object(), system = new Object(), existingLoggerProp, createLogFn = function createLogFunction(level, name)
     {
-        var logLevel = level, fnName = name, fn = function(message, opt)
+        var logLevel = level, fnName = name, fn = function log(message, opt)
         {
             var params, idx, max, scriptLogger = loggerDelegate.getScriptLogger();
             if (opt !== undefined && opt !== null)
@@ -296,17 +295,17 @@
         {
             configurable : false,
             enumerable : true,
-            get : function()
+            get : function getLooger()
             {
                 return rootLogger;
             },
-            set : function(logger)
+            set : function setLogger(logger)
             {
                 if (logger !== rootLogger)
                 {
                     loggerDelegate.setScriptLogger(logger);
                 }
             }
-        });
+        }, true);
     }
-}(NashornLogFunction));
+}).call(this, NashornLogFunction);

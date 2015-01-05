@@ -1,11 +1,10 @@
 /*
- * Copyright 2013 PRODYNA AG
+ * Copyright 2014 PRODYNA AG
  *
  * Licensed under the Eclipse Public License (EPL), Version 1.0 (the "License"); you may not use
  * this file except in compliance with the License. You may obtain a copy of the License at
  *
- * http://www.opensource.org/licenses/eclipse-1.0.php or
- * http://www.nabucco.org/License.html
+ * https://www.eclipse.org/legal/epl-v10.html
  *
  * Unless required by applicable law or agreed to in writing, software distributed under the
  * License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND,
@@ -36,7 +35,7 @@ import org.springframework.beans.factory.InitializingBean;
  *
  * @author Axel Faust, <a href="http://www.prodyna.com">PRODYNA AG</a>
  */
-public abstract class AbstractImportScriptFunction<Script extends ReferenceScript> implements ScopeContributor, InitializingBean
+public abstract class AbstractImportScriptFunction<Script extends ReferenceScript, S> implements ScopeContributor, InitializingBean
 {
     private static final Logger LOGGER = LoggerFactory.getLogger(AbstractImportScriptFunction.class);
 
@@ -89,7 +88,7 @@ public abstract class AbstractImportScriptFunction<Script extends ReferenceScrip
     }
 
     protected boolean resolveAndImport(final String locatorType, final String locationValue, final Object resolutionParams,
-            final Object scope, final Object executionScopeParams, final boolean failOnMissingScript)
+            final S scope, final Object executionScopeParams, final boolean failOnMissingScript)
     {
         ParameterCheck.mandatoryString("locatorType", locatorType);
         ParameterCheck.mandatoryString("locationValue", locationValue);
@@ -134,11 +133,11 @@ public abstract class AbstractImportScriptFunction<Script extends ReferenceScrip
         return result;
     }
 
-    protected abstract Object prepareExecutionScope(Script location, Object sourceScope, Object executionScopeParam);
+    protected abstract S prepareExecutionScope(Script location, S sourceScope, Object executionScopeParam);
 
-    protected void importAndExecute(final Script location, final Object scope, final Object executionScopeParam)
+    protected void importAndExecute(final Script location, final S scope, final Object executionScopeParam)
     {
-        final Object executionScope;
+        final S executionScope;
         if (executionScopeParam != null)
         {
             executionScope = this.prepareExecutionScope(location, scope, executionScopeParam);

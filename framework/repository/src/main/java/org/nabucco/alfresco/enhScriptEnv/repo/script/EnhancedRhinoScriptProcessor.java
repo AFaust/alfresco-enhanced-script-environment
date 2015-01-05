@@ -1,11 +1,10 @@
 /*
- * Copyright 2013 PRODYNA AG
+ * Copyright 2014 PRODYNA AG
  *
  * Licensed under the Eclipse Public License (EPL), Version 1.0 (the "License"); you may not use
  * this file except in compliance with the License. You may obtain a copy of the License at
  *
- * http://www.opensource.org/licenses/eclipse-1.0.php or
- * http://www.nabucco.org/License.html
+ * https://www.eclipse.org/legal/epl-v10.html
  *
  * Unless required by applicable law or agreed to in writing, software distributed under the
  * License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND,
@@ -16,9 +15,13 @@ package org.nabucco.alfresco.enhScriptEnv.repo.script;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.io.UnsupportedEncodingException;
 import java.net.URL;
+import java.text.MessageFormat;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
@@ -46,20 +49,20 @@ import org.alfresco.util.ParameterCheck;
 import org.alfresco.util.PropertyCheck;
 import org.mozilla.javascript.Context;
 import org.mozilla.javascript.ImporterTopLevel;
-import org.mozilla.javascript.NativeFunction;
 import org.mozilla.javascript.NativeJavaObject;
 import org.mozilla.javascript.Script;
 import org.mozilla.javascript.Scriptable;
 import org.mozilla.javascript.ScriptableObject;
 import org.mozilla.javascript.WrappedException;
-import org.mozilla.javascript.debug.DebuggableScript;
 import org.nabucco.alfresco.enhScriptEnv.common.script.EnhancedScriptProcessor;
 import org.nabucco.alfresco.enhScriptEnv.common.script.ReferenceScript;
 import org.nabucco.alfresco.enhScriptEnv.common.script.ReferenceScript.CommonReferencePath;
+import org.nabucco.alfresco.enhScriptEnv.common.script.ReferenceScript.DynamicScript;
+import org.nabucco.alfresco.enhScriptEnv.common.script.ReferenceScript.ReferencePathType;
+import org.nabucco.alfresco.enhScriptEnv.common.script.ScopeContributor;
 import org.nabucco.alfresco.enhScriptEnv.common.script.converter.ValueConverter;
 import org.nabucco.alfresco.enhScriptEnv.common.script.converter.rhino.DelegatingWrapFactory;
-import org.nabucco.alfresco.enhScriptEnv.common.script.ScopeContributor;
-import org.nabucco.alfresco.enhScriptEnv.common.util.SourceFileVisitor;
+import org.nabucco.alfresco.enhScriptEnv.common.webscripts.processor.SurfReferencePath;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.InitializingBean;
@@ -71,8 +74,7 @@ import org.springframework.util.FileCopyUtils;
 /**
  * @author Axel Faust, <a href="http://www.prodyna.com">PRODYNA AG</a>
  */
-public class EnhancedRhinoScriptProcessor extends BaseProcessor implements EnhancedScriptProcessor<ScriptLocation>,
-        ScriptProcessor,
+public class EnhancedRhinoScriptProcessor extends BaseProcessor implements EnhancedScriptProcessor<ScriptLocation>, ScriptProcessor,
         InitializingBean, ApplicationListener<ContextRefreshedEvent>
 {
     private static final String NODE_REF_RESOURCE_IMPORT_PATTERN = "<import(\\s*\\n*\\s+)+resource(\\s*\\n*\\s*+)*=(\\s*\\n*\\s+)*\"(([^:]+)://([^/]+)/([^\"]+))\"(\\s*\\n*\\s+)*(/)?>";
@@ -85,8 +87,11 @@ public class EnhancedRhinoScriptProcessor extends BaseProcessor implements Enhan
     private static final String CLASSPATH_RESOURCE_IMPORT_REPLACEMENT = "importScript(\"classpath\", \"/$5\", true);";
 
     private static final Logger LOGGER = LoggerFactory.getLogger(EnhancedRhinoScriptProcessor.class);
-    private static final Logger LEGACY_CALL_LOGGER = LoggerFactory.getLogger(RhinoScriptProcessor.class.getName()
-            + ".calls");
+    private static final Logger LEGACY_CALL_LOGGER = LoggerFactory.getLogger(RhinoScriptProcessor.class.getName() + ".calls");
+
+    private static final List<ReferencePathType> REAL_PATH_SUCCESSION = Collections.<ReferencePathType> unmodifiableList(Arrays
+            .<ReferencePathType> asList(CommonReferencePath.FILE, CommonReferencePath.CLASSPATH, RepositoryReferencePath.FILE_FOLDER_PATH,
+                    SurfReferencePath.STORE));
 
     private static final int DEFAULT_MAX_SCRIPT_CACHE_SIZE = 200;
 
@@ -112,7 +117,7 @@ public class EnhancedRhinoScriptProcessor extends BaseProcessor implements Enhan
 
     protected final AtomicLong dynamicScriptCounter = new AtomicLong();
 
-    protected final Map<String, Script> dynamicScriptByHashCache = new LinkedHashMap<String, Script>();
+    protected final Map<String, Script> dynamicScriptCache = new LinkedHashMap<String, Script>();
     protected final ReadWriteLock dynamicScriptCacheLock = new ReentrantReadWriteLock(true);
 
     protected int maxScriptCacheSize = DEFAULT_MAX_SCRIPT_CACHE_SIZE;
@@ -176,7 +181,9 @@ public class EnhancedRhinoScriptProcessor extends BaseProcessor implements Enhan
     public Object execute(final ScriptLocation location, final Map<String, Object> model)
     {
         ParameterCheck.mandatory("location", location);
-        final Script script = this.getCompiledScript(location);
+
+        final ReferenceScript actualScript = new ScriptLocationAdapter(location);
+        final Script script = this.getCompiledScript(actualScript);
         final String debugScriptName;
         {
             final String path = location.getPath();
@@ -188,7 +195,7 @@ public class EnhancedRhinoScriptProcessor extends BaseProcessor implements Enhan
         try
         {
             this.updateLocationChainsBeforeExceution(cx);
-            this.activeScriptLocationChain.get(cx).add(new ScriptLocationAdapter(location));
+            this.activeScriptLocationChain.get(cx).add(actualScript);
             try
             {
                 return this.executeScriptImpl(script, model, location.isSecure(), debugScriptName);
@@ -232,57 +239,18 @@ public class EnhancedRhinoScriptProcessor extends BaseProcessor implements Enhan
     {
         ParameterCheck.mandatoryString("source", source);
 
-        // compile the script based on the node content
-        Script script = null;
-        final MD5 md5 = new MD5();
-        final String digest = md5.digest(source.getBytes());
-        final String debugScriptName;
-
-        script = this.lookupScriptCache(this.dynamicScriptByHashCache, this.dynamicScriptCacheLock, digest);
-
-        if (script == null)
-        {
-            debugScriptName = this.compileScripts ? ("string://Cached-DynamicJS-" + digest)
-                    : ("string://DynamicJS-" + String
-                            .valueOf(this.dynamicScriptCounter.getAndIncrement()));
-            script = this.getCompiledScript(source, debugScriptName);
-
-            if (this.compileScripts)
-            {
-                this.updateScriptCache(this.dynamicScriptByHashCache, this.dynamicScriptCacheLock, digest, script);
-            }
-        }
-        else if (script instanceof NativeFunction)
-        {
-            final DebuggableScript debuggableView = ((NativeFunction) script).getDebuggableView();
-            if (debuggableView != null)
-            {
-                debugScriptName = debuggableView.getSourceName();
-            }
-            else
-            {
-                // obviously not an interpreted script
-                final String sourceFileName = SourceFileVisitor.readSourceFile(script.getClass());
-                debugScriptName = sourceFileName != null ? sourceFileName : ("string://Cached-DynamicJS-" + digest);
-            }
-        }
-        else
-        {
-            debugScriptName = "string://Cached-DynamicJS-" + digest;
-        }
+        final ReferenceScript referenceScript = this.toReferenceScript(source);
+        final String debugScriptName = referenceScript.getFullName();
+        final Script script = this.getCompiledScript(referenceScript);
 
         final Context cx = Context.enter();
         try
         {
             this.updateLocationChainsBeforeExceution(cx);
-            this.activeScriptLocationChain.get(cx).add(new ReferenceScript.DynamicScript(debugScriptName));
+            this.activeScriptLocationChain.get(cx).add(new ReferenceScript.DynamicScript(debugScriptName, source));
             try
             {
                 return this.executeScriptImpl(script, model, false, debugScriptName);
-            }
-            catch (final Throwable err)
-            {
-                throw new ScriptException("Failed to execute supplied script: " + err.getMessage(), err);
             }
             finally
             {
@@ -304,44 +272,9 @@ public class EnhancedRhinoScriptProcessor extends BaseProcessor implements Enhan
     {
         ParameterCheck.mandatoryString("source", source);
 
-        // compile the script based on the node content
-        Script script = null;
-        final MD5 md5 = new MD5();
-        final String digest = md5.digest(source.getBytes());
-        final String debugScriptName;
-
-        script = this.lookupScriptCache(this.dynamicScriptByHashCache, this.dynamicScriptCacheLock, digest);
-
-        if (script == null)
-        {
-            debugScriptName = this.compileScripts ? ("string://Cached-DynamicJS-" + digest)
-                    : ("string://DynamicJS-" + String
-                            .valueOf(this.dynamicScriptCounter.getAndIncrement()));
-            script = this.getCompiledScript(source, debugScriptName);
-
-            if (this.compileScripts)
-            {
-                this.updateScriptCache(this.dynamicScriptByHashCache, this.dynamicScriptCacheLock, digest, script);
-            }
-        }
-        else if (script instanceof NativeFunction)
-        {
-            final DebuggableScript debuggableView = ((NativeFunction) script).getDebuggableView();
-            if (debuggableView != null)
-            {
-                debugScriptName = debuggableView.getSourceName();
-            }
-            else
-            {
-                // obviously not an interpreted script
-                final String sourceFileName = SourceFileVisitor.readSourceFile(script.getClass());
-                debugScriptName = sourceFileName != null ? sourceFileName : ("string://Cached-DynamicJS-" + digest);
-            }
-        }
-        else
-        {
-            debugScriptName = "string://Cached-DynamicJS-" + digest;
-        }
+        final ReferenceScript referenceScript = this.toReferenceScript(source);
+        final String debugScriptName = referenceScript.getFullName();
+        final Script script = this.getCompiledScript(referenceScript);
 
         LOGGER.info("{} Start", debugScriptName);
         LEGACY_CALL_LOGGER.debug("{} Start", debugScriptName);
@@ -365,7 +298,7 @@ public class EnhancedRhinoScriptProcessor extends BaseProcessor implements Enhan
                 newChain = true;
             }
             // else: assume the original script chain is continued
-            currentChain.add(new ReferenceScript.DynamicScript(debugScriptName));
+            currentChain.add(new ReferenceScript.DynamicScript(debugScriptName, source));
 
             try
             {
@@ -442,7 +375,8 @@ public class EnhancedRhinoScriptProcessor extends BaseProcessor implements Enhan
     {
         ParameterCheck.mandatory("location", location);
 
-        final Script script = this.getCompiledScript(location);
+        final ReferenceScript actualScript = new ScriptLocationAdapter(location);
+        final Script script = this.getCompiledScript(actualScript);
         final String debugScriptName;
         {
             final String path = location.getPath();
@@ -472,7 +406,7 @@ public class EnhancedRhinoScriptProcessor extends BaseProcessor implements Enhan
                 newChain = true;
             }
             // else: assume the original script chain is continued
-            currentChain.add(new ScriptLocationAdapter(location));
+            currentChain.add(actualScript);
             try
             {
 
@@ -481,7 +415,7 @@ public class EnhancedRhinoScriptProcessor extends BaseProcessor implements Enhan
                 {
                     if (this.shareScopes)
                     {
-                        final Scriptable sharedScope = location.isSecure() ? this.unrestrictedShareableScope
+                        final Scriptable sharedScope = actualScript.isSecure() ? this.unrestrictedShareableScope
                                 : this.restrictedShareableScope;
                         realScope = cx.newObject(sharedScope);
                         realScope.setPrototype(sharedScope);
@@ -489,7 +423,7 @@ public class EnhancedRhinoScriptProcessor extends BaseProcessor implements Enhan
                     }
                     else
                     {
-                        realScope = this.setupScope(cx, location.isSecure(), false);
+                        realScope = this.setupScope(cx, actualScript.isSecure(), false);
                     }
                 }
                 else if (!(scope instanceof Scriptable))
@@ -497,13 +431,13 @@ public class EnhancedRhinoScriptProcessor extends BaseProcessor implements Enhan
                     realScope = new NativeJavaObject(null, scope, scope.getClass());
                     if (this.shareScopes)
                     {
-                        final Scriptable sharedScope = location.isSecure() ? this.unrestrictedShareableScope
+                        final Scriptable sharedScope = actualScript.isSecure() ? this.unrestrictedShareableScope
                                 : this.restrictedShareableScope;
                         realScope.setPrototype(sharedScope);
                     }
                     else
                     {
-                        final Scriptable baseScope = this.setupScope(cx, location.isSecure(), false);
+                        final Scriptable baseScope = this.setupScope(cx, actualScript.isSecure(), false);
                         realScope.setPrototype(baseScope);
                     }
                 }
@@ -564,8 +498,7 @@ public class EnhancedRhinoScriptProcessor extends BaseProcessor implements Enhan
             final boolean secureScript = location.isSecure();
             if (this.shareScopes)
             {
-                final Scriptable sharedScope = secureScript ? this.unrestrictedShareableScope
-                        : this.restrictedShareableScope;
+                final Scriptable sharedScope = secureScript ? this.unrestrictedShareableScope : this.restrictedShareableScope;
                 scope = cx.newObject(sharedScope);
                 scope.setPrototype(sharedScope);
                 scope.setParentScope(null);
@@ -707,7 +640,7 @@ public class EnhancedRhinoScriptProcessor extends BaseProcessor implements Enhan
         this.dynamicScriptCacheLock.writeLock().lock();
         try
         {
-            this.dynamicScriptByHashCache.clear();
+            this.dynamicScriptCache.clear();
         }
         finally
         {
@@ -764,6 +697,22 @@ public class EnhancedRhinoScriptProcessor extends BaseProcessor implements Enhan
         this.failoverToLessOptimization = failoverToLessOptimization;
     }
 
+    protected ReferenceScript toReferenceScript(final String source)
+    {
+        try
+        {
+            final MD5 md5 = new MD5();
+            final String digest = md5.digest(source.getBytes("UTF-8"));
+            final String scriptName = MessageFormat.format("string:///DynamicJS-{0}.js", digest);
+            final ReferenceScript script = new ReferenceScript.DynamicScript(scriptName, source);
+            return script;
+        }
+        catch (final UnsupportedEncodingException err)
+        {
+            throw new ScriptException("Failed process supplied script", err);
+        }
+    }
+
     protected void updateLocationChainsBeforeExceution(final Context currentContext)
     {
         final List<ReferenceScript> activeChain = this.activeScriptLocationChain.get(currentContext);
@@ -796,31 +745,30 @@ public class EnhancedRhinoScriptProcessor extends BaseProcessor implements Enhan
         }
     }
 
-    protected Script getCompiledScript(final ScriptLocation location)
+    protected Script getCompiledScript(final ReferenceScript location)
     {
         Script script = null;
-        final String path = location.getPath();
         String realPath = null;
 
-        if (location instanceof ReferenceScript)
+        final Collection<ReferencePathType> supportedReferencePathTypes = location.getSupportedReferencePathTypes();
+        for (final ReferencePathType pathType : REAL_PATH_SUCCESSION)
         {
-            realPath = ((ReferenceScript) location).getReferencePath(CommonReferencePath.FILE);
+            if (realPath == null && supportedReferencePathTypes.contains(pathType))
+            {
+                realPath = location.getReferencePath(pathType);
+            }
         }
 
         if (realPath == null)
         {
+            final String path = location instanceof ScriptLocationAdapter ? ((ScriptLocationAdapter) location).getPath() : location
+                    .getFullName();
+
             // check if the path is in classpath form
-            // TODO: can we generalize external form file:// to a classpath-relative location? (best-effort)
-            if (!path.matches("^(classpath[*]?:).*$"))
-            {
-                // take path as is - can be anything depending on how content is loaded
-                realPath = path;
-            }
-            else
+            if (path.matches("^(classpath[*]?:).*$"))
             {
                 // we always want to have a fully-qualified file-protocol path (unless we can generalize all to
-                // classpath-relative
-                // locations)
+                // classpath-relative locations)
                 final String resourcePath = path.substring(path.indexOf(':') + 1);
                 URL resource = this.getClass().getClassLoader().getResource(resourcePath);
                 if (resource == null && resourcePath.startsWith("/"))
@@ -838,19 +786,27 @@ public class EnhancedRhinoScriptProcessor extends BaseProcessor implements Enhan
                     realPath = path;
                 }
             }
+            else
+            {
+                // TODO Can we generalize external form file:// to a classpath-relative location? (best-effort)
+                // take path as is - can be anything depending on how content is loaded
+                realPath = path;
+            }
         }
 
         // store since it may be reset between cache-check and cache-put, and we don't want debug-enabled scripts cached
         final boolean debuggerActive = this.debuggerActive;
+        final boolean dynamicScript = location instanceof DynamicScript;
         // test the cache for a pre-compiled script matching our path
-        if (this.compileScripts && !debuggerActive && location.isCachable())
+        if (this.compileScripts && !debuggerActive && (dynamicScript || location.isCachable()))
         {
-            script = this.lookupScriptCache(this.scriptCache, this.scriptCacheLock, path);
+            script = this.lookupScriptCache(dynamicScript ? this.dynamicScriptCache : this.scriptCache,
+                    dynamicScript ? this.dynamicScriptCacheLock : this.scriptCacheLock, realPath);
         }
 
         if (script == null)
         {
-            LOGGER.debug("Resolving and compiling script path: {}", path);
+            LOGGER.debug("Resolving and compiling script path: {}", realPath);
 
             try
             {
@@ -866,16 +822,17 @@ public class EnhancedRhinoScriptProcessor extends BaseProcessor implements Enhan
                 throw new ScriptException("Failed to compile supplied script: " + err.getMessage(), err);
             }
 
-            if (this.compileScripts && !debuggerActive && location.isCachable())
+            if (this.compileScripts && !debuggerActive && (dynamicScript || location.isCachable()))
             {
-                this.updateScriptCache(this.scriptCache, this.scriptCacheLock, path, script);
+                this.updateScriptCache(dynamicScript ? this.dynamicScriptCache : this.scriptCache,
+                        dynamicScript ? this.dynamicScriptCacheLock : this.scriptCacheLock, realPath, script);
             }
 
-            LOGGER.debug("Compiled script for {}", path);
+            LOGGER.debug("Compiled script for {}", realPath);
         }
         else
         {
-            LOGGER.debug("Using previously compiled script for {}", path);
+            LOGGER.debug("Using previously compiled script for {}", realPath);
         }
 
         return script;
@@ -912,8 +869,7 @@ public class EnhancedRhinoScriptProcessor extends BaseProcessor implements Enhan
                         {
                             // unfortunately, all exceptions emitted from compilation are RuntimeExceptions
                             // but at the least, they are RuntimeException specifically
-                            if (!this.failoverToLessOptimization
-                                    || !ex.getClass().isAssignableFrom(RuntimeException.class))
+                            if (!this.failoverToLessOptimization || !ex.getClass().isAssignableFrom(RuntimeException.class))
                             {
                                 // if failover is not to be attempted or exception is a specialized RuntimeException
                                 throw ex;
@@ -928,9 +884,7 @@ public class EnhancedRhinoScriptProcessor extends BaseProcessor implements Enhan
                             else
                             {
                                 // we do at least log
-                                LOGGER.info(
-                                        "Compilation failed of {} failed with runtime exception {} - no further attempt",
-                                        path,
+                                LOGGER.info("Compilation failed of {} failed with runtime exception {} - no further attempt", path,
                                         ex.getMessage());
                             }
                         }
@@ -958,8 +912,8 @@ public class EnhancedRhinoScriptProcessor extends BaseProcessor implements Enhan
     }
 
     /**
-     * Resolves the import directives in the specified script to proper import API calls. Supported import directives
-     * are of the following form:
+     * Resolves the import directives in the specified script to proper import API calls. Supported import directives are of the following
+     * form:
      *
      * <pre>
      * <import resource="classpath:alfresco/includeme.js">
@@ -977,12 +931,10 @@ public class EnhancedRhinoScriptProcessor extends BaseProcessor implements Enhan
     @SuppressWarnings("static-method")
     protected String resolveScriptImports(final String script)
     {
-        final String classpathResolvedScript = script.replaceAll(CLASSPATH_RESOURCE_IMPORT_PATTERN,
-                CLASSPATH_RESOURCE_IMPORT_REPLACEMENT);
+        final String classpathResolvedScript = script.replaceAll(CLASSPATH_RESOURCE_IMPORT_PATTERN, CLASSPATH_RESOURCE_IMPORT_REPLACEMENT);
         final String nodeRefResolvedScript = classpathResolvedScript.replaceAll(NODE_REF_RESOURCE_IMPORT_PATTERN,
                 NODE_REF_RESOURCE_IMPORT_REPLACEMENT);
-        final String legacyNamePathResolvedScript = nodeRefResolvedScript.replaceAll(
-                LEGACY_NAME_PATH_RESOURCE_IMPORT_PATTERN,
+        final String legacyNamePathResolvedScript = nodeRefResolvedScript.replaceAll(LEGACY_NAME_PATH_RESOURCE_IMPORT_PATTERN,
                 LEGACY_NAME_PATH_RESOURCE_IMPORT_REPLACEMENT);
 
         return legacyNamePathResolvedScript;
@@ -1003,8 +955,7 @@ public class EnhancedRhinoScriptProcessor extends BaseProcessor implements Enhan
         return script;
     }
 
-    protected void updateScriptCache(final Map<String, Script> cache, final ReadWriteLock lock, final String key,
-            final Script script)
+    protected void updateScriptCache(final Map<String, Script> cache, final ReadWriteLock lock, final String key, final Script script)
     {
         lock.writeLock().lock();
         try
@@ -1027,8 +978,7 @@ public class EnhancedRhinoScriptProcessor extends BaseProcessor implements Enhan
         }
     }
 
-    protected Object executeScriptImpl(final Script script, final Map<String, Object> model,
-            final boolean secureScript,
+    protected Object executeScriptImpl(final Script script, final Map<String, Object> model, final boolean secureScript,
             final String debugScriptName) throws AlfrescoRuntimeException
     {
         final long startTime = System.currentTimeMillis();
@@ -1046,8 +996,7 @@ public class EnhancedRhinoScriptProcessor extends BaseProcessor implements Enhan
             final Scriptable scope;
             if (this.shareScopes)
             {
-                final Scriptable sharedScope = secureScript ? this.unrestrictedShareableScope
-                        : this.restrictedShareableScope;
+                final Scriptable sharedScope = secureScript ? this.unrestrictedShareableScope : this.restrictedShareableScope;
                 scope = cx.newObject(sharedScope);
                 scope.setPrototype(sharedScope);
                 scope.setParentScope(null);
@@ -1148,8 +1097,7 @@ public class EnhancedRhinoScriptProcessor extends BaseProcessor implements Enhan
         }
     }
 
-    protected Scriptable setupScope(final Context executionContext, final boolean trustworthyScript,
-            final boolean mutableScope)
+    protected Scriptable setupScope(final Context executionContext, final boolean trustworthyScript, final boolean mutableScope)
     {
         final Scriptable scope;
         if (trustworthyScript)

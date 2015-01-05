@@ -1,4 +1,4 @@
-(function(importer)
+(function contributeImportScript(importer)
 {
     var importerDelegate = importer, existingImportScriptProp, asObject = function(obj, allowJavaObj)
     {
@@ -6,7 +6,7 @@
 
         if (obj !== undefined && obj !== null)
         {
-            if (allowJavaObj === true && obj.getClass !== undefined)
+            if (allowJavaObj === true && obj.getClass !== undefined && obj.hasOwnProperty === undefined)
             {
                 result = obj;
             }
@@ -36,13 +36,13 @@
             configurable : false,
             enumerable : false,
             writable : false,
-            value : function(locatorType, locationValue, failOnMissingScript, resolutionParams, executionScope)
+            value : function importScript(locatorType, locationValue, failOnMissingScript, resolutionParams, executionScope)
             {
                 var resolutionParamObj = asObject(resolutionParams, true), executionScopeObj = asObject(executionScope, false);
 
                 return importerDelegate.importScript(locatorType, locationValue, failOnMissingScript === true, resolutionParamObj, this,
                         executionScopeObj);
             }
-        });
+        }, true);
     }
-}(NashornImportScriptFunction));
+}).call(this, NashornImportScriptFunction);

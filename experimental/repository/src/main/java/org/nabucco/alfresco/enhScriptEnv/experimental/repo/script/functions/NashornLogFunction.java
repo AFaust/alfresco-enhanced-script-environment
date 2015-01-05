@@ -1,11 +1,10 @@
 /*
- * Copyright 2013 PRODYNA AG
+ * Copyright 2014 PRODYNA AG
  *
  * Licensed under the Eclipse Public License (EPL), Version 1.0 (the "License"); you may not use
  * this file except in compliance with the License. You may obtain a copy of the License at
  *
- * http://www.opensource.org/licenses/eclipse-1.0.php or
- * http://www.nabucco.org/License.html
+ * https://www.eclipse.org/legal/epl-v10.html
  *
  * Unless required by applicable law or agreed to in writing, software distributed under the
  * License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND,
@@ -19,17 +18,17 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.Reader;
 import java.util.Collection;
+import java.util.List;
 
-import javax.script.Bindings;
 import javax.script.ScriptContext;
 import javax.script.ScriptEngine;
 import javax.script.ScriptEngineManager;
-import javax.script.SimpleScriptContext;
 
 import org.alfresco.repo.jscript.ScriptLogger;
 import org.alfresco.scripts.ScriptException;
 import org.alfresco.util.ParameterCheck;
 import org.alfresco.util.PropertyCheck;
+import org.nabucco.alfresco.enhScriptEnv.common.script.ReferenceScript;
 import org.nabucco.alfresco.enhScriptEnv.common.script.functions.AbstractLogFunction;
 import org.nabucco.alfresco.enhScriptEnv.experimental.repo.script.NashornScriptProcessor;
 import org.slf4j.Logger;
@@ -44,6 +43,8 @@ public class NashornLogFunction extends AbstractLogFunction
     private static final Logger LOGGER = LoggerFactory.getLogger(NashornLogFunction.class);
 
     protected ScriptEngine scriptEngine = new ScriptEngineManager().getEngineByName(NASHORN_ENGINE_NAME);
+
+    protected Object scriptLogger;
 
     /**
      *
@@ -241,31 +242,22 @@ public class NashornLogFunction extends AbstractLogFunction
     @Override
     public void contributeToScope(final Object scope, final boolean trustworthyScript, final boolean mutableScope)
     {
-        if (scope instanceof Bindings)
+        if (scope instanceof ScriptContext)
         {
-            final Bindings global = (Bindings) scope;
-            global.put(NashornLogFunction.class.getSimpleName(), this);
+            final ScriptContext ctxt = (ScriptContext) scope;
+            ctxt.setAttribute(ScriptEngine.FILENAME, "contribute-logger.js", ScriptContext.ENGINE_SCOPE);
+            ctxt.setAttribute(NashornLogFunction.class.getSimpleName(), this, ScriptContext.GLOBAL_SCOPE);
             try
             {
                 final InputStream is = NashornScriptProcessor.class.getResource("resources/contribute-logger.js").openStream();
                 try (final Reader isReader = new InputStreamReader(is))
                 {
-                    final ScriptContext ctx = new SimpleScriptContext();
-                    ctx.setBindings(global, ScriptContext.ENGINE_SCOPE);
-                    this.scriptEngine.eval(isReader, ctx);
+                    this.scriptEngine.eval(isReader, ctxt);
                 }
             }
-            catch (final IOException ex)
+            catch (final IOException | javax.script.ScriptException ex)
             {
                 throw new ScriptException("Failed to contribute to scope", ex);
-            }
-            catch (final javax.script.ScriptException ex)
-            {
-                throw new ScriptException("Failed to contribute to scope", ex);
-            }
-            finally
-            {
-                global.remove(NashornImportScriptFunction.class.getSimpleName());
             }
         }
     }
@@ -274,6 +266,20 @@ public class NashornLogFunction extends AbstractLogFunction
     protected Logger getLogger()
     {
         return LOGGER;
+    }
+
+    protected void handleSetScriptLogger(final Object scriptLogger)
+    {
+        // NashornScriptProcessor initializes extensions early on, so deal with default ScriptLogger being set without any script in the call chain
+        final List<ReferenceScript> scriptCallChain = this.scriptProcessor.getScriptCallChain();
+        if (scriptCallChain == null || scriptCallChain.isEmpty())
+        {
+            this.scriptLogger = scriptLogger;
+        }
+        else
+        {
+            super.handleSetScriptLogger(scriptLogger);
+        }
     }
 
     protected boolean isUnreplaceableScriptLogger(final Object scriptLogger)
@@ -286,5 +292,19 @@ public class NashornLogFunction extends AbstractLogFunction
     protected Class<?> getDefaultScriptLoggerClass()
     {
         return ScriptLogger.class;
+    }
+
+    protected LoggerData createLoggerData()
+    {
+        final LoggerData loggerData = super.createLoggerData();
+
+        // new top-level script - set the global scriptLogger
+        final List<ReferenceScript> scriptCallChain = this.scriptProcessor.getScriptCallChain();
+        if (scriptCallChain != null && scriptCallChain.size() == 1)
+        {
+            loggerData.setScriptLogger(this.scriptLogger);
+        }
+
+        return loggerData;
     }
 }

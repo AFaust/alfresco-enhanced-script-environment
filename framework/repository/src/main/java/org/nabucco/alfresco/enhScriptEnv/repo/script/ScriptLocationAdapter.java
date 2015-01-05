@@ -1,11 +1,10 @@
 /*
- * Copyright 2013 PRODYNA AG
+ * Copyright 2014 PRODYNA AG
  *
  * Licensed under the Eclipse Public License (EPL), Version 1.0 (the "License"); you may not use
  * this file except in compliance with the License. You may obtain a copy of the License at
  *
- * http://www.opensource.org/licenses/eclipse-1.0.php or
- * http://www.nabucco.org/License.html
+ * https://www.eclipse.org/legal/epl-v10.html
  *
  * Unless required by applicable law or agreed to in writing, software distributed under the
  * License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND,
@@ -32,9 +31,14 @@ import org.slf4j.LoggerFactory;
  */
 public class ScriptLocationAdapter implements ScriptLocation, ReferenceScript
 {
+    private static final String FILE_FOLDER_PATH_PATTERN = "^((?!(?:classpath|file):)[^:]+://[^/]+)((?:/[^/]+){2,})$";
+
     private static final Logger LOGGER = LoggerFactory.getLogger(ScriptLocationAdapter.class);
 
     protected final ScriptLocation scriptLocation;
+
+    // cached for potential performance improvements in multiple retrievals
+    protected transient String path;
 
     public ScriptLocationAdapter(final ScriptLocation scriptLocation)
     {
@@ -73,7 +77,12 @@ public class ScriptLocationAdapter implements ScriptLocation, ReferenceScript
     @Override
     public String getPath()
     {
-        return this.scriptLocation.getPath();
+        if (this.path == null)
+        {
+            this.path = this.scriptLocation.getPath();
+        }
+
+        return this.path;
     }
 
     /**
@@ -145,6 +154,7 @@ public class ScriptLocationAdapter implements ScriptLocation, ReferenceScript
         {
             result = this.determineRepositoryReferencePaths((RepositoryReferencePath) typeOfPath);
         }
+        // TODO Support Surf reference paths
         else
         {
             LOGGER.debug("Unsupported reference path type {}", typeOfPath);
@@ -172,6 +182,8 @@ public class ScriptLocationAdapter implements ScriptLocation, ReferenceScript
             supportedTypes.add(RepositoryReferencePath.CONTENT_PROPERTY);
         }
 
+        supportedTypes.add(RepositoryReferencePath.FILE_FOLDER_PATH);
+
         return supportedTypes;
     }
 
@@ -188,6 +200,7 @@ public class ScriptLocationAdapter implements ScriptLocation, ReferenceScript
             {
                 result = ((NodeScriptLocation) scriptLocation).getNode().toString();
             }
+            // TODO Check possibility of resolving RepoScriptContent to NodeRef
             else
             {
                 result = null;
@@ -201,6 +214,21 @@ public class ScriptLocationAdapter implements ScriptLocation, ReferenceScript
             if (scriptLocation instanceof NodeScriptLocation)
             {
                 result = ((NodeScriptLocation) scriptLocation).getContentProp().toString();
+            }
+            else
+            {
+                result = null;
+            }
+        }
+            break;
+        case FILE_FOLDER_PATH:
+        {
+            final String path = this.getPath();
+
+            // FILE_FOLDER_PATH - based on StoreRef + baseDir + path => at least two path segments after StoreRef, typically more
+            if (path.matches(FILE_FOLDER_PATH_PATTERN))
+            {
+                result = path;
             }
             else
             {
@@ -227,7 +255,7 @@ public class ScriptLocationAdapter implements ScriptLocation, ReferenceScript
             final String path = this.getPath();
             if (path.startsWith("file:"))
             {
-                result = path;
+                result = path.substring(path.indexOf(':') + 1);
             }
             else
             {

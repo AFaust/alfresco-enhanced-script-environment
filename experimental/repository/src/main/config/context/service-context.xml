@@ -14,7 +14,7 @@
         <property name="locale" value="${script.nashorn.locale}" />
     </bean>
 
-    <bean id="javaScriptProcessor.nashornProcessor.cachedBindings" class="${basePackage}.script.TransactionalBindingsThreadLocal">
+    <bean id="javaScriptProcessor.nashornProcessor.cachedContexts" class="${basePackage}.script.ScriptContextThreadLocal">
         <property name="scriptEngine" ref="jdk.nashornScriptEngine" />
     </bean>
 
@@ -25,7 +25,7 @@
     </bean>
 
     <bean id="javaScriptProcessor.nashornValueConverter.abstractScriptBasedInstanceConverter" abstract="true" parent="javaScriptProcessor.nashornValueConverter.abstractInstanceConverter">
-        <property name="cachedBindings" ref="javaScriptProcessor.nashornProcessor.cachedBindings" />
+        <property name="cachedContexts" ref="javaScriptProcessor.nashornProcessor.cachedContexts" />
         <property name="scriptEngine" ref="jdk.nashornScriptEngine" />
     </bean>
 
@@ -153,8 +153,8 @@
         <property name="scriptEngine" ref="jdk.nashornScriptEngine" />
         <property name="valueConverter" ref="javaScriptProcessor.nashornValueConverter" />
     </bean>
-
-    <bean id="javaScriptProcessor.nashornProcessor.scriptImportFunction" class="org.nabucco.alfresco.enhScriptEnv.experimental.repo.script.functions.NashornImportScriptFunction">
+    
+    <bean id="javaScriptProcessor.nashornProcessor.scriptImportFunction" class="org.nabucco.alfresco.enhScriptEnv.experimental.repo.script.functions.NashornImportScriptFunctionFactoryBean">
         <property name="scriptProcessor" ref="javaScriptProcessor.nashornProcessor" />
         <property name="scriptEngine" ref="jdk.nashornScriptEngine" />
         <property name="valueConverter" ref="javaScriptProcessor.nashornValueConverter" />
