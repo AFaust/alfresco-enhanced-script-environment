@@ -4,11 +4,10 @@
         <groupId>org.nabucco.alfresco</groupId>
         <artifactId>org.nabucco.alfresco.enhScriptEnv.experimental</artifactId>
         <version>0.0.2.0-SNAPSHOT</version>
-        
     </parent>
 
-    <artifactId>org.nabucco.alfresco.enhScriptEnv.experimental.agent</artifactId>
-    <name>Alfresco Enhanced Script Environment - Experimental bytecode instrumentation agent</name>
+    <artifactId>org.nabucco.alfresco.enhScriptEnv.experimental.linker</artifactId>
+    <name>Alfresco Enhanced Script Environment - Experimental dynamic invocation linker</name>
 
     <properties>
 
@@ -34,18 +33,6 @@
 
             <plugin>
                 <artifactId>maven-jar-plugin</artifactId>
-                <configuration>
-                    <archive>
-                        <index>true</index>
-                        <manifest>
-                            <addClasspath>true</addClasspath>
-                        </manifest>
-                        <manifestEntries>
-                            <Premain-Class>org.nabucco.alfresco.enhScriptEnv.experimental.agent.ScriptClassesTransformationAgent</Premain-Class>
-                            <Boot-Class-Path>asm-3.3.1.jar</Boot-Class-Path>
-                        </manifestEntries>
-                    </archive>
-                </configuration>
             </plugin>
 
             <plugin>
@@ -58,9 +45,14 @@
 
     <dependencies>
         <dependency>
-            <groupId>asm</groupId>
-            <artifactId>asm</artifactId>
-            <version>3.3.1</version>
+            <groupId>rhino</groupId>
+            <artifactId>js</artifactId>
+            <version>1.6R7</version>
+            <scope>compile</scope>
+        </dependency>
+        <dependency>
+            <groupId>junit</groupId>
+            <artifactId>junit</artifactId>
         </dependency>
     </dependencies>
 </project>
