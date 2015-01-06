@@ -139,6 +139,7 @@ public class NashornImportScriptFunction<Script extends ReferenceScript> extends
             if (sourceScope instanceof ScriptObjectMirror)
             {
                 // use ScriptContext if possible
+                // this primarily works up to 8u20
                 if (((ScriptObjectMirror) sourceScope).containsKey("context"))
                 {
                     final Object scriptContext = ((ScriptObjectMirror) sourceScope).get("context");
@@ -171,7 +172,7 @@ public class NashornImportScriptFunction<Script extends ReferenceScript> extends
         /*
          * NashornScriptProcessor already handles the necessary scope management - we just need to pass it as a compatible type, e.g.
          * Global, ScriptContext, ScriptObjectMirror or Map
-         *
+         * 
          * Due to generic type parameter, we've had to fall back on Object
          */
         final Object result;
@@ -187,6 +188,7 @@ public class NashornImportScriptFunction<Script extends ReferenceScript> extends
             if (sourceScope instanceof ScriptObjectMirror)
             {
                 // use ScriptContext if possible
+                // this primarily works up to 8u20
                 if (((ScriptObjectMirror) sourceScope).containsKey("context"))
                 {
                     final Object scriptContext = ((ScriptObjectMirror) sourceScope).get("context");

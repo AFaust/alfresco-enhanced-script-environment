@@ -14,9 +14,6 @@
 package org.nabucco.alfresco.enhScriptEnv.experimental.repo.script;
 
 import java.io.IOException;
-import java.io.InputStream;
-import java.io.InputStreamReader;
-import java.io.Reader;
 import java.io.UnsupportedEncodingException;
 import java.net.MalformedURLException;
 import java.net.URL;
@@ -808,7 +805,8 @@ public class NashornScriptProcessor extends BaseProcessor implements Initializin
         {
             ctxt.setBindings(scope, ScriptContext.ENGINE_SCOPE);
 
-            this.applyScopeFixes(ctxt);
+            // we previously patched the engine with custom __noSuchProperty__ including logging
+            // but JDK 8u40 eliminated "context" prop and moved __noSuchProperty__ to MethodHandle
 
             final NashornEngineInspector inspector = new NashornEngineInspector();
             ctxt.setAttribute("inspector", inspector, ScriptContext.GLOBAL_SCOPE);
@@ -886,17 +884,6 @@ public class NashornScriptProcessor extends BaseProcessor implements Initializin
         }
 
         return scope;
-    }
-
-    protected void applyScopeFixes(final ScriptContext ctxt) throws IOException, javax.script.ScriptException
-    {
-        ctxt.setAttribute(ScriptEngine.FILENAME, "scope-fix-engine.js", ScriptContext.ENGINE_SCOPE);
-        final InputStream engineIs = this.getClass().getResource("resources/scope-fix-engine.js").openStream();
-        try (final Reader engineReader = new InputStreamReader(engineIs);)
-        {
-            // will inheritently close engineReader
-            this.scriptEngine.eval(engineReader, ctxt);
-        }
     }
 
     protected static void deleteGlobalProperty(final Global global, final String property)
