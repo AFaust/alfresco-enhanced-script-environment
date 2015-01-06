@@ -13,10 +13,7 @@
  */
 package org.nabucco.alfresco.enhScriptEnv.experimental.repo.script;
 
-import static jdk.nashorn.internal.runtime.ScriptRuntime.UNDEFINED;
-
-import java.lang.reflect.Field;
-import java.lang.reflect.Modifier;
+import java.util.Arrays;
 
 import javax.script.Bindings;
 import javax.script.ScriptContext;
@@ -25,9 +22,7 @@ import javax.script.ScriptEngineManager;
 import javax.script.SimpleBindings;
 import javax.script.SimpleScriptContext;
 
-import jdk.nashorn.api.scripting.ScriptObjectMirror;
 import jdk.nashorn.internal.objects.Global;
-import jdk.nashorn.internal.runtime.Context;
 import jdk.nashorn.internal.runtime.Property;
 
 import org.alfresco.scripts.ScriptException;
@@ -48,10 +43,6 @@ public class ScriptContextThreadLocal extends ThreadLocal<ScriptContext> impleme
 
     protected ScriptEngine scriptEngine = new ScriptEngineManager().getEngineByName(NASHORN_ENGINE_NAME);
 
-    protected Context context;
-
-    protected Global global;
-
     /**
      * {@inheritDoc}
      */
@@ -59,36 +50,6 @@ public class ScriptContextThreadLocal extends ThreadLocal<ScriptContext> impleme
     public void afterPropertiesSet() throws Exception
     {
         PropertyCheck.mandatory(this, "scriptEngine", this.scriptEngine);
-
-        final ScriptContext globalCtxt = new SimpleScriptContext();
-        globalCtxt.setBindings(new SimpleBindings(), ScriptContext.GLOBAL_SCOPE);
-
-        final Bindings scope = this.scriptEngine.createBindings();
-        globalCtxt.setBindings(scope, ScriptContext.ENGINE_SCOPE);
-
-        final NashornEngineInspector inspector = new NashornEngineInspector();
-
-        globalCtxt.setAttribute("inspector", inspector, ScriptContext.GLOBAL_SCOPE);
-        this.scriptEngine.eval("inspector.inspect();", globalCtxt);
-
-        this.context = inspector.getContext();
-        this.global = inspector.getGlobal();
-
-        // even internal scripts won't have access to these (or at least the way they are implemented by Nashorn)
-        this.global.deleteOwnProperty(this.global.getProperty("exit"));
-        this.global.deleteOwnProperty(this.global.getProperty("quit"));
-        this.global.deleteOwnProperty(this.global.getProperty("load"));
-        this.global.deleteOwnProperty(this.global.getProperty("loadWithNewGlobal"));
-        this.global.deleteOwnProperty(this.global.getProperty("print"));
-        this.global.deleteOwnProperty(this.global.getProperty("printf"));
-        this.global.deleteOwnProperty(this.global.getProperty("sprintf"));
-
-        // also deal with direct field access
-        this.global.exit = this.global.undefined;
-        this.global.quit = this.global.undefined;
-        this.global.load = this.global.undefined;
-        this.global.loadWithNewGlobal = this.global.undefined;
-        this.global.print = this.global.undefined;
     }
 
     /**
@@ -109,36 +70,50 @@ public class ScriptContextThreadLocal extends ThreadLocal<ScriptContext> impleme
         final ScriptContext ctxt = new SimpleScriptContext();
         ctxt.setBindings(new SimpleBindings(), ScriptContext.GLOBAL_SCOPE);
 
-        final Global global = new Global(this.context);
-        try
-        {
-            // copy public fields (reflectively, so we adapt to changes between Java versions)
-            final Field[] fields = Global.class.getFields();
-            for (final Field field : fields)
-            {
-                if (!Modifier.isStatic(field.getModifiers()))
-                {
-                    field.setAccessible(true);
-                    field.set(global, field.get(this.global));
-                }
-            }
-        }
-        catch (final IllegalAccessException ex)
-        {
-            throw new ScriptException("Failed to initialize scope", ex);
-        }
-
-        global.setProto(this.global);
-
-        final int NON_ENUMERABLE_CONSTANT = Property.NOT_ENUMERABLE | Property.NOT_CONFIGURABLE | Property.NOT_WRITABLE;
-        global.addOwnProperty("context", NON_ENUMERABLE_CONSTANT, null);
-        global.addOwnProperty("arguments", Property.NOT_ENUMERABLE, UNDEFINED);
-        global.addOwnProperty(ScriptEngine.FILENAME, Property.NOT_ENUMERABLE, null);
-
-        final Bindings scope = (Bindings) ScriptObjectMirror.wrap(global, global);
-
+        final Bindings scope = this.scriptEngine.createBindings();
         ctxt.setBindings(scope, ScriptContext.ENGINE_SCOPE);
 
+        try
+        {
+            final NashornEngineInspector inspector = new NashornEngineInspector();
+            ctxt.setAttribute("inspector", inspector, ScriptContext.GLOBAL_SCOPE);
+            this.scriptEngine.eval("inspector.inspect();", ctxt);
+            ctxt.removeAttribute("inspector", ScriptContext.GLOBAL_SCOPE);
+
+            // even secure scripts / contributors won't have access to these (or at least the way they are implemented by Nashorn)
+            final Global global = inspector.getGlobal();
+            deleteGlobalProperty(global, "exit");
+            deleteGlobalProperty(global, "quit");
+            deleteGlobalProperty(global, "load");
+            deleteGlobalProperty(global, "loadWithNewGlobal");
+            deleteGlobalProperty(global, "print");
+            deleteGlobalProperty(global, "printf");
+            deleteGlobalProperty(global, "sprintf");
+
+            // also deal with direct field access
+            global.exit = global.undefined;
+            global.quit = global.undefined;
+            global.load = global.undefined;
+            global.loadWithNewGlobal = global.undefined;
+            global.print = global.undefined;
+        }
+        catch (final javax.script.ScriptException ex)
+        {
+            throw new ScriptException("Failed to initialize shared script context for current thread");
+        }
+
         return ctxt;
+    }
+
+    protected static void deleteGlobalProperty(final Global global, final String property)
+    {
+        if (Arrays.binarySearch(global.getOwnKeys(true), property) >= 0)
+        {
+            final Property propertyDesc = global.getProperty(property);
+            if (propertyDesc != null)
+            {
+                global.deleteOwnProperty(propertyDesc);
+            }
+        }
     }
 }
