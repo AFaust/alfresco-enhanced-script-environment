@@ -112,7 +112,7 @@ public class NashornImportScriptFunction<Script extends ReferenceScript> extends
      * @return {@code true} if the import succeeded, {@code false} otherwise
      */
     public boolean importScript(final String locatorType, final String locationValue, final boolean failOnMissingScript,
-            final Object resolutionParams, final ScriptObjectMirror currentScope, final ScriptObjectMirror executionScope)
+            final Object resolutionParams, final ScriptContext currentScope, final ScriptObjectMirror executionScope)
     {
         final boolean result;
 
@@ -135,32 +135,7 @@ public class NashornImportScriptFunction<Script extends ReferenceScript> extends
             // Note: Insecure scripts called without proper isolation (through passed executionScopeParam) will inherit the secure scope and
             // potentially sensitive API. It is the responsibility of any developer that uses import to consider proper isolation.
 
-            // use ScriptContext if possible
-            if (sourceScope instanceof ScriptObjectMirror)
-            {
-                // use ScriptContext if possible
-                // this primarily works up to 8u20
-                if (((ScriptObjectMirror) sourceScope).containsKey("context"))
-                {
-                    final Object scriptContext = ((ScriptObjectMirror) sourceScope).get("context");
-                    if (scriptContext instanceof ScriptContext)
-                    {
-                        executionScope = scriptContext;
-                    }
-                    else
-                    {
-                        executionScope = sourceScope;
-                    }
-                }
-                else
-                {
-                    executionScope = sourceScope;
-                }
-            }
-            else
-            {
-                executionScope = sourceScope;
-            }
+            executionScope = sourceScope;
         }
 
         this.scriptProcessor.executeInScope(location, executionScope);
@@ -172,7 +147,7 @@ public class NashornImportScriptFunction<Script extends ReferenceScript> extends
         /*
          * NashornScriptProcessor already handles the necessary scope management - we just need to pass it as a compatible type, e.g.
          * Global, ScriptContext, ScriptObjectMirror or Map
-         * 
+         *
          * Due to generic type parameter, we've had to fall back on Object
          */
         final Object result;
@@ -185,31 +160,8 @@ public class NashornImportScriptFunction<Script extends ReferenceScript> extends
         {
             LOGGER.debug("No execution scope provided - using current scope {}", sourceScope);
 
-            if (sourceScope instanceof ScriptObjectMirror)
-            {
-                // use ScriptContext if possible
-                // this primarily works up to 8u20
-                if (((ScriptObjectMirror) sourceScope).containsKey("context"))
-                {
-                    final Object scriptContext = ((ScriptObjectMirror) sourceScope).get("context");
-                    if (scriptContext instanceof ScriptContext)
-                    {
-                        result = scriptContext;
-                    }
-                    else
-                    {
-                        result = sourceScope;
-                    }
-                }
-                else
-                {
-                    result = sourceScope;
-                }
-            }
-            else
-            {
-                result = sourceScope;
-            }
+            // JavaScript facade is expected to pass ScriptContext
+            result = sourceScope;
         }
 
         return result;

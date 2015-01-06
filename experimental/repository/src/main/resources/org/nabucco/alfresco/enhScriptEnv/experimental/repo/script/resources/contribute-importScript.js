@@ -40,7 +40,8 @@
             {
                 var resolutionParamObj = asObject(resolutionParams, true), executionScopeObj = asObject(executionScope, false);
 
-                return importerDelegate.importScript(locatorType, locationValue, failOnMissingScript === true, resolutionParamObj, this,
+                // pass the ScriptContext ("context") as current scope instead of the Global itself
+                return importerDelegate.importScript(locatorType, locationValue, failOnMissingScript === true, resolutionParamObj, context,
                         executionScopeObj);
             }
         }, true);
