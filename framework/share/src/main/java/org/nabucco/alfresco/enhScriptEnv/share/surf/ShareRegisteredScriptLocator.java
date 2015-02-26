@@ -152,6 +152,12 @@ public class ShareRegisteredScriptLocator extends SurfRegisteredScriptLocator
                     {
                         return null;
                     }
+
+                    // Only relevant in Alfresco 5 - thus no @Override
+                    public boolean isExtensibilitySuppressed()
+                    {
+                        return false;
+                    }
                 };
             }
             else
@@ -220,7 +226,7 @@ public class ShareRegisteredScriptLocator extends SurfRegisteredScriptLocator
             }
             finally
             {
-                if (fakedRequestContext && requestContext != null)
+                if (fakedRequestContext)
                 {
                     requestContext.release();
                 }
