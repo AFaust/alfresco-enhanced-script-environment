@@ -72,9 +72,8 @@ public class VersionInfoContributor implements ScopeContributor, InitializingBea
             final Context context = Context.enter();
             try
             {
-                final Descriptor currentRepositoryDescriptor = this.descriptorService.getCurrentRepositoryDescriptor();
                 final Descriptor serverDescriptor = this.descriptorService.getServerDescriptor();
-                if (currentRepositoryDescriptor != null && serverDescriptor != null)
+                if (serverDescriptor != null)
                 {
                     final NativeObject descriptorObj = new NativeObject();
 
@@ -87,14 +86,16 @@ public class VersionInfoContributor implements ScopeContributor, InitializingBea
                     ScriptableObject.putConstProperty(descriptorObj, KEY_EDITION,
                             DEFAULT_WRAP_FACTORY.wrap(context, (Scriptable) scope, serverDescriptor.getEdition(), String.class));
                     ScriptableObject.putConstProperty(descriptorObj, KEY_FULL_VERSION,
-                            DEFAULT_WRAP_FACTORY.wrap(context, (Scriptable) scope, currentRepositoryDescriptor.getVersion(), String.class));
+                            DEFAULT_WRAP_FACTORY.wrap(context, (Scriptable) scope, serverDescriptor.getVersion(), String.class));
                     ScriptableObject.putConstProperty(descriptorObj, KEY_VERSION, DEFAULT_WRAP_FACTORY.wrap(context, (Scriptable) scope,
-                            currentRepositoryDescriptor.getVersionNumber().toString(), String.class));
+                            serverDescriptor.getVersionNumber().toString(), String.class));
                     ScriptableObject.putConstProperty(descriptorObj, KEY_SCHEMA, DEFAULT_WRAP_FACTORY.wrap(context, (Scriptable) scope,
-                            Integer.valueOf(currentRepositoryDescriptor.getSchema()), Integer.class));
+                            Integer.valueOf(serverDescriptor.getSchema()), Integer.class));
 
                     final Boolean isCommunity;
-                    final LicenseMode licenseMode = currentRepositoryDescriptor.getLicenseMode();
+                    final Descriptor currentRepositoryDescriptor = this.descriptorService.getCurrentRepositoryDescriptor();
+                    final LicenseMode licenseMode = currentRepositoryDescriptor != null ? currentRepositoryDescriptor.getLicenseMode()
+                            : serverDescriptor.getLicenseMode();
                     if (licenseMode == LicenseMode.ENTERPRISE || licenseMode == LicenseMode.TEAM)
                     {
                         isCommunity = Boolean.FALSE;
