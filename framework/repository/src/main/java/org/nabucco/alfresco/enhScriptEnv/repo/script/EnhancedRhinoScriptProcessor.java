@@ -796,18 +796,21 @@ public class EnhancedRhinoScriptProcessor extends BaseProcessor implements Enhan
     {
         Script script = null;
         final String path = location.getPath();
+
         String realPath = null;
+        String classPath = null;
 
         if (location instanceof ReferenceScript)
         {
             realPath = ((ReferenceScript) location).getReferencePath(CommonReferencePath.FILE);
+            classPath = ((ReferenceScript) location).getReferencePath(CommonReferencePath.CLASSPATH);
         }
 
         if (realPath == null)
         {
             // check if the path is in classpath form
             // TODO: can we generalize external form file:// to a classpath-relative location? (best-effort)
-            if (!path.matches("^(classpath[*]?:).*$"))
+            if (!path.matches("^(classpath[*]?:).*$") && (classPath == null || !path.equals(classPath)))
             {
                 // take path as is - can be anything depending on how content is loaded
                 realPath = path;
@@ -816,7 +819,15 @@ public class EnhancedRhinoScriptProcessor extends BaseProcessor implements Enhan
             {
                 // we always want to have a fully-qualified file-protocol path (unless we can generalize all to classpath-relative
                 // locations)
-                final String resourcePath = path.substring(path.indexOf(':') + 1);
+                final String resourcePath;
+                if (classPath != null && classPath.equals(path))
+                {
+                    resourcePath = classPath;
+                }
+                else
+                {
+                    resourcePath = path.substring(path.indexOf(':') + 1);
+                }
                 URL resource = this.getClass().getClassLoader().getResource(resourcePath);
                 if (resource == null && resourcePath.startsWith("/"))
                 {

@@ -15,6 +15,7 @@
 package org.nabucco.alfresco.enhScriptEnv.common.webscripts.processor;
 
 import java.lang.reflect.Method;
+import java.net.URL;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.text.MessageFormat;
@@ -663,11 +664,14 @@ public class EnhancedJSScriptProcessor extends BaseRegisterableScriptProcessor i
     {
         Script script = null;
         final String path = content.getPath();
+
         String realPath = null;
+        String classPath = null;
 
         if (content instanceof ReferenceScript)
         {
             realPath = ((ReferenceScript) content).getReferencePath(CommonReferencePath.FILE);
+            classPath = ((ReferenceScript) content).getReferencePath(CommonReferencePath.CLASSPATH);
         }
 
         if (realPath == null)
@@ -683,7 +687,30 @@ public class EnhancedJSScriptProcessor extends BaseRegisterableScriptProcessor i
             {
                 // we always want to have a fully-qualified file-protocol path (unless we can generalize all to classpath-relative
                 // locations)
-                realPath = this.getClass().getClassLoader().getResource(path.substring(path.indexOf(':') + 1)).toExternalForm();
+                final String resourcePath;
+                if (classPath != null && classPath.equals(path))
+                {
+                    resourcePath = classPath;
+                }
+                else
+                {
+                    resourcePath = path.substring(path.indexOf(':') + 1);
+                }
+                URL resource = this.getClass().getClassLoader().getResource(resourcePath);
+                if (resource == null && resourcePath.startsWith("/"))
+                {
+                    resource = this.getClass().getClassLoader().getResource(resourcePath.substring(1));
+                }
+
+                if (resource != null)
+                {
+                    realPath = resource.toExternalForm();
+                }
+                else
+                {
+                    // should not occur in normal circumstances, but since ScriptLocation can be anything...
+                    realPath = path;
+                }
             }
         }
 
