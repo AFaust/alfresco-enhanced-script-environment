@@ -226,6 +226,12 @@ public class VersionInfoContributor implements ScopeContributor, InitializingBea
                     {
                         return null;
                     }
+
+                    // Only relevant in Alfresco 5 - thus no @Override
+                    public boolean isExtensibilitySuppressed()
+                    {
+                        return false;
+                    }
                 };
             }
             else

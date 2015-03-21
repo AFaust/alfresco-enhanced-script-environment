@@ -1,6 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-    xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
     <groupId>org.nabucco.alfresco</groupId>
     <artifactId>org.nabucco.alfresco.enhScriptEnv</artifactId>
@@ -13,13 +12,31 @@
 
         <alfresco.groupId>org.alfresco</alfresco.groupId>
         <alfresco.version>4.2.d</alfresco.version>
-        
-        <maven.compiler.target>1.7</maven.compiler.target>
+        <slf4j.version>1.7.5</slf4j.version>
+        <!-- For Alfresco 5.0+, this needs to be "classes" -->
+        <web-framework-commons.classifier></web-framework-commons.classifier>
+
+        <maven.compiler.source>1.6</maven.compiler.source>
+        <maven.compiler.target>1.6</maven.compiler.target>
 
     </properties>
 
     <dependencyManagement>
         <dependencies>
+            <dependency>
+                <groupId>org.alfresco</groupId>
+                <artifactId>alfresco-platform-distribution</artifactId>
+                <version>${alfresco.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+
+            <dependency>
+                <groupId>org.slf4j</groupId>
+                <artifactId>slf4j-api</artifactId>
+                <version>${slf4j.version}</version>
+            </dependency>
+
             <dependency>
                 <groupId>junit</groupId>
                 <artifactId>junit</artifactId>
@@ -37,7 +54,7 @@
                 <plugin>
                     <groupId>org.apache.maven.plugins</groupId>
                     <artifactId>maven-enforcer-plugin</artifactId>
-                    <version>1.2</version>
+                    <version>1.4</version>
                     <executions>
                         <execution>
                             <id>Enforce Alfresco Requirements</id>
@@ -59,7 +76,7 @@
 
                 <plugin>
                     <artifactId>maven-compiler-plugin</artifactId>
-                    <version>3.1</version>
+                    <version>3.2</version>
                     <configuration>
                         <source>${maven.compiler.target}</source>
                         <target>${maven.compiler.target}</target>
@@ -68,7 +85,7 @@
 
                 <plugin>
                     <artifactId>maven-source-plugin</artifactId>
-                    <version>2.1.2</version>
+                    <version>2.4</version>
                     <executions>
                         <execution>
                             <id>attach-sources</id>
@@ -81,7 +98,7 @@
 
                 <plugin>
                     <artifactId>maven-resources-plugin</artifactId>
-                    <version>2.6</version>
+                    <version>2.7</version>
                     <configuration>
                         <nonFilteredFileExtensions>
                             <nonFilteredFileExtension>ftl</nonFilteredFileExtension>
@@ -95,13 +112,13 @@
                 <plugin>
                     <groupId>org.apache.maven.plugins</groupId>
                     <artifactId>maven-surefire-plugin</artifactId>
-                    <version>2.14.1</version>
+                    <version>2.18.1</version>
                 </plugin>
 
                 <plugin>
                     <groupId>org.alfresco.maven.plugin</groupId>
                     <artifactId>alfresco-maven-plugin</artifactId>
-                    <version>1.0.2</version>
+                    <version>1.1.0</version>
                     <executions>
                         <execution>
                             <goals>
@@ -147,7 +164,7 @@
 
                 <plugin>
                     <artifactId>maven-assembly-plugin</artifactId>
-                    <version>2.3</version>
+                    <version>2.5.3</version>
                     <configuration>
                         <descriptors>
                             <descriptor>${project.basedir}/src/main/assembly/amp.xml</descriptor>
@@ -412,12 +429,9 @@
                             </executions>
                         </plugin>
 
-                        <!-- <plugin> <groupId>com.samaxes.maven</groupId> <artifactId>minify-maven-plugin</artifactId> <executions> <execution> 
-                            <id>Minify Webapp</id> <goals> <goal>minify</goal> </goals> <configuration> <charset>${project.build.sourceEncoding}</charset> <jsSourceDir>webapp</jsSourceDir> 
-                            <jsTargetDir>web</jsTargetDir> <jsSourceExcludes> <jsSourceExclude>WEB-INF/**/*</jsSourceExclude> <jsSourceExclude>**/*-min.js</jsSourceExclude> 
-                            </jsSourceExcludes> <jsSourceIncludes> <jsSourceInclude>**/*.js</jsSourceInclude> </jsSourceIncludes> <cssSourceDir>webapp</cssSourceDir> <cssTargetDir>web</cssTargetDir> 
-                            <cssSourceExcludes> <cssSourceExclude>WEB-INF/**/*</cssSourceExclude> <cssSourceExclude>**/*-min.css</cssSourceExclude> </cssSourceExcludes> <cssSourceIncludes> 
-                            <cssSourceInclude>**/*.css</cssSourceInclude> </cssSourceIncludes> <webappSourceDir>${basedir}/src/main</webappSourceDir> <webappTargetDir>${project.build.directory}</webappTargetDir> 
+                        <!-- <plugin> <groupId>com.samaxes.maven</groupId> <artifactId>minify-maven-plugin</artifactId> <executions> <execution> <id>Minify Webapp</id> <goals> <goal>minify</goal> </goals> <configuration> <charset>${project.build.sourceEncoding}</charset> <jsSourceDir>webapp</jsSourceDir> 
+                            <jsTargetDir>web</jsTargetDir> <jsSourceExcludes> <jsSourceExclude>WEB-INF/**/*</jsSourceExclude> <jsSourceExclude>**/*-min.js</jsSourceExclude> </jsSourceExcludes> <jsSourceIncludes> <jsSourceInclude>**/*.js</jsSourceInclude> </jsSourceIncludes> <cssSourceDir>webapp</cssSourceDir> <cssTargetDir>web</cssTargetDir> 
+                            <cssSourceExcludes> <cssSourceExclude>WEB-INF/**/*</cssSourceExclude> <cssSourceExclude>**/*-min.css</cssSourceExclude> </cssSourceExcludes> <cssSourceIncludes> <cssSourceInclude>**/*.css</cssSourceInclude> </cssSourceIncludes> <webappSourceDir>${basedir}/src/main</webappSourceDir> <webappTargetDir>${project.build.directory}</webappTargetDir> 
                             <nomunge>true</nomunge> <skipMerge>true</skipMerge> <suffix>-min</suffix> </configuration> </execution> </executions> </plugin> -->
                     </plugins>
                 </pluginManagement>

@@ -13,6 +13,7 @@
  */
 package org.nabucco.alfresco.enhScriptEnv.common.script.functions;
 
+import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.Collection;
 
@@ -279,7 +280,8 @@ public class RhinoLogFunction extends AbstractLogFunction implements IdFunctionC
 
     protected void handleSetLoggerInheritance(final Scriptable scope, final Object[] args)
     {
-        final boolean inheritLoggerContext = ScriptRuntime.toBoolean(args, 0);
+        // defaults to false (Alfresco 5.0 with Rhino 1.7R4 removes toBoolean(Object[], int))
+        final boolean inheritLoggerContext = args.length > 0 ? ScriptRuntime.toBoolean(args[0]) : false;
         this.handleSetLoggerInheritance(scope, inheritLoggerContext);
     }
 
@@ -507,8 +509,38 @@ public class RhinoLogFunction extends AbstractLogFunction implements IdFunctionC
 
         if (scriptLogger != null)
         {
-            final String formattedMessage = MessageFormatter.arrayFormat(message, params);
-            this.log(methodId, scriptLogger, formattedMessage);
+            final Object formattedMessage = MessageFormatter.arrayFormat(message, params);
+
+            if (formattedMessage instanceof String)
+            {
+                this.log(methodId, scriptLogger, (String) formattedMessage);
+            }
+            else if (formattedMessage == null)
+            {
+                this.log(methodId, scriptLogger, message);
+            }
+            else
+            {
+                // Alfresco 5 upgraded to SLF4J 1.7.5 and arrayFormat returns FormattingTuple
+                try
+                {
+                    final Method getMessage = formattedMessage.getClass().getMethod("getMessage");
+                    final Object actualMessage = getMessage.invoke(formattedMessage, new Object[0]);
+                    this.log(methodId, scriptLogger, String.valueOf(actualMessage));
+                }
+                catch (final NoSuchMethodException nsme)
+                {
+                    LOGGER.error("Incompatible SLF4J version - 1.5.x (Alfresco 4.x) and 1.7.x (Alfresco 5.x) supported", nsme);
+                }
+                catch (final InvocationTargetException ite)
+                {
+                    LOGGER.warn("Error retrieving formatted message for logging", ite);
+                }
+                catch (final IllegalAccessException iae)
+                {
+                    LOGGER.warn("Error retrieving formatted message for logging", iae);
+                }
+            }
         }
     }
 

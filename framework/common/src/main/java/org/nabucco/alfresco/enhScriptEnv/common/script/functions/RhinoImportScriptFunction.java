@@ -71,8 +71,9 @@ public class RhinoImportScriptFunction<Script extends ReferenceScript> extends A
                 final String locationValue = ScriptRuntime.toString(args, 1);
 
                 // optional parameters
-                // defaults to false
-                final boolean failOnMissingScript = ScriptRuntime.toBoolean(args, 2);
+
+                // defaults to false (Alfresco 5.0 with Rhino 1.7R4 removes toBoolean(Object[], int))
+                final boolean failOnMissingScript = args.length > 2 ? ScriptRuntime.toBoolean(args[2]) : false;
                 // defaults to null
                 final Scriptable resolutionParams = ScriptRuntime.toObjectOrNull(cx, args.length > 3 ? args[3] : null);
                 final Object resolutionParamsJavaObj = this.valueConverter.convertValueForJava(resolutionParams, Map.class);

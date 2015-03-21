@@ -21,12 +21,14 @@
     </properties>
 
     <dependencies>
-
+    
+        <!-- I don't get xx-classes.jar - why not a normal *.jar? -->
         <dependency>
             <groupId>${alfresco.groupId}</groupId>
-            <artifactId>alfresco-share</artifactId>
+            <artifactId>share</artifactId>
             <version>${alfresco.version}</version>
             <scope>provided</scope>
+            <classifier>classes</classifier>
             <exclusions>
                 <exclusion>
                     <groupId>${alfresco.groupId}</groupId>
@@ -39,6 +41,7 @@
             <groupId>${alfresco.groupId}</groupId>
             <artifactId>alfresco-web-framework-commons</artifactId>
             <version>${alfresco.version}</version>
+            <classifier>${web-framework-commons.classifier}</classifier>
             <scope>provided</scope>
         </dependency>
 
@@ -49,18 +52,10 @@
             <scope>compile</scope>
         </dependency>
 
-        <!-- We include this -->
+        <!-- We include this (beware Alfresco 5 Share finally ships SLF4J API) -->
         <dependency>
             <groupId>org.slf4j</groupId>
             <artifactId>slf4j-api</artifactId>
-            <version>1.5.11</version>
-            <scope>provided</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>org.slf4j</groupId>
-            <artifactId>slf4j-log4j12</artifactId>
-            <version>1.5.11</version>
             <scope>provided</scope>
         </dependency>
 
