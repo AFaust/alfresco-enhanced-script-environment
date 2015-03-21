@@ -22,5 +22,6 @@ public enum RepositoryReferencePath implements ReferencePathType
 {
 
     NODE_REF, CONTENT_PROPERTY, FILE_FOLDER_PATH;
+    // TODO Need to register URL handler to resolve Repository stored scripts to source (for Rhino debugger Dim.loadSource())
 
 }

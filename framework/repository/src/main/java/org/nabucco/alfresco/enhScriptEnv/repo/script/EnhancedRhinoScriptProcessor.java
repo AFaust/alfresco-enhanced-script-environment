@@ -90,8 +90,7 @@ public class EnhancedRhinoScriptProcessor extends BaseProcessor implements Enhan
     private static final Logger LEGACY_CALL_LOGGER = LoggerFactory.getLogger(RhinoScriptProcessor.class.getName() + ".calls");
 
     private static final List<ReferencePathType> REAL_PATH_SUCCESSION = Collections.<ReferencePathType> unmodifiableList(Arrays
-            .<ReferencePathType> asList(CommonReferencePath.FILE, CommonReferencePath.CLASSPATH, RepositoryReferencePath.FILE_FOLDER_PATH,
-                    SurfReferencePath.STORE));
+            .<ReferencePathType> asList(CommonReferencePath.FILE, RepositoryReferencePath.FILE_FOLDER_PATH, SurfReferencePath.STORE));
 
     private static final int DEFAULT_MAX_SCRIPT_CACHE_SIZE = 200;
 
@@ -759,23 +758,38 @@ public class EnhancedRhinoScriptProcessor extends BaseProcessor implements Enhan
             }
         }
 
+        final String classPath = location.getReferencePath(CommonReferencePath.CLASSPATH);
+
         if (realPath == null)
         {
             final String path = location instanceof ScriptLocationAdapter ? ((ScriptLocationAdapter) location).getPath() : location
                     .getFullName();
 
             // check if the path is in classpath form
-            if (path.matches("^(classpath[*]?:).*$"))
+            // TODO: can we generalize external form file:// to a classpath-relative location? (best-effort)
+            if (!path.matches("^(classpath[*]?:).*$") && (classPath == null || !path.equals(classPath)))
             {
-                // we always want to have a fully-qualified file-protocol path (unless we can generalize all to
-                // classpath-relative locations)
-                final String resourcePath = path.substring(path.indexOf(':') + 1);
+                // take path as is - can be anything depending on how content is loaded
+                realPath = path;
+            }
+            else
+            {
+                // we always want to have a fully-qualified file-protocol path (unless we can generalize all to classpath-relative
+                // locations)
+                final String resourcePath;
+                if (classPath != null && classPath.equals(path))
+                {
+                    resourcePath = classPath;
+                }
+                else
+                {
+                    resourcePath = path.substring(path.indexOf(':') + 1);
+                }
                 URL resource = this.getClass().getClassLoader().getResource(resourcePath);
                 if (resource == null && resourcePath.startsWith("/"))
                 {
                     resource = this.getClass().getClassLoader().getResource(resourcePath.substring(1));
                 }
-
                 if (resource != null)
                 {
                     realPath = resource.toExternalForm();
@@ -785,12 +799,6 @@ public class EnhancedRhinoScriptProcessor extends BaseProcessor implements Enhan
                     // should not occur in normal circumstances, but since ScriptLocation can be anything...
                     realPath = path;
                 }
-            }
-            else
-            {
-                // TODO Can we generalize external form file:// to a classpath-relative location? (best-effort)
-                // take path as is - can be anything depending on how content is loaded
-                realPath = path;
             }
         }
 

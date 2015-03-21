@@ -233,6 +233,8 @@ public class ScriptContentAdapter implements ScriptContent, ReferenceScript
             final String pathDescription = this.getPathDescription();
             // resolution is guaranteed (how else would this script have been located in the first place?)
             referencePath = this.determineStorePath(path, pathDescription);
+
+            // TODO Need to prefix remotely stored script path with a store:// protocol and register URL handler to resolve scripts to source (for Rhino debugger Dim.loadSource())
         }
         else
         {

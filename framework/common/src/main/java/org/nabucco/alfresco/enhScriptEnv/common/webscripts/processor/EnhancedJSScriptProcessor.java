@@ -17,9 +17,12 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.lang.reflect.Method;
+import java.net.URL;
 import java.text.MessageFormat;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
@@ -47,6 +50,7 @@ import org.nabucco.alfresco.enhScriptEnv.common.script.EnhancedScriptProcessor;
 import org.nabucco.alfresco.enhScriptEnv.common.script.ReferenceScript;
 import org.nabucco.alfresco.enhScriptEnv.common.script.ReferenceScript.CommonReferencePath;
 import org.nabucco.alfresco.enhScriptEnv.common.script.ReferenceScript.DynamicScript;
+import org.nabucco.alfresco.enhScriptEnv.common.script.ReferenceScript.ReferencePathType;
 import org.nabucco.alfresco.enhScriptEnv.common.script.ScopeContributor;
 import org.nabucco.alfresco.enhScriptEnv.common.script.converter.ValueConverter;
 import org.nabucco.alfresco.enhScriptEnv.common.script.converter.rhino.DelegatingWrapFactory;
@@ -77,6 +81,9 @@ public class EnhancedJSScriptProcessor extends BaseRegisterableScriptProcessor i
     private static final String STORE_PATH_RESOURCE_IMPORT_REPLACEMENT = "importScript(\"storePath\", \"$4\", true);";
 
     private static final Logger LOGGER = LoggerFactory.getLogger(EnhancedJSScriptProcessor.class);
+
+    private static final List<ReferencePathType> REAL_PATH_SUCCESSION = Collections.<ReferencePathType> unmodifiableList(Arrays
+            .<ReferencePathType> asList(CommonReferencePath.FILE, SurfReferencePath.STORE));
 
     private static final int DEFAULT_MAX_SCRIPT_CACHE_SIZE = 200;
 
@@ -672,7 +679,16 @@ public class EnhancedJSScriptProcessor extends BaseRegisterableScriptProcessor i
         Script script = null;
         String realPath = null;
 
-        realPath = content.getReferencePath(CommonReferencePath.FILE);
+        final Collection<ReferencePathType> supportedReferencePathTypes = content.getSupportedReferencePathTypes();
+        for (final ReferencePathType pathType : REAL_PATH_SUCCESSION)
+        {
+            if (realPath == null && supportedReferencePathTypes.contains(pathType))
+            {
+                realPath = content.getReferencePath(pathType);
+            }
+        }
+
+        final String classPath = content.getReferencePath(CommonReferencePath.CLASSPATH);
 
         if (realPath == null)
         {
@@ -680,17 +696,39 @@ public class EnhancedJSScriptProcessor extends BaseRegisterableScriptProcessor i
                     .getFullName();
 
             // check if the path is in classpath form
-            if (path.matches("^(classpath[*]?:)+.*$"))
+            // TODO: can we generalize external form file:// to a classpath-relative location? (best-effort)
+            if (!path.matches("^(classpath[*]?:).*$") && (classPath == null || !path.equals(classPath)))
             {
-                // we always want to have a fully-qualified file-protocol path (unless we can generalize all to classpath-relative
-                // locations)
-                realPath = this.getClass().getClassLoader().getResource(path.substring(path.indexOf(':') + 1)).toExternalForm();
+                // take path as is - can be anything depending on how content is loaded
+                realPath = path;
             }
             else
             {
-                // TODO: can we generalize external form file:// to a classpath-relative location? (best-effort)
-                // take path as is - can be anything depending on how content is loaded
-                realPath = path;
+                // we always want to have a fully-qualified file-protocol path (unless we can generalize all to classpath-relative
+                // locations)
+                final String resourcePath;
+                if (classPath != null && classPath.equals(path))
+                {
+                    resourcePath = classPath;
+                }
+                else
+                {
+                    resourcePath = path.substring(path.indexOf(':') + 1);
+                }
+                URL resource = this.getClass().getClassLoader().getResource(resourcePath);
+                if (resource == null && resourcePath.startsWith("/"))
+                {
+                    resource = this.getClass().getClassLoader().getResource(resourcePath.substring(1));
+                }
+                if (resource != null)
+                {
+                    realPath = resource.toExternalForm();
+                }
+                else
+                {
+                    // should not occur in normal circumstances, but since ScriptLocation can be anything...
+                    realPath = path;
+                }
             }
         }
 

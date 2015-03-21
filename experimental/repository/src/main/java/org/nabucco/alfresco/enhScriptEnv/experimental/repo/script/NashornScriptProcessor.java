@@ -87,9 +87,9 @@ public class NashornScriptProcessor extends BaseProcessor implements Initializin
     private static final Logger LOGGER = LoggerFactory.getLogger(NashornScriptProcessor.class);
     private static final Logger LEGACY_CALL_LOGGER = LoggerFactory.getLogger(RhinoScriptProcessor.class.getName() + ".calls");
 
-    private static final List<ReferencePathType> REAL_PATH_SUCCESSION = Collections.<ReferencePathType> unmodifiableList(Arrays
+    private static final List<ReferencePathType> SCRIPT_URL_SUCCESSION = Collections.<ReferencePathType> unmodifiableList(Arrays
             .<ReferencePathType> asList(CommonReferencePath.FILE, CommonReferencePath.CLASSPATH, RepositoryReferencePath.FILE_FOLDER_PATH,
-                    SurfReferencePath.STORE));
+                    RepositoryReferencePath.CONTENT_PROPERTY, RepositoryReferencePath.NODE_REF, SurfReferencePath.STORE));
 
     protected ScriptEngine scriptEngine = new ScriptEngineManager().getEngineByName(NASHORN_ENGINE_NAME);
 
@@ -481,7 +481,7 @@ public class NashornScriptProcessor extends BaseProcessor implements Initializin
         try
         {
             final Collection<ReferencePathType> supportedReferencePathTypes = location.getSupportedReferencePathTypes();
-            for (final ReferencePathType pathType : REAL_PATH_SUCCESSION)
+            for (final ReferencePathType pathType : SCRIPT_URL_SUCCESSION)
             {
                 if (url == null && supportedReferencePathTypes.contains(pathType))
                 {
