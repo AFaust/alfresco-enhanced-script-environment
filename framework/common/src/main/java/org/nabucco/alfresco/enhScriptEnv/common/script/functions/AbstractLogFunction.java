@@ -48,7 +48,9 @@ public abstract class AbstractLogFunction implements InitializingBean, ScopeCont
         private Collection<Logger> loggers;
         private String explicitLogger;
         private boolean inheritLoggerContext = true;
-        private Object scriptLogger;
+
+        // avoid holding any native JS object in memory because it could in turn hold the key to scriptLoggerData map in memory
+        private WeakReference<Object> scriptLogger;
 
         public LoggerData()
         {
@@ -111,7 +113,7 @@ public abstract class AbstractLogFunction implements InitializingBean, ScopeCont
          */
         public final Object getScriptLogger()
         {
-            return this.scriptLogger;
+            return this.scriptLogger != null ? this.scriptLogger.get() : null;
         }
 
         /**
@@ -120,7 +122,7 @@ public abstract class AbstractLogFunction implements InitializingBean, ScopeCont
          */
         public final void setScriptLogger(final Object scriptLogger)
         {
-            this.scriptLogger = scriptLogger;
+            this.scriptLogger = new WeakReference<Object>(scriptLogger);
         }
     }
 

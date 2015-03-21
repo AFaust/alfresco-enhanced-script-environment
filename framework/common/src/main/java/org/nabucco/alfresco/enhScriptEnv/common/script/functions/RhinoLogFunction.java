@@ -234,7 +234,7 @@ public class RhinoLogFunction extends AbstractLogFunction implements IdFunctionC
             {
                 // use a Java accessor with getter / setter as these don't require a top level call scope when being invoked e.g. as part of
                 // model scope initialization
-                final LoggerAccessor accessor = new LoggerAccessor((Scriptable) scope, loggerObj);
+                final LoggerAccessor accessor = new LoggerAccessor(loggerObj);
                 try
                 {
                     final Method getter = LoggerAccessor.class.getMethod("get", new Class[] { Scriptable.class });
@@ -542,12 +542,10 @@ public class RhinoLogFunction extends AbstractLogFunction implements IdFunctionC
 
     protected class LoggerAccessor
     {
-        private final Scriptable scope;
         private final NativeObject logger;
 
-        protected LoggerAccessor(final Scriptable scope, final NativeObject logger)
+        protected LoggerAccessor(final NativeObject logger)
         {
-            this.scope = scope;
             this.logger = logger;
         }
 
@@ -558,7 +556,7 @@ public class RhinoLogFunction extends AbstractLogFunction implements IdFunctionC
 
         public void set(final Scriptable thisObj, final Scriptable logger)
         {
-            RhinoLogFunction.this.handleSetScriptLogger(this.scope, new Object[] { logger });
+            RhinoLogFunction.this.handleSetScriptLogger(thisObj, new Object[] { logger });
         }
     }
 }
