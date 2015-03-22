@@ -818,6 +818,7 @@ public class NashornScriptProcessor extends BaseProcessor implements Initializin
                 contributor.contributeToScope(ctxt, trustworthyScript, false);
             }
 
+            // TODO Check if removal via Bindings is 100% equivalent - we could remove inspector + internal API use
             // even secure scripts / contributors won't have access to these (or at least the way they are implemented by Nashorn)
             final Global global = inspector.getGlobal();
             deleteGlobalProperty(global, "exit");

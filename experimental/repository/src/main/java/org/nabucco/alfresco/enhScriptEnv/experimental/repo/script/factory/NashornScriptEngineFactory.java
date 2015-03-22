@@ -105,7 +105,7 @@ public class NashornScriptEngineFactory extends AbstractFactoryBean<ScriptEngine
 
         // NOTE: For all options see jdk.nashorn.internal.runtime.resources/Options.properties
 
-        // this is always required for backwards-compatibility
+        // this is always required for backwards-compatibility for existing scripts
         args.add("--const-as-var=true");
 
         // never provide scripting extensions
@@ -113,6 +113,8 @@ public class NashornScriptEngineFactory extends AbstractFactoryBean<ScriptEngine
 
         // this is true by default, but be explicit
         args.add("--debug-lines=true");
+        // this has no default
+        args.add("--debug-locals=true");
 
         args.add("-doe=" + String.valueOf(this.dumpOnError));
         args.add("-pcc=" + String.valueOf(this.persistentCache));
@@ -130,6 +132,8 @@ public class NashornScriptEngineFactory extends AbstractFactoryBean<ScriptEngine
         {
             args.add("-l=" + this.locale);
         }
+
+        args.add("--optimistic-types=yes");
 
         return factory.getScriptEngine(args.toArray(new String[0]));
     }
