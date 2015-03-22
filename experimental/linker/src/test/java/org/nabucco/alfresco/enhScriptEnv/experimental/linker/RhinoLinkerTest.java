@@ -33,86 +33,126 @@ public class RhinoLinkerTest
     @Test
     public void propertyAccess() throws Exception
     {
+        final Scriptable obj;
         final Context ctx = Context.enter();
         try
         {
             final Scriptable scope = ctx.initStandardObjects();
-            final Scriptable obj = ctx.newObject(scope);
+            obj = ctx.newObject(scope);
 
-            final String testStr = "Test-Value";
-            scope.put("testProp", obj, testStr);
-            scope.put(0, obj, testStr);
-            scope.put(1, obj, testStr);
-
-            final ScriptEngine nashornEngine = new ScriptEngineManager().getEngineByName("nashorn");
-
-            final ScriptContext nashornCtx = new SimpleScriptContext();
-            nashornCtx.setBindings(nashornEngine.createBindings(), ScriptContext.ENGINE_SCOPE);
-            nashornCtx.setAttribute("result", Boolean.FALSE, ScriptContext.ENGINE_SCOPE);
-
-            nashornCtx.setBindings(new SimpleBindings(), ScriptContext.GLOBAL_SCOPE);
-            nashornCtx.setAttribute("obj", obj, ScriptContext.GLOBAL_SCOPE);
-
-            Object result;
-
-            nashornCtx.setAttribute("result", Boolean.FALSE, ScriptContext.ENGINE_SCOPE);
-            nashornEngine.eval("result = obj.testProp === 'Test-Value';", nashornCtx);
-            result = nashornCtx.getAttribute("result");
-            Assert.assertEquals(Boolean.TRUE, result);
-
-            nashornCtx.setAttribute("result", Boolean.FALSE, ScriptContext.ENGINE_SCOPE);
-            nashornEngine.eval("result = obj['testProp'] === 'Test-Value';", nashornCtx);
-            result = nashornCtx.getAttribute("result");
-            Assert.assertEquals(Boolean.TRUE, result);
-
-            nashornCtx.setAttribute("result", Boolean.FALSE, ScriptContext.ENGINE_SCOPE);
-            nashornEngine.eval("result = obj[0] === 'Test-Value';", nashornCtx);
-            result = nashornCtx.getAttribute("result");
-            Assert.assertEquals(Boolean.TRUE, result);
-
-            nashornCtx.setAttribute("result", Boolean.FALSE, ScriptContext.ENGINE_SCOPE);
-            nashornEngine.eval("result = obj[1] === 'Test-Value';", nashornCtx);
-            result = nashornCtx.getAttribute("result");
-            Assert.assertEquals(Boolean.TRUE, result);
         }
         finally
         {
             Context.exit();
         }
+
+        final String testStr = "Test-Value";
+        obj.put("testProp", obj, testStr);
+        obj.put(0, obj, testStr);
+        obj.put(1, obj, testStr);
+
+        final ScriptEngine nashornEngine = new ScriptEngineManager().getEngineByName("nashorn");
+
+        final ScriptContext nashornCtx = new SimpleScriptContext();
+        nashornCtx.setBindings(nashornEngine.createBindings(), ScriptContext.ENGINE_SCOPE);
+        nashornCtx.setAttribute("result", Boolean.FALSE, ScriptContext.ENGINE_SCOPE);
+
+        nashornCtx.setBindings(new SimpleBindings(), ScriptContext.GLOBAL_SCOPE);
+        nashornCtx.setAttribute("obj", obj, ScriptContext.GLOBAL_SCOPE);
+
+        Object result;
+
+        nashornCtx.setAttribute("result", Boolean.FALSE, ScriptContext.ENGINE_SCOPE);
+        nashornEngine.eval("result = obj.testProp === 'Test-Value';", nashornCtx);
+        result = nashornCtx.getAttribute("result");
+        Assert.assertEquals(Boolean.TRUE, result);
+
+        nashornCtx.setAttribute("result", Boolean.FALSE, ScriptContext.ENGINE_SCOPE);
+        nashornEngine.eval("result = obj['testProp'] === 'Test-Value';", nashornCtx);
+        result = nashornCtx.getAttribute("result");
+        Assert.assertEquals(Boolean.TRUE, result);
+
+        nashornCtx.setAttribute("result", Boolean.FALSE, ScriptContext.ENGINE_SCOPE);
+        nashornEngine.eval("result = obj[0] === 'Test-Value';", nashornCtx);
+        result = nashornCtx.getAttribute("result");
+        Assert.assertEquals(Boolean.TRUE, result);
+
+        nashornCtx.setAttribute("result", Boolean.FALSE, ScriptContext.ENGINE_SCOPE);
+        nashornEngine.eval("result = obj[1] === 'Test-Value';", nashornCtx);
+        result = nashornCtx.getAttribute("result");
+        Assert.assertEquals(Boolean.TRUE, result);
+
     }
 
     @Test
     public void propertyModification() throws Exception
     {
+        final Scriptable obj;
         final Context ctx = Context.enter();
         try
         {
             final Scriptable scope = ctx.initStandardObjects();
-            final Scriptable obj = ctx.newObject(scope);
-
-            final ScriptEngine nashornEngine = new ScriptEngineManager().getEngineByName("nashorn");
-
-            final ScriptContext nashornCtx = new SimpleScriptContext();
-            nashornCtx.setBindings(nashornEngine.createBindings(), ScriptContext.ENGINE_SCOPE);
-
-            nashornCtx.setBindings(new SimpleBindings(), ScriptContext.GLOBAL_SCOPE);
-            nashornCtx.setAttribute("obj", obj, ScriptContext.GLOBAL_SCOPE);
-
-            nashornEngine.eval("obj.testProp1 = 'Test-Value1';", nashornCtx);
-            Assert.assertEquals("Test-Value1", obj.get("testProp1", obj));
-
-            nashornEngine.eval("obj['testProp2'] = 'Test-Value2';", nashornCtx);
-            Assert.assertEquals("Test-Value2", obj.get("testProp2", obj));
-
-            nashornEngine.eval("obj[0] = 'Test-Value3';", nashornCtx);
-            Assert.assertEquals("Test-Value3", obj.get(0, obj));
-
-            nashornEngine.eval("obj[2] = 'Test-Value4';", nashornCtx);
-            Assert.assertEquals("Test-Value4", obj.get(2, obj));
+            obj = ctx.newObject(scope);
         }
         finally
         {
             Context.exit();
         }
+
+        final ScriptEngine nashornEngine = new ScriptEngineManager().getEngineByName("nashorn");
+
+        final ScriptContext nashornCtx = new SimpleScriptContext();
+        nashornCtx.setBindings(nashornEngine.createBindings(), ScriptContext.ENGINE_SCOPE);
+
+        nashornCtx.setBindings(new SimpleBindings(), ScriptContext.GLOBAL_SCOPE);
+        nashornCtx.setAttribute("obj", obj, ScriptContext.GLOBAL_SCOPE);
+
+        nashornEngine.eval("obj.testProp1 = 'Test-Value1';", nashornCtx);
+        Assert.assertEquals("Test-Value1", obj.get("testProp1", obj));
+
+        nashornEngine.eval("obj['testProp2'] = 'Test-Value2';", nashornCtx);
+        Assert.assertEquals("Test-Value2", obj.get("testProp2", obj));
+
+        nashornEngine.eval("obj[0] = 'Test-Value3';", nashornCtx);
+        Assert.assertEquals("Test-Value3", obj.get(0, obj));
+
+        nashornEngine.eval("obj[2] = 'Test-Value4';", nashornCtx);
+        Assert.assertEquals("Test-Value4", obj.get(2, obj));
+    }
+
+    @Test
+    public void arrayFunctions() throws Exception
+    {
+        Scriptable arr;
+        final Context ctx = Context.enter();
+        try
+        {
+            final Scriptable scope = ctx.initStandardObjects();
+            arr = ctx.newArray(scope, 0);
+        }
+        finally
+        {
+            Context.exit();
+        }
+
+        final ScriptEngine nashornEngine = new ScriptEngineManager().getEngineByName("nashorn");
+
+        final ScriptContext nashornCtx = new SimpleScriptContext();
+        nashornCtx.setBindings(nashornEngine.createBindings(), ScriptContext.ENGINE_SCOPE);
+
+        nashornCtx.setBindings(new SimpleBindings(), ScriptContext.GLOBAL_SCOPE);
+        nashornCtx.setAttribute("arr", arr, ScriptContext.GLOBAL_SCOPE);
+
+        nashornEngine.eval("arr.push('Test-Value1');", nashornCtx);
+        Assert.assertEquals(1, arr.getIds().length);
+        Assert.assertEquals("Test-Value1", arr.get(0, arr));
+
+        // This won't work unless we add parameter conversion (Nashorn array to Rhino array)
+//        nashornEngine.eval("arr = arr.concat(['Test-Value2', 'Test-Value2']);", nashornCtx);
+//        arr = (Scriptable) nashornCtx.getAttribute("arr");
+//        Assert.assertEquals(3, arr.getIds().length);
+//        Assert.assertEquals("Test-Value1", arr.get(0, arr));
+//        Assert.assertEquals("Test-Value2", arr.get(1, arr));
+//        Assert.assertEquals("Test-Value3", arr.get(2, arr));
     }
 }

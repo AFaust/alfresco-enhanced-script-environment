@@ -18,6 +18,9 @@ import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodType;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.WeakHashMap;
+
+import javax.script.ScriptContext;
 
 import jdk.internal.dynalink.CallSiteDescriptor;
 import jdk.internal.dynalink.linker.GuardedInvocation;
@@ -29,11 +32,15 @@ import jdk.internal.dynalink.linker.TypeBasedGuardingDynamicLinker;
 import jdk.internal.dynalink.support.CallSiteDescriptorFactory;
 import jdk.nashorn.internal.lookup.MethodHandleFactory;
 import jdk.nashorn.internal.lookup.MethodHandleFunctionality;
+import jdk.nashorn.internal.objects.Global;
 import jdk.nashorn.internal.runtime.JSType;
 import jdk.nashorn.internal.runtime.Undefined;
+import jdk.nashorn.internal.runtime.linker.NashornCallSiteDescriptor;
 
 import org.mozilla.javascript.Context;
+import org.mozilla.javascript.Function;
 import org.mozilla.javascript.Scriptable;
+import org.mozilla.javascript.ScriptableObject;
 import org.mozilla.javascript.UniqueTag;
 
 /**
@@ -50,6 +57,12 @@ public class RhinoLinker implements TypeBasedGuardingDynamicLinker, GuardingType
     private static final MethodHandle RHINO_LINKER_GET = findOwnMH_S("get", Object.class, Scriptable.class, Object.class);
     private static final MethodHandle RHINO_LINKER_PUT = findOwnMH_S("put", Void.TYPE, Scriptable.class, Object.class, Object.class);
 
+    private static final MethodHandle IS_FUNCTION_GUARD = findOwnMH_S("isFunctionObject", boolean.class, Object.class);
+    private static final MethodHandle RHINO_LINKER_CALL_TO_APPLY = findOwnMH_S("callToApply", Object.class, MethodHandle.class,
+            Function.class, Object[].class);
+    private static final MethodHandle RHINO_LINKER_CALL = findOwnMH_S("call", Object.class, Function.class, Scriptable.class,
+            Object[].class);
+
     private static final Map<Class<?>, MethodHandle> CONVERTERS = new HashMap<>();
     static
     {
@@ -58,6 +71,11 @@ public class RhinoLinker implements TypeBasedGuardingDynamicLinker, GuardingType
         CONVERTERS.put(long.class, findOwnMH_S("toLong", long.class, Scriptable.class));
         CONVERTERS.put(double.class, findOwnMH_S("toNumber", double.class, Scriptable.class));
     }
+
+    // re-use same Rhino context for same Nashorn context
+    private static final Map<ScriptContext, Context> contextForNashornContext = new WeakHashMap<>();
+    // re-use same Rhino global for same Rhino context
+    private static final Map<Context, Scriptable> rhinoGlobalForContext = new WeakHashMap<>();
 
     public RhinoLinker()
     {
@@ -154,14 +172,69 @@ public class RhinoLinker implements TypeBasedGuardingDynamicLinker, GuardingType
         case "setElem":
             return c > 2 ? findSetMethod(desc) : new GuardedInvocation(RHINO_LINKER_PUT, IS_SCRIPTABLE_GUARD);
         case "call":
-            // TODO map to Function#call - should we facade current scope as "scope"-parameter?
-            return null;
+            return findCallMethod(desc);
         case "new":
             // TODO map to Function#construct - should we facade current scope as "scope"-parameter?
             return null;
         default:
             return null;
         }
+    }
+
+    protected static Scriptable getRhinoGlobal(final Context rhinoContext)
+    {
+        Scriptable global = rhinoGlobalForContext.get(rhinoContext);
+        if (global == null)
+        {
+            global = rhinoContext.initStandardObjects();
+
+            // TODO Do we want to seal global and remove hamrful default operations?
+            rhinoGlobalForContext.put(rhinoContext, global);
+        }
+
+        return global;
+    }
+
+    protected static void setRhinoContextForCurrentNashornContext(final Context context)
+    {
+        final Global global = Global.instance();
+        // even though JDK 8u40 moved "context" from actual property to a pseudo one
+        // this works for 8u20 AND 8u40
+        final Object expectedContext = global.get("context");
+
+        if (expectedContext instanceof ScriptContext)
+        {
+            contextForNashornContext.put((ScriptContext) expectedContext, context);
+        }
+    }
+
+    protected static Context getRhinoContextOrNull()
+    {
+        final Context context;
+
+        if (Context.getCurrentContext() != null)
+        {
+            context = Context.getCurrentContext();
+        }
+        else
+        {
+
+            final Global global = Global.instance();
+            // even though JDK 8u40 moved "context" from actual property to a pseudo one
+            // this works for 8u20 AND 8u40
+            final Object expectedContext = global.get("context");
+
+            if (expectedContext instanceof ScriptContext)
+            {
+                context = contextForNashornContext.get(expectedContext);
+            }
+            else
+            {
+                context = null;
+            }
+        }
+
+        return context;
     }
 
     protected static GuardedInvocation findGetMethod(final CallSiteDescriptor desc)
@@ -174,36 +247,31 @@ public class RhinoLinker implements TypeBasedGuardingDynamicLinker, GuardingType
     protected static GuardedInvocation findSetMethod(final CallSiteDescriptor desc)
     {
         final String name = desc.getNameToken(CallSiteDescriptor.NAME_OPERAND);
-        final MethodHandle getter = MH.insertArguments(RHINO_LINKER_PUT, 1, name);
-        return new GuardedInvocation(getter, IS_SCRIPTABLE_GUARD);
+        final MethodHandle setter = MH.insertArguments(RHINO_LINKER_PUT, 1, name);
+        return new GuardedInvocation(setter, IS_SCRIPTABLE_GUARD);
     }
 
-    private static MethodHandle findScriptableMH_V(final String name, final Class<?> rtype, final Class<?>... types)
+    protected static GuardedInvocation findCallMethod(final CallSiteDescriptor desc)
     {
-        return MH.findVirtual(MethodHandles.lookup(), Scriptable.class, name, MH.type(rtype, types));
-    }
-
-    private static MethodHandle findOwnMH_S(final String name, final Class<?> rtype, final Class<?>... types)
-    {
-        return MH.findStatic(MethodHandles.lookup(), RhinoLinker.class, name, MH.type(rtype, types));
-    }
-
-    @SuppressWarnings("unused")
-    private static boolean isScriptableObject(final Object self)
-    {
-        return self instanceof Scriptable;
+        // TODO: if call site is already a vararg, don't do asCollector
+        MethodHandle mh = RHINO_LINKER_CALL;
+        if (NashornCallSiteDescriptor.isApplyToCall(desc))
+        {
+            mh = MH.insertArguments(RHINO_LINKER_CALL_TO_APPLY, 0, RHINO_LINKER_CALL);
+        }
+        return new GuardedInvocation(MH.asCollector(mh, Object[].class, desc.getMethodType().parameterCount() - 2), IS_FUNCTION_GUARD);
     }
 
     @SuppressWarnings("unused")
     private static Object get(final Scriptable scriptable, final Object key)
     {
-        Context.enter();
+        Context.enter(RhinoLinker.getRhinoContextOrNull());
         try
         {
             Object rvalue = null;
             if (key instanceof Integer)
             {
-                rvalue = scriptable.get(((Integer) key).intValue(), scriptable);
+                rvalue = ScriptableObject.getProperty(scriptable, ((Integer) key).intValue());
             }
             else if (key instanceof Number)
             {
@@ -211,13 +279,13 @@ public class RhinoLinker implements TypeBasedGuardingDynamicLinker, GuardingType
                 final int index = JSType.isRepresentableAsInt(value) ? (int) value : -1;
                 if (index > -1)
                 {
-                    rvalue = scriptable.get(index, scriptable);
+                    rvalue = ScriptableObject.getProperty(scriptable, index);
                 }
             }
             else if (key instanceof String)
             {
                 final String name = (String) key;
-                rvalue = scriptable.get(name, scriptable);
+                rvalue = ScriptableObject.getProperty(scriptable, name);
             }
 
             if (Scriptable.NOT_FOUND.equals(rvalue) || UniqueTag.NOT_FOUND.equals(rvalue))
@@ -240,7 +308,7 @@ public class RhinoLinker implements TypeBasedGuardingDynamicLinker, GuardingType
     @SuppressWarnings("unused")
     private static void put(final Scriptable scriptable, final Object key, final Object value)
     {
-        Context.enter();
+        Context.enter(RhinoLinker.getRhinoContextOrNull());
         try
         {
             if (key instanceof Integer)
@@ -262,6 +330,68 @@ public class RhinoLinker implements TypeBasedGuardingDynamicLinker, GuardingType
         {
             Context.exit();
         }
+    }
+
+    @SuppressWarnings("unused")
+    private static Object callToApply(final MethodHandle mh, final Function fn, final Object... args)
+    {
+        assert args.length >= 2;
+        final Object receiver = args[0];
+        final Object[] arguments = new Object[args.length - 1];
+        System.arraycopy(args, 1, arguments, 0, arguments.length);
+        try
+        {
+            return mh.invokeExact(fn, receiver, arguments);
+        }
+        catch (final RuntimeException | Error e)
+        {
+            throw e;
+        }
+        catch (final Throwable e)
+        {
+            throw new RuntimeException(e);
+        }
+    }
+
+    @SuppressWarnings("unused")
+    private static Object call(final Function fn, final Scriptable thiz, final Object... args)
+    {
+        final Context ctxt = Context.enter(getRhinoContextOrNull());
+        try
+        {
+            setRhinoContextForCurrentNashornContext(ctxt);
+            // TODO Should we facade current scope as Nashorn "scope"-parameter?
+            final Scriptable scope = getRhinoGlobal(ctxt);
+
+            final Object result = fn.call(ctxt, scope, thiz, args);
+            return result;
+        }
+        finally
+        {
+            Context.exit();
+        }
+    }
+
+    private static MethodHandle findScriptableMH_V(final String name, final Class<?> rtype, final Class<?>... types)
+    {
+        return MH.findVirtual(MethodHandles.lookup(), Scriptable.class, name, MH.type(rtype, types));
+    }
+
+    private static MethodHandle findOwnMH_S(final String name, final Class<?> rtype, final Class<?>... types)
+    {
+        return MH.findStatic(MethodHandles.lookup(), RhinoLinker.class, name, MH.type(rtype, types));
+    }
+
+    @SuppressWarnings("unused")
+    private static boolean isScriptableObject(final Object self)
+    {
+        return self instanceof Scriptable;
+    }
+
+    @SuppressWarnings("unused")
+    private static boolean isFunctionObject(final Object self)
+    {
+        return self instanceof Function;
     }
 
     @SuppressWarnings("unused")
