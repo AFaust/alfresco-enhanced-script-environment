@@ -1,0 +1,81 @@
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+    <parent>
+        <groupId>org.nabucco.alfresco</groupId>
+        <artifactId>org.nabucco.alfresco.enhScriptEnv.experimental</artifactId>
+        <version>0.0.2.0-SNAPSHOT</version>
+        
+    </parent>
+
+    <artifactId>org.nabucco.alfresco.enhScriptEnv.experimental.common</artifactId>
+    <name>Alfresco Enhanced Script Environment - Experimental Common Module</name>
+
+    <properties>
+
+    </properties>
+
+    <dependencies>
+
+        <dependency>
+            <groupId>org.nabucco.alfresco</groupId>
+            <artifactId>org.nabucco.alfresco.enhScriptEnv.common</artifactId>
+            <version>0.0.2.0-SNAPSHOT</version>
+            <scope>compile</scope>
+        </dependency>
+        
+        <dependency>
+            <groupId>org.nabucco.alfresco</groupId>
+            <artifactId>org.nabucco.alfresco.enhScriptEnv.experimental.linker</artifactId>
+            <version>0.0.2.0-SNAPSHOT</version>
+            <scope>compile</scope>
+        </dependency>
+        
+        <!-- This breaks mutation due to Rhino 1.7 native object / array implementing Map/List -->
+        <!-- 
+        <dependency>
+            <groupId>org.nabucco.alfresco</groupId>
+            <artifactId>org.nabucco.alfresco.enhScriptEnv.experimental.linker</artifactId>
+            <version>0.0.2.0-SNAPSHOT</version>
+            <scope>compile</scope>
+            <exclusions>
+                <exclusion>
+                    <artifactId>js</artifactId>
+                    <groupId>rhino</groupId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+        
+        <dependency>
+            <groupId>org.mozilla</groupId>
+            <artifactId>rhino</artifactId>
+            <version>1.7R4-alfresco-patched</version>
+            <scope>provided</scope>
+        </dependency>
+         -->
+        
+        <dependency>
+            <groupId>junit</groupId>
+            <artifactId>junit</artifactId>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+
+    <build>
+
+        <plugins>
+            <plugin>
+                <artifactId>maven-enforcer-plugin</artifactId>
+            </plugin>
+
+            <plugin>
+                <artifactId>maven-compiler-plugin</artifactId>
+            </plugin>
+
+            <plugin>
+                <artifactId>maven-source-plugin</artifactId>
+            </plugin>
+        </plugins>
+
+    </build>
+
+</project>

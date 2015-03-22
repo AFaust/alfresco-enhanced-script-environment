@@ -11,7 +11,7 @@
  * either express or implied. See the License for the specific language governing permissions
  * and limitations under the License.
  */
-package org.nabucco.alfresco.enhScriptEnv.experimental.linker;
+package org.nabucco.alfresco.enhScriptEnv.experimental.common.linkers;
 
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
@@ -253,11 +253,11 @@ public class RhinoLinker implements TypeBasedGuardingDynamicLinker, GuardingType
 
     protected static GuardedInvocation findCallMethod(final CallSiteDescriptor desc)
     {
-        // TODO: if call site is already a vararg, don't do asCollector
-        MethodHandle mh = RHINO_LINKER_CALL;
+        // TODO If call site is already a vararg, don't do asCollector
+        MethodHandle mh = CommonRhinoHandles.applyCommonRhinoHandles(RHINO_LINKER_CALL, 2, true);
         if (NashornCallSiteDescriptor.isApplyToCall(desc))
         {
-            mh = MH.insertArguments(RHINO_LINKER_CALL_TO_APPLY, 0, RHINO_LINKER_CALL);
+            mh = MH.insertArguments(RHINO_LINKER_CALL_TO_APPLY, 0, mh);
         }
         return new GuardedInvocation(MH.asCollector(mh, Object[].class, desc.getMethodType().parameterCount() - 2), IS_FUNCTION_GUARD);
     }
@@ -354,7 +354,7 @@ public class RhinoLinker implements TypeBasedGuardingDynamicLinker, GuardingType
     }
 
     @SuppressWarnings("unused")
-    private static Object call(final Function fn, final Scriptable thiz, final Object... args)
+    private static Object call(final Function fn, final Scriptable thiz, final Object[] args)
     {
         final Context ctxt = Context.enter(getRhinoContextOrNull());
         try
