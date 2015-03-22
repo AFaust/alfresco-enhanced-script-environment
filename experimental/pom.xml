@@ -22,6 +22,7 @@
     <modules>
         <module>agent</module>
         <module>linker</module>
+        <module>common</module>
         <module>repository</module>
         <module>share</module>
     </modules>
