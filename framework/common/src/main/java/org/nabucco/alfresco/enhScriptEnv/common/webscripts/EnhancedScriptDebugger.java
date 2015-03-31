@@ -1,5 +1,5 @@
 /*
- * Copyright 2014 PRODYNA AG
+ * Copyright 2015 PRODYNA AG
  *
  * Licensed under the Eclipse Public License (EPL), Version 1.0 (the "License"); you may not use
  * this file except in compliance with the License. You may obtain a copy of the License at
