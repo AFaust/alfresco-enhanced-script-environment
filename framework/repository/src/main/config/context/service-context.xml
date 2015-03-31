@@ -1,39 +1,87 @@
 <?xml version='1.0' encoding='UTF-8'?>
-<beans xmlns="http://www.springframework.org/schema/beans" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-    xsi:schemaLocation="
+<beans xmlns="http://www.springframework.org/schema/beans" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="
            http://www.springframework.org/schema/beans
            http://www.springframework.org/schema/beans/spring-beans-3.0.xsd">
     <!-- Note: All beans should be prefixed ${project.artifactId} in their ID in general -->
     <!-- Exceptions: service beans (unique name) and beans with name conventions (e.g. web scripts) -->
 
-    <bean id="javaScriptProcessor" class="${basePackage}.script.EnhancedRhinoScriptProcessor">
+    <!-- Bean post processor to intercept all script processor beans and facade them -->
+    <bean id="javaScriptProcessor.postProcessor" class="org.nabucco.alfresco.enhScriptEnv.repo.script.SwitchableScriptProcessor">
+        <property name="activeScriptProcessor" value="${script.processor.activeProcessorName}" />
+    </bean>
+    
+    <bean id="javaScriptProcessor.rhinoValueConverter" class="org.nabucco.alfresco.enhScriptEnv.common.script.converter.GenericGlobalValueConverter" />
+    
+    <bean id="javaScriptProcessor.rhinoValueConverter.abstractInstanceConverter" abstract="true">
+        <property name="registry" ref="javaScriptProcessor.rhinoValueConverter" />
+    </bean>
+    
+    <bean id="javaScriptProcessor.rhinoValueConverter.wrapFactoryConverter" class="org.nabucco.alfresco.enhScriptEnv.common.script.converter.rhino.WrapFactoryConverter" parent="javaScriptProcessor.rhinoValueConverter.abstractInstanceConverter" />
+    
+    <bean id="javaScriptProcessor.rhinoValueConverter.surfNativeMapConverter" class="org.nabucco.alfresco.enhScriptEnv.common.script.converter.rhino.SurfNativeMapConverter" parent="javaScriptProcessor.rhinoValueConverter.abstractInstanceConverter" />
+    
+    <!-- <bean id="javaScriptProcessor.rhinoValueConverter.stringConverter" class="org.nabucco.alfresco.enhScriptEnv.common.script.converter.rhino.StringConverter" parent="javaScriptProcessor.rhinoValueConverter.abstractInstanceConverter" /> -->
+    
+    <bean id="javaScriptProcessor.rhinoValueConverter.simpleJSONObjectConverter" class="org.nabucco.alfresco.enhScriptEnv.common.script.converter.rhino.SimpleJSONObjectConverter" parent="javaScriptProcessor.rhinoValueConverter.abstractInstanceConverter" />
+    
+    <bean id="javaScriptProcessor.rhinoValueConverter.nativeArrayConverter" class="org.nabucco.alfresco.enhScriptEnv.common.script.converter.rhino.NativeArrayConverter" parent="javaScriptProcessor.rhinoValueConverter.abstractInstanceConverter" />
+    
+    <bean id="javaScriptProcessor.rhinoValueConverter.scriptableObjectConverterConverter" class="org.nabucco.alfresco.enhScriptEnv.common.script.converter.rhino.ScriptableObjectConverter" parent="javaScriptProcessor.rhinoValueConverter.abstractInstanceConverter" />
+    
+    <bean id="javaScriptProcessor.rhinoValueConverter.dateConverter" class="org.nabucco.alfresco.enhScriptEnv.common.script.converter.rhino.DateConverter" parent="javaScriptProcessor.rhinoValueConverter.abstractInstanceConverter" />
+    
+    <bean id="javaScriptProcessor.rhinoValueConverter.mapConverter" class="org.nabucco.alfresco.enhScriptEnv.common.script.converter.general.MapConverter" parent="javaScriptProcessor.rhinoValueConverter.abstractInstanceConverter" />
+    
+    <bean id="javaScriptProcessor.rhinoValueConverter.numberConverter" class="org.nabucco.alfresco.enhScriptEnv.common.script.converter.general.NumberConverter" parent="javaScriptProcessor.rhinoValueConverter.abstractInstanceConverter" />
+    
+    <bean id="javaScriptProcessor.rhinoValueConverter.arrayConverter" class="org.nabucco.alfresco.enhScriptEnv.common.script.converter.general.ArrayConverter" parent="javaScriptProcessor.rhinoValueConverter.abstractInstanceConverter" />
+    
+    <bean id="javaScriptProcessor.rhinoValueConverter.repoNativeMapConverter" class="${basePackage}.script.converter.rhino.RepoNativeMapConverter" parent="javaScriptProcessor.rhinoValueConverter.abstractInstanceConverter" />
+    
+    <bean id="javaScriptProcessor.rhinoValueConverter.associationConverter" class="${basePackage}.script.converter.rhino.AssociationConverter" parent="javaScriptProcessor.rhinoValueConverter.abstractInstanceConverter">
+        <property name="serviceRegistry" ref="ServiceRegistry" />
+    </bean>
+    
+    <bean id="javaScriptProcessor.rhinoValueConverter.childAssociationConverter" class="${basePackage}.script.converter.rhino.ChildAssociationConverter" parent="javaScriptProcessor.rhinoValueConverter.abstractInstanceConverter">
+        <property name="serviceRegistry" ref="ServiceRegistry" />
+    </bean>
+    
+    <bean id="javaScriptProcessor.rhinoValueConverter.qnameStoreRefConverter" class="${basePackage}.script.converter.rhino.QNameStoreRefConverter" parent="javaScriptProcessor.rhinoValueConverter.abstractInstanceConverter" />
+    
+    <bean id="javaScriptProcessor.rhinoValueConverter.scriptNodeConverter" class="${basePackage}.script.converter.rhino.ScriptNodeConverter" parent="javaScriptProcessor.rhinoValueConverter.abstractInstanceConverter">
+        <property name="serviceRegistry" ref="ServiceRegistry" />
+        <property name="nodeService" ref="NodeService" />
+        <property name="dictionaryService" ref="DictionaryService" />
+    </bean>
+
+    <bean id="javaScriptProcessor.enhancedRhinoProcessor" class="${basePackage}.script.EnhancedRhinoScriptProcessor">
         <property name="name" value="javascript" />
         <property name="extension" value="js" />
         <property name="compileScripts" value="true" />
         <property name="shareScopes" value="true" />
 
         <property name="scriptService" ref="scriptService" />
-
         <property name="serviceRegistry" ref="ServiceRegistry" />
+        
+        <property name="valueConverter" ref="javaScriptProcessor.rhinoValueConverter" />
     </bean>
 
-    <bean id="javaScriptProcessor.scriptImportFunction" class="org.nabucco.alfresco.enhScriptEnv.common.script.ImportScriptFunction">
-        <property name="scriptProcessor" ref="javaScriptProcessor" />
-        <property name="valueConverter">
-            <bean class="${basePackage}.script.RepositoryValueConverterAdapter" />
-        </property>
+    <bean id="javaScriptProcessor.scriptLocatorRegistry" class="org.nabucco.alfresco.enhScriptEnv.common.script.locator.SimpleScriptLocatorRegistry" />
+
+    <bean id="javaScriptProcessor.enhancedRhinoProcessor.scriptImportFunction" class="org.nabucco.alfresco.enhScriptEnv.common.script.functions.RhinoImportScriptFunction">
+        <property name="scriptProcessor" ref="javaScriptProcessor.enhancedRhinoProcessor" />
+        <property name="valueConverter" ref="javaScriptProcessor.rhinoValueConverter" />
+        <property name="locatorRegistry" ref="javaScriptProcessor.scriptLocatorRegistry" />
     </bean>
 
-    <bean id="javaScriptProcessor.scriptLogger" class="org.nabucco.alfresco.enhScriptEnv.common.script.LogFunction">
-        <property name="scriptProcessor" ref="javaScriptProcessor" />
-        <property name="valueConverter">
-            <bean class="${basePackage}.script.RepositoryValueConverterAdapter" />
-        </property>
+    <bean id="javaScriptProcessor.enhancedRhinoProcessor.scriptLogger" class="org.nabucco.alfresco.enhScriptEnv.common.script.functions.RhinoLogFunction">
+        <property name="scriptProcessor" ref="javaScriptProcessor.enhancedRhinoProcessor" />
+        <property name="valueConverter" ref="javaScriptProcessor.rhinoValueConverter" />
         <property name="defaultLoggerPrefix" value="org.alfresco.repo.jscript.executions" />
     </bean>
 
     <bean id="javaScriptProcessor.baseScriptLocator" abstract="true">
-        <property name="scriptLocatorRegistry" ref="javaScriptProcessor.scriptImportFunction" />
+        <property name="scriptLocatorRegistry" ref="javaScriptProcessor.scriptLocatorRegistry" />
     </bean>
 
     <bean id="javaScriptProcessor.legacyNamePathScriptLocator" class="${basePackage}.script.LegacyNamePathScriptLocator" parent="javaScriptProcessor.baseScriptLocator">
@@ -70,13 +118,13 @@
         <property name="descriptorService" ref="DescriptorService" />
     </bean>
 
-    <bean id="javaScriptProcessor.versionInfoContributor" class="${basePackage}.script.util.VersionInfoContributor">
-        <property name="scriptProcessor" ref="javaScriptProcessor" />
+    <bean id="javaScriptProcessor.enhancedRhinoProcessor.versionInfoContributor" class="${basePackage}.script.util.VersionInfoContributor">
+        <property name="scriptProcessor" ref="javaScriptProcessor.enhancedRhinoProcessor" />
         <property name="descriptorService" ref="DescriptorService" />
     </bean>
 
-    <bean id="javaScriptProcessor.executeBatchFunction" class="${basePackage}.script.batch.RepositoryExecuteBatchFunction">
-        <property name="scriptProcessor" ref="javaScriptProcessor" />
+    <bean id="javaScriptProcessor.enhancedRhinoProcessor.executeBatchFunction" class="${basePackage}.script.batch.RepositoryExecuteBatchFunction">
+        <property name="scriptProcessor" ref="javaScriptProcessor.enhancedRhinoProcessor" />
         <property name="transactionService" ref="TransactionService" />
         <property name="transactionManager" ref="transactionManager" />
         <property name="converters">

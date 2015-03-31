@@ -1,11 +1,10 @@
 /*
- * Copyright 2013 PRODYNA AG
+ * Copyright 2014 PRODYNA AG
  *
  * Licensed under the Eclipse Public License (EPL), Version 1.0 (the "License"); you may not use
  * this file except in compliance with the License. You may obtain a copy of the License at
  *
- * http://www.opensource.org/licenses/eclipse-1.0.php or
- * http://www.nabucco.org/License.html
+ * https://www.eclipse.org/legal/epl-v10.html
  *
  * Unless required by applicable law or agreed to in writing, software distributed under the
  * License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND,
@@ -18,9 +17,14 @@ import java.lang.reflect.Method;
 import java.net.URL;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.io.UnsupportedEncodingException;
+import java.lang.reflect.Method;
+import java.net.URL;
 import java.text.MessageFormat;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
@@ -33,35 +37,36 @@ import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 import org.alfresco.error.AlfrescoRuntimeException;
+import org.alfresco.scripts.ScriptException;
 import org.alfresco.util.MD5;
 import org.alfresco.util.ParameterCheck;
 import org.alfresco.util.PropertyCheck;
 import org.mozilla.javascript.Context;
 import org.mozilla.javascript.ImporterTopLevel;
-import org.mozilla.javascript.NativeFunction;
 import org.mozilla.javascript.NativeJavaObject;
 import org.mozilla.javascript.Script;
 import org.mozilla.javascript.Scriptable;
 import org.mozilla.javascript.ScriptableObject;
-import org.mozilla.javascript.WrapFactory;
 import org.mozilla.javascript.WrappedException;
-import org.mozilla.javascript.debug.DebuggableScript;
 import org.nabucco.alfresco.enhScriptEnv.common.script.EnhancedScriptProcessor;
 import org.nabucco.alfresco.enhScriptEnv.common.script.ReferenceScript;
-import org.nabucco.alfresco.enhScriptEnv.common.script.ScopeContributor;
 import org.nabucco.alfresco.enhScriptEnv.common.script.ReferenceScript.CommonReferencePath;
-import org.nabucco.alfresco.enhScriptEnv.common.util.SourceFileVisitor;
+import org.nabucco.alfresco.enhScriptEnv.common.script.ReferenceScript.DynamicScript;
+import org.nabucco.alfresco.enhScriptEnv.common.script.ReferenceScript.ReferencePathType;
+import org.nabucco.alfresco.enhScriptEnv.common.script.ScopeContributor;
+import org.nabucco.alfresco.enhScriptEnv.common.script.converter.ValueConverter;
+import org.nabucco.alfresco.enhScriptEnv.common.script.converter.rhino.DelegatingWrapFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.InitializingBean;
 import org.springframework.extensions.surf.core.processor.ProcessorExtension;
+import org.springframework.extensions.surf.util.I18NUtil;
 import org.springframework.extensions.webscripts.ScriptContent;
 import org.springframework.extensions.webscripts.ScriptLoader;
 import org.springframework.extensions.webscripts.ScriptProcessor;
 import org.springframework.extensions.webscripts.ScriptValueConverter;
 import org.springframework.extensions.webscripts.WebScriptException;
 import org.springframework.extensions.webscripts.processor.BaseRegisterableScriptProcessor;
-import org.springframework.extensions.webscripts.processor.JSScriptProcessor.PresentationWrapFactory;
 import org.springframework.util.FileCopyUtils;
 
 /**
@@ -78,6 +83,9 @@ public class EnhancedJSScriptProcessor extends BaseRegisterableScriptProcessor i
     private static final String STORE_PATH_RESOURCE_IMPORT_REPLACEMENT = "importScript(\"storePath\", \"$4\", true);";
 
     private static final Logger LOGGER = LoggerFactory.getLogger(EnhancedJSScriptProcessor.class);
+
+    private static final List<ReferencePathType> REAL_PATH_SUCCESSION = Collections.<ReferencePathType> unmodifiableList(Arrays
+            .<ReferencePathType> asList(CommonReferencePath.FILE, SurfReferencePath.STORE));
 
     private static final int DEFAULT_MAX_SCRIPT_CACHE_SIZE = 200;
 
@@ -97,9 +105,6 @@ public class EnhancedJSScriptProcessor extends BaseRegisterableScriptProcessor i
         ASM_AVAILABLE = asmAvailable;
     }
 
-    // reuse existing implementation
-    private static final WrapFactory WRAP_FACTORY = new PresentationWrapFactory();
-
     // used WeakHashMap here before to avoid accidental leaks but measures for proper cleanup have proven themselves during tests
     protected final Map<Context, List<ReferenceScript>> activeScriptContentChain = new ConcurrentHashMap<Context, List<ReferenceScript>>();
     protected final Map<Context, List<List<ReferenceScript>>> recursionScriptContentChains = new ConcurrentHashMap<Context, List<List<ReferenceScript>>>();
@@ -115,13 +120,14 @@ public class EnhancedJSScriptProcessor extends BaseRegisterableScriptProcessor i
     protected int optimizationLevel = -1;
 
     protected ScriptLoader standardScriptLoader;
+    protected ValueConverter valueConverter;
 
     protected final Map<String, Script> scriptCache = new LinkedHashMap<String, Script>(256);
     protected final ReadWriteLock scriptCacheLock = new ReentrantReadWriteLock(true);
 
     protected final AtomicLong dynamicScriptCounter = new AtomicLong();
 
-    protected final Map<String, Script> dynamicScriptByHashCache = new LinkedHashMap<String, Script>();
+    protected final Map<String, Script> dynamicScriptCache = new LinkedHashMap<String, Script>();
     protected final ReadWriteLock dynamicScriptCacheLock = new ReentrantReadWriteLock(true);
 
     protected int maxScriptCacheSize = DEFAULT_MAX_SCRIPT_CACHE_SIZE;
@@ -135,6 +141,7 @@ public class EnhancedJSScriptProcessor extends BaseRegisterableScriptProcessor i
     public void afterPropertiesSet()
     {
         PropertyCheck.mandatory(this, "standardScriptLoader", this.standardScriptLoader);
+        PropertyCheck.mandatory(this, "valueConverter", this.valueConverter);
     }
 
     /**
@@ -166,56 +173,22 @@ public class EnhancedJSScriptProcessor extends BaseRegisterableScriptProcessor i
     {
         ParameterCheck.mandatoryString("source", source);
 
-        // compile the script based on the node content
-        Script script = null;
-        final MD5 md5 = new MD5();
-        final String digest = md5.digest(source.getBytes());
-
-        script = this.lookupScriptCache(this.dynamicScriptByHashCache, this.dynamicScriptCacheLock, digest);
-
-        final String debugScriptName;
-        if (script == null)
-        {
-            debugScriptName = "string://DynamicJS-" + String.valueOf(this.dynamicScriptCounter.getAndIncrement());
-            script = this.getCompiledScript(source, debugScriptName);
-
-            if (this.compileScripts)
-            {
-                this.updateScriptCache(this.dynamicScriptByHashCache, this.dynamicScriptCacheLock, digest, script);
-            }
-        }
-        else if (script instanceof NativeFunction)
-        {
-            final DebuggableScript debuggableView = ((NativeFunction) script).getDebuggableView();
-            if (debuggableView != null)
-            {
-                debugScriptName = debuggableView.getSourceName();
-            }
-            else
-            {
-                // obviously not an interpreted script
-                if (ASM_AVAILABLE)
-                {
-                    final String sourceFileName = SourceFileVisitor.readSourceFile(script.getClass());
-                    debugScriptName = sourceFileName != null ? sourceFileName : ("string://Cached-DynamicJS-" + digest);
-                }
-                else
-                {
-                    debugScriptName = "string://Cached-DynamicJS-" + digest;
-                }
-            }
-        }
-        else
-        {
-            debugScriptName = "string://Cached-DynamicJS-" + digest;
-        }
+        final ReferenceScript referenceScript = this.toReferenceScript(source);
+        final String debugScriptName = referenceScript.getFullName();
+        final Script script = this.getCompiledScript(referenceScript);
 
         LOGGER.info("{} Start", debugScriptName);
 
         final long startTime = System.currentTimeMillis();
+
+        final ValueConverter previousConverter = ValueConverter.GLOBAL_CONVERTER.get();
+        ValueConverter.GLOBAL_CONVERTER.set(this.valueConverter);
+
         final Context cx = Context.enter();
         try
         {
+            cx.setWrapFactory(new DelegatingWrapFactory());
+
             List<ReferenceScript> currentChain = this.activeScriptContentChain.get(cx);
             boolean newChain = false;
             if (currentChain == null)
@@ -225,7 +198,7 @@ public class EnhancedJSScriptProcessor extends BaseRegisterableScriptProcessor i
                 newChain = true;
             }
             // else: assume the original script chain is continued
-            currentChain.add(new ReferenceScript.DynamicScript(debugScriptName));
+            currentChain.add(new ReferenceScript.DynamicScript(debugScriptName, source));
 
             try
             {
@@ -286,6 +259,8 @@ public class EnhancedJSScriptProcessor extends BaseRegisterableScriptProcessor i
         {
             Context.exit();
 
+            ValueConverter.GLOBAL_CONVERTER.set(previousConverter);
+
             final long endTime = System.currentTimeMillis();
             LOGGER.info("{} End {} msg", debugScriptName, Long.valueOf(endTime - startTime));
         }
@@ -300,16 +275,22 @@ public class EnhancedJSScriptProcessor extends BaseRegisterableScriptProcessor i
     {
         ParameterCheck.mandatory("content", content);
 
-        final Script script = this.getCompiledScript(content);
         final ScriptContentAdapter contentAdapter = new ScriptContentAdapter(content, this.standardScriptLoader);
+        final Script script = this.getCompiledScript(contentAdapter);
         final String debugScriptName = contentAdapter.getName();
 
         LOGGER.info("{} Start", debugScriptName);
 
         final long startTime = System.currentTimeMillis();
+
+        final ValueConverter previousConverter = ValueConverter.GLOBAL_CONVERTER.get();
+        ValueConverter.GLOBAL_CONVERTER.set(this.valueConverter);
+
         final Context cx = Context.enter();
         try
         {
+            cx.setWrapFactory(new DelegatingWrapFactory());
+
             List<ReferenceScript> currentChain = this.activeScriptContentChain.get(cx);
             boolean newChain = false;
             if (currentChain == null)
@@ -380,6 +361,8 @@ public class EnhancedJSScriptProcessor extends BaseRegisterableScriptProcessor i
         {
             Context.exit();
 
+            ValueConverter.GLOBAL_CONVERTER.set(previousConverter);
+
             final long endTime = System.currentTimeMillis();
             LOGGER.info("{} End {} msg", debugScriptName, Long.valueOf(endTime - startTime));
         }
@@ -394,9 +377,15 @@ public class EnhancedJSScriptProcessor extends BaseRegisterableScriptProcessor i
         ParameterCheck.mandatory("location", location);
 
         final Scriptable scope;
+
+        final ValueConverter previousConverter = ValueConverter.GLOBAL_CONVERTER.get();
+        ValueConverter.GLOBAL_CONVERTER.set(this.valueConverter);
+
         final Context cx = Context.enter();
         try
         {
+            cx.setWrapFactory(new DelegatingWrapFactory());
+
             final boolean secureScript = location.isSecure();
             if (this.shareScopes)
             {
@@ -413,6 +402,8 @@ public class EnhancedJSScriptProcessor extends BaseRegisterableScriptProcessor i
         finally
         {
             Context.exit();
+
+            ValueConverter.GLOBAL_CONVERTER.set(previousConverter);
         }
 
         return scope;
@@ -491,26 +482,35 @@ public class EnhancedJSScriptProcessor extends BaseRegisterableScriptProcessor i
     @Override
     public void init()
     {
-        Context cx = Context.enter();
+        final ValueConverter previousConverter = ValueConverter.GLOBAL_CONVERTER.get();
+        ValueConverter.GLOBAL_CONVERTER.set(this.valueConverter);
         try
         {
-            cx.setWrapFactory(WRAP_FACTORY);
-            this.unrestrictedShareableScope = this.setupScope(cx, true, false);
-        }
-        finally
-        {
-            Context.exit();
-        }
+            Context cx = Context.enter();
+            try
+            {
+                cx.setWrapFactory(new DelegatingWrapFactory());
+                this.unrestrictedShareableScope = this.setupScope(cx, true, false);
+            }
+            finally
+            {
+                Context.exit();
+            }
 
-        cx = Context.enter();
-        try
-        {
-            cx.setWrapFactory(WRAP_FACTORY);
-            this.restrictedShareableScope = this.setupScope(cx, false, false);
+            cx = Context.enter();
+            try
+            {
+                cx.setWrapFactory(new DelegatingWrapFactory());
+                this.restrictedShareableScope = this.setupScope(cx, false, false);
+            }
+            finally
+            {
+                Context.exit();
+            }
         }
         finally
         {
-            Context.exit();
+            ValueConverter.GLOBAL_CONVERTER.set(previousConverter);
         }
     }
 
@@ -561,8 +561,8 @@ public class EnhancedJSScriptProcessor extends BaseRegisterableScriptProcessor i
     public Object executeScript(final ScriptContent content, final Map<String, Object> model)
     {
         ParameterCheck.mandatory("content", content);
-        final Script script = this.getCompiledScript(content);
         final ScriptContentAdapter contentAdapter = new ScriptContentAdapter(content, this.standardScriptLoader);
+        final Script script = this.getCompiledScript(contentAdapter);
         final String debugScriptName = contentAdapter.getName();
 
         final Context cx = Context.enter();
@@ -614,7 +614,7 @@ public class EnhancedJSScriptProcessor extends BaseRegisterableScriptProcessor i
         this.dynamicScriptCacheLock.writeLock().lock();
         try
         {
-            this.dynamicScriptByHashCache.clear();
+            this.dynamicScriptCache.clear();
         }
         finally
         {
@@ -660,25 +660,48 @@ public class EnhancedJSScriptProcessor extends BaseRegisterableScriptProcessor i
         }
     }
 
-    protected Script getCompiledScript(final ScriptContent content)
+    protected ReferenceScript toReferenceScript(final String source)
+    {
+        try
+        {
+            final MD5 md5 = new MD5();
+            final String digest = md5.digest(source.getBytes("UTF-8"));
+            final String scriptName = MessageFormat.format("string:///DynamicJS-{0}.js", digest);
+            final ReferenceScript script = new ReferenceScript.DynamicScript(scriptName, source);
+            return script;
+        }
+        catch (final UnsupportedEncodingException err)
+        {
+            throw new ScriptException("Failed process supplied script", err);
+        }
+    }
+
+    protected Script getCompiledScript(final ReferenceScript content)
     {
         Script script = null;
-        final String path = content.getPath();
 
         String realPath = null;
-        String classPath = null;
 
-        if (content instanceof ReferenceScript)
+        final Collection<ReferencePathType> supportedReferencePathTypes = content.getSupportedReferencePathTypes();
+        for (final ReferencePathType pathType : REAL_PATH_SUCCESSION)
         {
-            realPath = ((ReferenceScript) content).getReferencePath(CommonReferencePath.FILE);
-            classPath = ((ReferenceScript) content).getReferencePath(CommonReferencePath.CLASSPATH);
+            if (realPath == null && supportedReferencePathTypes.contains(pathType))
+            {
+                realPath = content.getReferencePath(pathType);
+            }
+
         }
+
+        final String classPath = content.getReferencePath(CommonReferencePath.CLASSPATH);
 
         if (realPath == null)
         {
+            final String path = content instanceof ScriptContentAdapter ? ((ScriptContentAdapter) content).getPath() : content
+                    .getFullName();
+
             // check if the path is in classpath form
             // TODO: can we generalize external form file:// to a classpath-relative location? (best-effort)
-            if (!path.matches("^(classpath(\\*)?:)+.*$"))
+            if (!path.matches("^(classpath[*]?:).*$") && (classPath == null || !path.equals(classPath)))
             {
                 // take path as is - can be anything depending on how content is loaded
                 realPath = path;
@@ -701,7 +724,6 @@ public class EnhancedJSScriptProcessor extends BaseRegisterableScriptProcessor i
                 {
                     resource = this.getClass().getClassLoader().getResource(resourcePath.substring(1));
                 }
-
                 if (resource != null)
                 {
                     realPath = resource.toExternalForm();
@@ -716,15 +738,17 @@ public class EnhancedJSScriptProcessor extends BaseRegisterableScriptProcessor i
 
         // store since it may be reset between cache-check and cache-put, and we don't want debug-enabled scripts cached
         final boolean debuggerActive = this.debuggerActive;
+        final boolean dynamicScript = content instanceof DynamicScript;
         // test the cache for a pre-compiled script matching our path
-        if (this.compileScripts && !debuggerActive && content.isCachable())
+        if (this.compileScripts && !debuggerActive && (dynamicScript || content.isCachable()))
         {
-            script = this.lookupScriptCache(this.scriptCache, this.scriptCacheLock, content.getPath());
+            script = this.lookupScriptCache(dynamicScript ? this.dynamicScriptCache : this.scriptCache,
+                    dynamicScript ? this.dynamicScriptCacheLock : this.scriptCacheLock, realPath);
         }
 
         if (script == null)
         {
-            LOGGER.debug("Resolving and compiling script path: {}", path);
+            LOGGER.debug("Resolving and compiling script path: {}", realPath);
 
             try
             {
@@ -740,16 +764,17 @@ public class EnhancedJSScriptProcessor extends BaseRegisterableScriptProcessor i
                 throw new WebScriptException(MessageFormat.format("Failed to load supplied script: {0}", ex.getMessage()), ex);
             }
 
-            if (this.compileScripts && !debuggerActive && content.isCachable())
+            if (this.compileScripts && !debuggerActive && (dynamicScript || content.isCachable()))
             {
-                this.updateScriptCache(this.scriptCache, this.scriptCacheLock, path, script);
-
+                this.updateScriptCache(dynamicScript ? this.dynamicScriptCache : this.scriptCache,
+                        dynamicScript ? this.dynamicScriptCacheLock : this.scriptCacheLock, realPath, script);
             }
-            LOGGER.debug("Compiled script for {}", path);
+
+            LOGGER.debug("Compiled script for {}", realPath);
         }
         else
         {
-            LOGGER.debug("Using previously compiled script for {}", path);
+            LOGGER.debug("Using previously compiled script for {}", realPath);
         }
 
         return script;
@@ -923,10 +948,13 @@ public class EnhancedJSScriptProcessor extends BaseRegisterableScriptProcessor i
         final long startTime = System.currentTimeMillis();
         LOGGER.info("{} Start", debugScriptName);
 
+        final ValueConverter previousConverter = ValueConverter.GLOBAL_CONVERTER.get();
+        ValueConverter.GLOBAL_CONVERTER.set(this.valueConverter);
+
         final Context cx = Context.enter();
         try
         {
-            cx.setWrapFactory(WRAP_FACTORY);
+            cx.setWrapFactory(new DelegatingWrapFactory());
 
             final Scriptable scope;
             if (this.shareScopes)
@@ -948,7 +976,7 @@ public class EnhancedJSScriptProcessor extends BaseRegisterableScriptProcessor i
                 {
                     final Object obj = model.get(key);
                     // convert/wrap each object to JavaScript compatible
-                    final Object jsObject = Context.javaToJS(obj, scope);
+                    final Object jsObject = this.valueConverter.convertValueForScript(obj);
 
                     // insert into the root scope ready for access by the script
                     ScriptableObject.putProperty(scope, key, jsObject);
@@ -976,6 +1004,8 @@ public class EnhancedJSScriptProcessor extends BaseRegisterableScriptProcessor i
         {
             Context.exit();
 
+            ValueConverter.GLOBAL_CONVERTER.set(previousConverter);
+
             final long endTime = System.currentTimeMillis();
             LOGGER.info("{} End {} ms", debugScriptName, Long.valueOf(endTime - startTime));
         }
@@ -986,7 +1016,8 @@ public class EnhancedJSScriptProcessor extends BaseRegisterableScriptProcessor i
         final Context cx = Context.enter();
         try
         {
-            cx.setWrapFactory(WRAP_FACTORY);
+            cx.setLocale(I18NUtil.getLocale());
+
             // make sure scripts always have the relevant processor extensions available
             for (final ProcessorExtension ex : this.processorExtensions.values())
             {
@@ -1089,4 +1120,14 @@ public class EnhancedJSScriptProcessor extends BaseRegisterableScriptProcessor i
     {
         this.standardScriptLoader = standardScriptLoader;
     }
+
+    /**
+     * @param valueConverter
+     *            the valueConverter to set
+     */
+    public void setValueConverter(final ValueConverter valueConverter)
+    {
+        this.valueConverter = valueConverter;
+    }
+
 }

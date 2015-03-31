@@ -1,11 +1,10 @@
 /*
- * Copyright 2013 PRODYNA AG
+ * Copyright 2014 PRODYNA AG
  *
  * Licensed under the Eclipse Public License (EPL), Version 1.0 (the "License"); you may not use
  * this file except in compliance with the License. You may obtain a copy of the License at
  *
- * http://www.opensource.org/licenses/eclipse-1.0.php or
- * http://www.nabucco.org/License.html
+ * https://www.eclipse.org/legal/epl-v10.html
  *
  * Unless required by applicable law or agreed to in writing, software distributed under the
  * License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND,
@@ -31,6 +30,8 @@ public interface EnhancedScriptProcessor<SL>
      * @param scope
      *            the scope the script is to be executed in
      *
+     * @return the result of the script execution - may be {@code null} if the script did not yield a direct result
+     *
      */
     Object executeInScope(SL location, Object scope);
 
@@ -43,6 +44,7 @@ public interface EnhancedScriptProcessor<SL>
      * @param scope
      *            the scope the script is to be executed in
      *
+     * @return the result of the script execution - may be {@code null} if the script did not yield a direct result
      */
     Object executeInScope(String source, Object scope);
 
@@ -61,7 +63,8 @@ public interface EnhancedScriptProcessor<SL>
      * have invoked each other.
      *
      * @return the chain scripts leading to the call on the script currently being executed in the order they have been called, i.e. with
-     *         first script at an index position of zero. This may be {@code null} if no script is currently being executed.
+     *         first script at an index position of zero. This may be {@code null} or an empty list if no script is currently being
+     *         executed.
      */
     List<ReferenceScript> getScriptCallChain();
 

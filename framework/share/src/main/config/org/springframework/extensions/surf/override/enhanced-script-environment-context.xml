@@ -1,6 +1,5 @@
 <?xml version='1.0' encoding='UTF-8'?>
-<beans xmlns="http://www.springframework.org/schema/beans" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-    xsi:schemaLocation="
+<beans xmlns="http://www.springframework.org/schema/beans" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="
            http://www.springframework.org/schema/beans
            http://www.springframework.org/schema/beans/spring-beans-3.0.xsd">
     <!-- Note: All beans should be prefixed ${project.artifactId} in their ID in general -->
@@ -13,17 +12,46 @@
         <property name="actualWebscriptsScriptProcessor" ref="webframework.webscripts.scriptprocessor.alternative.javascript" />
         <property name="actualTemplatesScriptProcessor" ref="webframework.templates.scriptprocessor.alternative.javascript" />
     </bean>
+    
+    <!-- Rhino-specific value converter -->
+    <bean id="scriptprocessor.rhinoValueConverter" class="org.nabucco.alfresco.enhScriptEnv.common.script.converter.GenericGlobalValueConverter" />
+    
+    <bean id="scriptprocessor.rhinoValueConverter.abstractInstanceConverter" abstract="true">
+        <property name="registry" ref="scriptprocessor.rhinoValueConverter" />
+    </bean>
+    
+    <bean id="scriptprocessor.rhinoValueConverter.wrapFactoryConverter" class="org.nabucco.alfresco.enhScriptEnv.common.script.converter.rhino.WrapFactoryConverter" parent="scriptprocessor.rhinoValueConverter.abstractInstanceConverter" />
+    
+    <bean id="scriptprocessor.rhinoValueConverter.surfNativeMapConverter" class="org.nabucco.alfresco.enhScriptEnv.common.script.converter.rhino.SurfNativeMapConverter" parent="scriptprocessor.rhinoValueConverter.abstractInstanceConverter" />
+    
+    <!-- <bean id="scriptprocessor.rhinoValueConverter.stringConverter" class="org.nabucco.alfresco.enhScriptEnv.common.script.converter.rhino.StringConverter" parent="scriptprocessor.rhinoValueConverter.abstractInstanceConverter" /> -->
+    
+    <bean id="scriptprocessor.rhinoValueConverter.simpleJSONObjectConverter" class="org.nabucco.alfresco.enhScriptEnv.common.script.converter.rhino.SimpleJSONObjectConverter" parent="scriptprocessor.rhinoValueConverter.abstractInstanceConverter" />
+    
+    <!-- <bean id="scriptprocessor.rhinoValueConverter.nativeArrayConverter" class="org.nabucco.alfresco.enhScriptEnv.common.script.converter.rhino.NativeArrayConverter" parent="scriptprocessor.rhinoValueConverter.abstractInstanceConverter" /> -->
+    
+    <bean id="scriptprocessor.rhinoValueConverter.scriptableObjectConverterConverter" class="org.nabucco.alfresco.enhScriptEnv.common.script.converter.rhino.ScriptableObjectConverter" parent="scriptprocessor.rhinoValueConverter.abstractInstanceConverter" />
+    
+    <bean id="scriptprocessor.rhinoValueConverter.dateConverter" class="org.nabucco.alfresco.enhScriptEnv.common.script.converter.rhino.DateConverter" parent="scriptprocessor.rhinoValueConverter.abstractInstanceConverter" />
+    
+    <bean id="scriptprocessor.rhinoValueConverter.mapConverter" class="org.nabucco.alfresco.enhScriptEnv.common.script.converter.general.MapConverter" parent="scriptprocessor.rhinoValueConverter.abstractInstanceConverter" />
+    
+    <bean id="scriptprocessor.rhinoValueConverter.numberConverter" class="org.nabucco.alfresco.enhScriptEnv.common.script.converter.general.NumberConverter" parent="scriptprocessor.rhinoValueConverter.abstractInstanceConverter" />
+    
+    <bean id="scriptprocessor.rhinoValueConverter.arrayConverter" class="org.nabucco.alfresco.enhScriptEnv.common.script.converter.general.ArrayConverter" parent="scriptprocessor.rhinoValueConverter.abstractInstanceConverter" />
 
     <!-- alternative script processors for Web Scripts / Templates -->
 
     <bean id="webframework.webscripts.scriptprocessor.alternative.javascript" class="org.nabucco.alfresco.enhScriptEnv.common.webscripts.processor.EnhancedJSScriptProcessor">
         <property name="scriptProcessorRegistry" ref="webframework.webscripts.registry.scriptprocessor" />
         <property name="standardScriptLoader" ref="webframework.webscripts.scriptprocessor.alternative.javascript.storeScriptLocator" />
+        <property name="valueConverter" ref="scriptprocessor.rhinoValueConverter" />
     </bean>
 
     <bean id="webframework.templates.scriptprocessor.alternative.javascript" class="org.nabucco.alfresco.enhScriptEnv.common.webscripts.processor.EnhancedJSScriptProcessor">
         <property name="scriptProcessorRegistry" ref="webframework.templates.registry.scriptprocessor" />
         <property name="standardScriptLoader" ref="webframework.templates.scriptprocessor.alternative.javascript.storeScriptLocator" />
+        <property name="valueConverter" ref="scriptprocessor.rhinoValueConverter" />
     </bean>
 
     <bean id="baseScriptExtension" abstract="true" init-method="register">
@@ -38,39 +66,35 @@
     </bean>
 
     <!-- Web Script processor extensions -->
-    <bean id="webframework.webscripts.scriptprocessor.alternative.javascript.scriptLogger" class="org.nabucco.alfresco.enhScriptEnv.common.script.LogFunction">
+    <bean id="webframework.webscripts.scriptprocessor.alternative.javascript.scriptLogger" class="org.nabucco.alfresco.enhScriptEnv.common.script.functions.RhinoLogFunction">
         <property name="scriptProcessor" ref="webframework.webscripts.scriptprocessor.alternative.javascript" />
-        <property name="valueConverter">
-            <bean class="org.nabucco.alfresco.enhScriptEnv.common.webscripts.processor.SimpleSurfValueConverter" />
-        </property>
+        <property name="valueConverter" ref="scriptprocessor.rhinoValueConverter" />
         <property name="defaultLoggerPrefix" value="org.springframework.extensions.webscripts.executions" />
     </bean>
 
-    <bean id="webframework.webscripts.scriptprocessor.alternative.javascript.importFunction" class="org.nabucco.alfresco.enhScriptEnv.common.script.ImportScriptFunction">
+    <bean id="webframework.webscripts.scriptprocessor.scriptLocatorRegistry" class="org.nabucco.alfresco.enhScriptEnv.common.script.locator.SimpleScriptLocatorRegistry" />
+
+    <bean id="webframework.webscripts.scriptprocessor.alternative.javascript.importFunction" class="org.nabucco.alfresco.enhScriptEnv.common.script.functions.RhinoImportScriptFunction">
         <property name="scriptProcessor" ref="webframework.webscripts.scriptprocessor.alternative.javascript" />
-        <property name="valueConverter">
-            <bean class="org.nabucco.alfresco.enhScriptEnv.common.webscripts.processor.SimpleSurfValueConverter" />
-        </property>
+        <property name="valueConverter" ref="scriptprocessor.rhinoValueConverter" />
+        <property name="locatorRegistry" ref="webframework.webscripts.scriptprocessor.scriptLocatorRegistry" />
     </bean>
 
     <bean id="webframework.webscripts.scriptprocessor.alternative.javascript.scriptLocator.base" abstract="true">
-        <property name="scriptLocatorRegistry" ref="webframework.webscripts.scriptprocessor.alternative.javascript.importFunction" />
+        <property name="scriptLocatorRegistry" ref="webframework.webscripts.scriptprocessor.scriptLocatorRegistry" />
     </bean>
 
-    <bean id="webframework.webscripts.scriptprocessor.alternative.javascript.storeScriptLocator" class="org.nabucco.alfresco.enhScriptEnv.common.webscripts.processor.StoreScriptLocator"
-        parent="webframework.webscripts.scriptprocessor.alternative.javascript.scriptLocator.base">
+    <bean id="webframework.webscripts.scriptprocessor.alternative.javascript.storeScriptLocator" class="org.nabucco.alfresco.enhScriptEnv.common.webscripts.processor.StoreScriptLocator" parent="webframework.webscripts.scriptprocessor.alternative.javascript.scriptLocator.base">
         <property name="searchPath" ref="webframework.webscripts.searchpath" />
         <property name="name" value="storePath" />
     </bean>
 
-    <bean id="webframework.webscripts.scriptprocessor.alternative.javascript.classpathScriptLocator" class="org.nabucco.alfresco.enhScriptEnv.common.webscripts.processor.ClasspathScriptLocator"
-        parent="webframework.webscripts.scriptprocessor.alternative.javascript.scriptLocator.base">
+    <bean id="webframework.webscripts.scriptprocessor.alternative.javascript.classpathScriptLocator" class="org.nabucco.alfresco.enhScriptEnv.common.webscripts.processor.ClasspathScriptLocator" parent="webframework.webscripts.scriptprocessor.alternative.javascript.scriptLocator.base">
         <property name="name" value="classpath" />
         <property name="scriptLoader" ref="webframework.webscripts.scriptprocessor.alternative.javascript.storeScriptLocator" />
     </bean>
 
-    <bean id="webframework.webscripts.scriptprocessor.alternative.javascript.registryScriptLocator" class="${basePackage}.surf.ShareRegisteredScriptLocator"
-        parent="webframework.webscripts.scriptprocessor.alternative.javascript.scriptLocator.base">
+    <bean id="webframework.webscripts.scriptprocessor.alternative.javascript.registryScriptLocator" class="${basePackage}.surf.ShareRegisteredScriptLocator" parent="webframework.webscripts.scriptprocessor.alternative.javascript.scriptLocator.base">
         <property name="name" value="registry" />
         <property name="scriptRegistry" ref="scriptprocessor.alternative.javascript.scriptRegistry" />
         <property name="scriptLoader" ref="webframework.webscripts.scriptprocessor.alternative.javascript.storeScriptLocator" />
@@ -88,39 +112,35 @@
 
     <!-- Template processor extensions -->
 
-    <bean id="webframework.templates.scriptprocessor.alternative.javascript.scriptLogger" class="org.nabucco.alfresco.enhScriptEnv.common.script.LogFunction">
+    <bean id="webframework.templates.scriptprocessor.alternative.javascript.scriptLogger" class="org.nabucco.alfresco.enhScriptEnv.common.script.functions.RhinoLogFunction">
         <property name="scriptProcessor" ref="webframework.templates.scriptprocessor.alternative.javascript" />
-        <property name="valueConverter">
-            <bean class="org.nabucco.alfresco.enhScriptEnv.common.webscripts.processor.SimpleSurfValueConverter" />
-        </property>
+        <property name="valueConverter" ref="scriptprocessor.rhinoValueConverter" />
         <property name="defaultLoggerPrefix" value="org.springframework.extensions.templates.executions" />
     </bean>
 
-    <bean id="webframework.templates.scriptprocessor.alternative.javascript.importFunction" class="org.nabucco.alfresco.enhScriptEnv.common.script.ImportScriptFunction">
+    <bean id="webframework.templates.scriptprocessor.scriptLocatorRegistry" class="org.nabucco.alfresco.enhScriptEnv.common.script.locator.SimpleScriptLocatorRegistry" />
+
+    <bean id="webframework.templates.scriptprocessor.alternative.javascript.importFunction" class="org.nabucco.alfresco.enhScriptEnv.common.script.functions.RhinoImportScriptFunction">
         <property name="scriptProcessor" ref="webframework.templates.scriptprocessor.alternative.javascript" />
-        <property name="valueConverter">
-            <bean class="org.nabucco.alfresco.enhScriptEnv.common.webscripts.processor.SimpleSurfValueConverter" />
-        </property>
+        <property name="valueConverter" ref="scriptprocessor.rhinoValueConverter" />
+        <property name="locatorRegistry" ref="webframework.templates.scriptprocessor.scriptLocatorRegistry" />
     </bean>
 
     <bean id="webframework.templates.scriptprocessor.alternative.javascript.scriptLocator.base" abstract="true">
-        <property name="scriptLocatorRegistry" ref="webframework.templates.scriptprocessor.alternative.javascript.importFunction" />
+        <property name="scriptLocatorRegistry" ref="webframework.templates.scriptprocessor.scriptLocatorRegistry" />
     </bean>
 
-    <bean id="webframework.templates.scriptprocessor.alternative.javascript.storeScriptLocator" class="org.nabucco.alfresco.enhScriptEnv.common.webscripts.processor.StoreScriptLocator"
-        parent="webframework.templates.scriptprocessor.alternative.javascript.scriptLocator.base">
+    <bean id="webframework.templates.scriptprocessor.alternative.javascript.storeScriptLocator" class="org.nabucco.alfresco.enhScriptEnv.common.webscripts.processor.StoreScriptLocator" parent="webframework.templates.scriptprocessor.alternative.javascript.scriptLocator.base">
         <property name="searchPath" ref="webframework.templates.searchpath" />
         <property name="name" value="storePath" />
     </bean>
 
-    <bean id="webframework.templates.scriptprocessor.alternative.javascript.classpathScriptLocator" class="org.nabucco.alfresco.enhScriptEnv.common.webscripts.processor.ClasspathScriptLocator"
-        parent="webframework.templates.scriptprocessor.alternative.javascript.scriptLocator.base">
+    <bean id="webframework.templates.scriptprocessor.alternative.javascript.classpathScriptLocator" class="org.nabucco.alfresco.enhScriptEnv.common.webscripts.processor.ClasspathScriptLocator" parent="webframework.templates.scriptprocessor.alternative.javascript.scriptLocator.base">
         <property name="name" value="classpath" />
         <property name="scriptLoader" ref="webframework.templates.scriptprocessor.alternative.javascript.storeScriptLocator" />
     </bean>
 
-    <bean id="webframework.templates.scriptprocessor.alternative.javascript.registryScriptLocator" class="${basePackage}.surf.ShareRegisteredScriptLocator"
-        parent="webframework.templates.scriptprocessor.alternative.javascript.scriptLocator.base">
+    <bean id="webframework.templates.scriptprocessor.alternative.javascript.registryScriptLocator" class="${basePackage}.surf.ShareRegisteredScriptLocator" parent="webframework.templates.scriptprocessor.alternative.javascript.scriptLocator.base">
         <property name="name" value="registry" />
         <property name="scriptRegistry" ref="scriptprocessor.alternative.javascript.scriptRegistry" />
         <property name="scriptLoader" ref="webframework.templates.scriptprocessor.alternative.javascript.storeScriptLocator" />

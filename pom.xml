@@ -15,6 +15,9 @@
         <slf4j.version>1.7.5</slf4j.version>
         <!-- For Alfresco 5.0+, this needs to be "classes" -->
         <web-framework-commons.classifier></web-framework-commons.classifier>
+        
+        <maven.compiler.source>1.6</maven.compiler.source>
+        <maven.compiler.target>1.6</maven.compiler.target>
 
     </properties>
 
@@ -75,8 +78,8 @@
                     <artifactId>maven-compiler-plugin</artifactId>
                     <version>3.2</version>
                     <configuration>
-                        <source>1.6</source>
-                        <target>1.6</target>
+                        <source>${maven.compiler.source}</source>
+                        <target>${maven.compiler.target}</target>
                     </configuration>
                 </plugin>
 
