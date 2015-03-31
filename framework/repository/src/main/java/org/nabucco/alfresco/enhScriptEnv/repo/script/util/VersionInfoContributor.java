@@ -83,7 +83,6 @@ public class VersionInfoContributor implements ScopeContributor, InitializingBea
                     ScriptableObject.defineConstProperty(descriptorObj, KEY_SCHEMA);
                     ScriptableObject.defineConstProperty(descriptorObj, KEY_IS_COMMUNITY);
 
-
                     ScriptableObject.putConstProperty(descriptorObj, KEY_EDITION,
                             DEFAULT_WRAP_FACTORY.wrap(context, (Scriptable) scope, serverDescriptor.getEdition(), String.class));
                     ScriptableObject.putConstProperty(descriptorObj, KEY_FULL_VERSION,

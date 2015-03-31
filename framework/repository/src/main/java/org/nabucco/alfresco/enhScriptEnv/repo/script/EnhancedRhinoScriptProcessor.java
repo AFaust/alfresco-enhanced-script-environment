@@ -747,9 +747,7 @@ public class EnhancedRhinoScriptProcessor extends BaseProcessor implements Enhan
     protected Script getCompiledScript(final ReferenceScript location)
     {
         Script script = null;
-
         String realPath = null;
-        String classPath = null;
 
         final Collection<ReferencePathType> supportedReferencePathTypes = location.getSupportedReferencePathTypes();
         for (final ReferencePathType pathType : REAL_PATH_SUCCESSION)
@@ -758,7 +756,6 @@ public class EnhancedRhinoScriptProcessor extends BaseProcessor implements Enhan
             {
                 realPath = location.getReferencePath(pathType);
             }
-            classPath = ((ReferenceScript) location).getReferencePath(CommonReferencePath.CLASSPATH);
         }
 
         final String classPath = location.getReferencePath(CommonReferencePath.CLASSPATH);

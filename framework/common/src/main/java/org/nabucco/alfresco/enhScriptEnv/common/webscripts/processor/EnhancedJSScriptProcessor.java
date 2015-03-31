@@ -13,8 +13,6 @@
  */
 package org.nabucco.alfresco.enhScriptEnv.common.webscripts.processor;
 
-import java.lang.reflect.Method;
-import java.net.URL;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
@@ -679,7 +677,6 @@ public class EnhancedJSScriptProcessor extends BaseRegisterableScriptProcessor i
     protected Script getCompiledScript(final ReferenceScript content)
     {
         Script script = null;
-
         String realPath = null;
 
         final Collection<ReferencePathType> supportedReferencePathTypes = content.getSupportedReferencePathTypes();
@@ -689,7 +686,6 @@ public class EnhancedJSScriptProcessor extends BaseRegisterableScriptProcessor i
             {
                 realPath = content.getReferencePath(pathType);
             }
-
         }
 
         final String classPath = content.getReferencePath(CommonReferencePath.CLASSPATH);
