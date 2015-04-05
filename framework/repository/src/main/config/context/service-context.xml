@@ -16,11 +16,21 @@
         <property name="registry" ref="javaScriptProcessor.rhinoValueConverter" />
     </bean>
     
+    <bean id="javaScriptProcessor.rhinoValueConverter.adapterObjectConverter" class="org.nabucco.alfresco.enhScriptEnv.common.script.converter.general.AdapterObjectConverter" parent="javaScriptProcessor.rhinoValueConverter.abstractInstanceConverter" />
+    
+    <bean id="javaScriptProcessor.rhinoValueConverter.numberConverter" class="org.nabucco.alfresco.enhScriptEnv.common.script.converter.general.NumberConverter" parent="javaScriptProcessor.rhinoValueConverter.abstractInstanceConverter" />
+    
+    <bean id="javaScriptProcessor.rhinoValueConverter.arrayConverter" class="org.nabucco.alfresco.enhScriptEnv.common.script.converter.general.ArrayConverter" parent="javaScriptProcessor.rhinoValueConverter.abstractInstanceConverter" />
+    
     <bean id="javaScriptProcessor.rhinoValueConverter.wrapFactoryConverter" class="org.nabucco.alfresco.enhScriptEnv.common.script.converter.rhino.WrapFactoryConverter" parent="javaScriptProcessor.rhinoValueConverter.abstractInstanceConverter" />
     
     <bean id="javaScriptProcessor.rhinoValueConverter.surfNativeMapConverter" class="org.nabucco.alfresco.enhScriptEnv.common.script.converter.rhino.SurfNativeMapConverter" parent="javaScriptProcessor.rhinoValueConverter.abstractInstanceConverter" />
     
-    <!-- <bean id="javaScriptProcessor.rhinoValueConverter.stringConverter" class="org.nabucco.alfresco.enhScriptEnv.common.script.converter.rhino.StringConverter" parent="javaScriptProcessor.rhinoValueConverter.abstractInstanceConverter" /> -->
+    <bean id="javaScriptProcessor.rhinoValueConverter.scriptableFacadeMapConverter" class="org.nabucco.alfresco.enhScriptEnv.common.script.converter.rhino.ScriptableFacadeMapConverter" parent="javaScriptProcessor.rhinoValueConverter.abstractInstanceConverter" />
+    
+    <bean id="javaScriptProcessor.rhinoValueConverter.scriptableLinkedHashMapConverter" class="org.nabucco.alfresco.enhScriptEnv.common.script.converter.rhino.ScriptableLinkedHashMapConverter" parent="javaScriptProcessor.rhinoValueConverter.abstractInstanceConverter" />
+    
+    <bean id="javaScriptProcessor.rhinoValueConverter.scriptableWrappedMapConverter" class="org.nabucco.alfresco.enhScriptEnv.common.script.converter.rhino.ScriptableWrappedMapConverter" parent="javaScriptProcessor.rhinoValueConverter.abstractInstanceConverter" />
     
     <bean id="javaScriptProcessor.rhinoValueConverter.simpleJSONObjectConverter" class="org.nabucco.alfresco.enhScriptEnv.common.script.converter.rhino.SimpleJSONObjectConverter" parent="javaScriptProcessor.rhinoValueConverter.abstractInstanceConverter" />
     
@@ -32,11 +42,9 @@
     
     <bean id="javaScriptProcessor.rhinoValueConverter.mapConverter" class="org.nabucco.alfresco.enhScriptEnv.common.script.converter.general.MapConverter" parent="javaScriptProcessor.rhinoValueConverter.abstractInstanceConverter" />
     
-    <bean id="javaScriptProcessor.rhinoValueConverter.numberConverter" class="org.nabucco.alfresco.enhScriptEnv.common.script.converter.general.NumberConverter" parent="javaScriptProcessor.rhinoValueConverter.abstractInstanceConverter" />
-    
-    <bean id="javaScriptProcessor.rhinoValueConverter.arrayConverter" class="org.nabucco.alfresco.enhScriptEnv.common.script.converter.general.ArrayConverter" parent="javaScriptProcessor.rhinoValueConverter.abstractInstanceConverter" />
-    
     <bean id="javaScriptProcessor.rhinoValueConverter.repoNativeMapConverter" class="${basePackage}.script.converter.rhino.RepoNativeMapConverter" parent="javaScriptProcessor.rhinoValueConverter.abstractInstanceConverter" />
+    
+    <bean id="javaScriptProcessor.rhinoValueConverter.scriptableHashMapConverter" class="${basePackage}.script.converter.rhino.ScriptableHashMapConverter" parent="javaScriptProcessor.rhinoValueConverter.abstractInstanceConverter" />
     
     <bean id="javaScriptProcessor.rhinoValueConverter.associationConverter" class="${basePackage}.script.converter.rhino.AssociationConverter" parent="javaScriptProcessor.rhinoValueConverter.abstractInstanceConverter">
         <property name="serviceRegistry" ref="ServiceRegistry" />

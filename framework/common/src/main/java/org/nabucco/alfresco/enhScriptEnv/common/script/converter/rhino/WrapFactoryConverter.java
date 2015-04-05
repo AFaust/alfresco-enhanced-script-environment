@@ -13,6 +13,9 @@
  */
 package org.nabucco.alfresco.enhScriptEnv.common.script.converter.rhino;
 
+import java.util.ArrayList;
+import java.util.List;
+
 import org.alfresco.util.PropertyCheck;
 import org.mozilla.javascript.Context;
 import org.mozilla.javascript.Scriptable;
@@ -33,8 +36,23 @@ public class WrapFactoryConverter implements ValueInstanceConverter, Initializin
 
     protected ValueInstanceConverterRegistry registry;
 
+    protected ThreadLocal<List<Object>> currentConversions = new ThreadLocal<List<Object>>()
+    {
+
+        /**
+         * {@inheritDoc}
+         */
+        @Override
+        protected List<Object> initialValue()
+        {
+            return new ArrayList<Object>();
+        }
+
+    };
+
     /**
-     * @param registry the registry to set
+     * @param registry
+     *            the registry to set
      */
     public void setRegistry(final ValueInstanceConverterRegistry registry)
     {
@@ -70,7 +88,8 @@ public class WrapFactoryConverter implements ValueInstanceConverter, Initializin
     @Override
     public boolean canConvertValueForScript(final Object value, final ValueConverter globalDelegate, final Class<?> expectedClass)
     {
-        final boolean canConvert = Context.getCurrentContext() != null && expectedClass.isAssignableFrom(Scriptable.class);
+        final boolean canConvert = Context.getCurrentContext() != null && expectedClass.isAssignableFrom(Scriptable.class)
+                && !this.currentConversions.get().contains(value);
         return canConvert;
     }
 
@@ -84,8 +103,19 @@ public class WrapFactoryConverter implements ValueInstanceConverter, Initializin
         final Context currentContext = Context.getCurrentContext();
         final WrapFactory factory = currentContext.getWrapFactory();
 
-        // if conversion call is made in a scope-ful context, the caller needs to take care of setting parentScope for Scriptable
-        final Object result = factory.wrap(currentContext, null, value, null);
+        final Object result;
+
+        // mark for recursion prevention (DelegatingWrapFactory may otherwise indirectly delegate back)
+        this.currentConversions.get().add(value);
+        try
+        {
+            // if conversion call is made in a scope-ful context, the caller needs to take care of setting parentScope for Scriptable
+            result = factory.wrap(currentContext, null, value, null);
+        }
+        finally
+        {
+            this.currentConversions.get().remove(value);
+        }
 
         // we tried to check in advance as best as possible in #canConvertValueForScript
         return expectedClass.isInstance(result) ? result : null;

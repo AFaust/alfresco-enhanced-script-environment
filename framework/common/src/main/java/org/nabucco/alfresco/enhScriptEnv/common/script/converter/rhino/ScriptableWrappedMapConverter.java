@@ -19,13 +19,18 @@ import org.nabucco.alfresco.enhScriptEnv.common.script.converter.ValueInstanceCo
 import org.nabucco.alfresco.enhScriptEnv.common.script.converter.ValueInstanceConverterRegistry.ValueInstanceConverter;
 import org.springframework.beans.factory.InitializingBean;
 import org.springframework.extensions.webscripts.NativeMap;
+import org.springframework.extensions.webscripts.ScriptValueConverter;
+import org.springframework.extensions.webscripts.ScriptableWrappedMap;
 
 /**
- * This converter is primarily used to remove any instances of {@link NativeMap} - when possible - in favor of AOP-based scriptable maps.
+ * This converter is primarily used to remove any instances of {@link ScriptableWrappedMap} - when possible - in favor of AOP-based
+ * scriptable maps including transparent value conversion (eliminating multiple different conversion approaches, like the
+ * {@link ScriptValueConverter} used by {@link ScriptableWrappedMap}). This can be done safely since we retain the wrapped map and thus keep
+ * script API internals relying on by-reference identity intact.
  *
  * @author Axel Faust, <a href="http://www.prodyna.com">PRODYNA AG</a>
  */
-public class SurfNativeMapConverter implements ValueInstanceConverter, InitializingBean
+public class ScriptableWrappedMapConverter implements ValueInstanceConverter, InitializingBean
 {
     protected ValueInstanceConverterRegistry registry;
 
@@ -47,7 +52,7 @@ public class SurfNativeMapConverter implements ValueInstanceConverter, Initializ
     {
         PropertyCheck.mandatory(this, "registry", this.registry);
 
-        this.registry.registerValueInstanceConverter(NativeMap.class, this);
+        this.registry.registerValueInstanceConverter(ScriptableWrappedMap.class, this);
     }
 
     /**
@@ -58,7 +63,7 @@ public class SurfNativeMapConverter implements ValueInstanceConverter, Initializ
     public int getForScriptConversionConfidence(final Class<?> valueInstanceClass, final Class<?> expectedClass)
     {
         final int confidence;
-        if (NativeMap.class.isAssignableFrom(valueInstanceClass) && !NativeMap.class.isAssignableFrom(expectedClass))
+        if (ScriptableWrappedMap.class.isAssignableFrom(valueInstanceClass) && !ScriptableWrappedMap.class.isAssignableFrom(expectedClass))
         {
             confidence = MEDIUM_CONFIDENCE;
         }
@@ -75,7 +80,8 @@ public class SurfNativeMapConverter implements ValueInstanceConverter, Initializ
     @Override
     public boolean canConvertValueForScript(final Object value, final ValueConverter globalDelegate, final Class<?> expectedClass)
     {
-        final boolean canConvert = NativeMap.class.isInstance(value) && !NativeMap.class.isAssignableFrom(expectedClass)
+        final boolean canConvert = ScriptableWrappedMap.class.isInstance(value)
+                && !ScriptableWrappedMap.class.isAssignableFrom(expectedClass)
                 && globalDelegate.canConvertValueForScript(((NativeMap) value).unwrap().getClass(), expectedClass);
         return canConvert;
     }
@@ -86,21 +92,21 @@ public class SurfNativeMapConverter implements ValueInstanceConverter, Initializ
     @Override
     public Object convertValueForScript(final Object value, final ValueConverter globalDelegate, final Class<?> expectedClass)
     {
-        if (!(value instanceof NativeMap))
+        if (!(value instanceof ScriptableWrappedMap))
         {
-            throw new IllegalArgumentException("value must be a " + NativeMap.class);
+            throw new IllegalArgumentException("value must be a " + ScriptableWrappedMap.class);
         }
 
-        if (NativeMap.class.isAssignableFrom(expectedClass))
+        if (ScriptableWrappedMap.class.isAssignableFrom(expectedClass))
         {
-            throw new IllegalArgumentException("expected class must be not be assignable to " + NativeMap.class);
+            throw new IllegalArgumentException("expected class must not be assignable to " + ScriptableWrappedMap.class);
         }
 
         final Object result;
 
         // Unless we have a very specific Map instance, ScriptableFacadeMapConverter should ensure we keep list-like access functionality of
-        // NativeMap
-        result = globalDelegate.convertValueForScript(((NativeMap) value).unwrap(), expectedClass);
+        // ScriptableWrappedMap
+        result = globalDelegate.convertValueForScript(((ScriptableWrappedMap) value).unwrap(), expectedClass);
 
         return result;
     }

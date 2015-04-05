@@ -286,7 +286,9 @@ public class EnhancedRhinoScriptProcessor extends BaseProcessor implements Enhan
         final Context cx = Context.enter();
         try
         {
-            cx.setWrapFactory(new DelegatingWrapFactory());
+            final DelegatingWrapFactory wrapFactory = new DelegatingWrapFactory();
+
+            cx.setWrapFactory(wrapFactory);
 
             List<ReferenceScript> currentChain = this.activeScriptLocationChain.get(cx);
             boolean newChain = false;
@@ -334,6 +336,8 @@ public class EnhancedRhinoScriptProcessor extends BaseProcessor implements Enhan
                 {
                     realScope = (Scriptable) scope;
                 }
+
+                wrapFactory.setScope(realScope);
 
                 final Object result = this.executeScriptInScopeImpl(script, realScope);
                 return result;
@@ -394,7 +398,8 @@ public class EnhancedRhinoScriptProcessor extends BaseProcessor implements Enhan
         final Context cx = Context.enter();
         try
         {
-            cx.setWrapFactory(new DelegatingWrapFactory());
+            final DelegatingWrapFactory wrapFactory = new DelegatingWrapFactory();
+            cx.setWrapFactory(wrapFactory);
 
             List<ReferenceScript> currentChain = this.activeScriptLocationChain.get(cx);
             boolean newChain = false;
@@ -444,6 +449,8 @@ public class EnhancedRhinoScriptProcessor extends BaseProcessor implements Enhan
                 {
                     realScope = (Scriptable) scope;
                 }
+
+                wrapFactory.setScope(realScope);
 
                 final Object result = this.executeScriptInScopeImpl(script, realScope);
                 return result;
@@ -999,7 +1006,8 @@ public class EnhancedRhinoScriptProcessor extends BaseProcessor implements Enhan
         final Context cx = Context.enter();
         try
         {
-            cx.setWrapFactory(new DelegatingWrapFactory());
+            final DelegatingWrapFactory wrapFactory = new DelegatingWrapFactory();
+            cx.setWrapFactory(wrapFactory);
 
             final Scriptable scope;
             if (this.shareScopes)
@@ -1014,12 +1022,15 @@ public class EnhancedRhinoScriptProcessor extends BaseProcessor implements Enhan
                 scope = this.setupScope(cx, secureScript, false);
             }
 
+            wrapFactory.setScope(scope);
+
             // insert supplied object model into root of the default scope
             for (final String key : model.keySet())
             {
+                final Object obj = model.get(key);
+
                 // set the root scope on appropriate objects
                 // this is used to allow native JS object creation etc.
-                final Object obj = model.get(key);
                 if (obj instanceof Scopeable)
                 {
                     ((Scopeable) obj).setScope(scope);
@@ -1027,6 +1038,12 @@ public class EnhancedRhinoScriptProcessor extends BaseProcessor implements Enhan
 
                 // convert/wrap each object to JavaScript compatible
                 final Object jsObject = this.valueConverter.convertValueForScript(obj);
+
+                // repeat on resulting object (may have been converted into Scopeable)
+                if (jsObject instanceof Scopeable)
+                {
+                    ((Scopeable) jsObject).setScope(scope);
+                }
 
                 // insert into the root scope ready for access by the script
                 ScriptableObject.putProperty(scope, key, jsObject);
@@ -1087,6 +1104,11 @@ public class EnhancedRhinoScriptProcessor extends BaseProcessor implements Enhan
 
                     // convert/wrap each to JavaScript compatible
                     final Object jsObject = this.valueConverter.convertValueForScript(ex);
+
+                    if (jsObject instanceof Scopeable)
+                    {
+                        ((Scopeable) jsObject).setScope(scope);
+                    }
 
                     // insert into the scope ready for access by the script
                     ScriptableObject.putProperty(scope, ex.getExtensionName(), jsObject);

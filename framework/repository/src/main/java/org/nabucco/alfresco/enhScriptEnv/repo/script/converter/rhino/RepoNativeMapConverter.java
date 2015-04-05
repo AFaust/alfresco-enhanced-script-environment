@@ -13,8 +13,6 @@
  */
 package org.nabucco.alfresco.enhScriptEnv.repo.script.converter.rhino;
 
-import java.util.Map;
-
 import org.alfresco.repo.jscript.NativeMap;
 import org.alfresco.util.PropertyCheck;
 import org.nabucco.alfresco.enhScriptEnv.common.script.converter.ValueConverter;
@@ -23,13 +21,12 @@ import org.nabucco.alfresco.enhScriptEnv.common.script.converter.ValueInstanceCo
 import org.springframework.beans.factory.InitializingBean;
 
 /**
- * Value instance converter implementation supporting NativeMap handling for a Rhino script engine within Surf.
+ * This converter is primarily used to remove any instances of {@link NativeMap} - when possible - in favor of AOP-based scriptable maps.
  *
  * @author Axel Faust, <a href="http://www.prodyna.com">PRODYNA AG</a>
  */
 public class RepoNativeMapConverter implements ValueInstanceConverter, InitializingBean
 {
-
     protected ValueInstanceConverterRegistry registry;
 
     /**
@@ -50,27 +47,25 @@ public class RepoNativeMapConverter implements ValueInstanceConverter, Initializ
     {
         PropertyCheck.mandatory(this, "registry", this.registry);
 
-        this.registry.registerValueInstanceConverter(Map.class, this);
         this.registry.registerValueInstanceConverter(NativeMap.class, this);
     }
 
     /**
+     *
      * {@inheritDoc}
      */
     @Override
     public int getForScriptConversionConfidence(final Class<?> valueInstanceClass, final Class<?> expectedClass)
     {
         final int confidence;
-
-        if (expectedClass.isAssignableFrom(NativeMap.class) && Map.class.isAssignableFrom(valueInstanceClass))
+        if (NativeMap.class.isAssignableFrom(valueInstanceClass) && !NativeMap.class.isAssignableFrom(expectedClass))
         {
-            confidence = LOW_CONFIDENCE;
+            confidence = MEDIUM_CONFIDENCE;
         }
         else
         {
             confidence = LOWEST_CONFIDENCE;
         }
-
         return confidence;
     }
 
@@ -80,9 +75,9 @@ public class RepoNativeMapConverter implements ValueInstanceConverter, Initializ
     @Override
     public boolean canConvertValueForScript(final Object value, final ValueConverter globalDelegate, final Class<?> expectedClass)
     {
-        final boolean result = value instanceof Map<?, ?> && expectedClass.isAssignableFrom(NativeMap.class)
-                && globalDelegate.canConvertValueForScript(value, Map.class);
-        return result;
+        final boolean canConvert = NativeMap.class.isInstance(value) && !NativeMap.class.isAssignableFrom(expectedClass)
+                && globalDelegate.canConvertValueForScript(((NativeMap) value).unwrap().getClass(), expectedClass);
+        return canConvert;
     }
 
     /**
@@ -91,40 +86,34 @@ public class RepoNativeMapConverter implements ValueInstanceConverter, Initializ
     @Override
     public Object convertValueForScript(final Object value, final ValueConverter globalDelegate, final Class<?> expectedClass)
     {
-        if (!(value instanceof Map<?, ?>))
+        if (!(value instanceof NativeMap))
         {
-            throw new IllegalArgumentException("value must be a Map");
+            throw new IllegalArgumentException("value must be a " + NativeMap.class);
         }
 
-        // no further distinction - always create NativeMap
+        if (NativeMap.class.isAssignableFrom(expectedClass))
+        {
+            throw new IllegalArgumentException("expected class must be not be assignable to " + NativeMap.class);
+        }
 
-        // the delegate call to convert Map-to-Map is for transparent conversion of keys&values
-        @SuppressWarnings("unchecked")
-        final Map<Object, Object> map = (Map<Object, Object>) globalDelegate.convertValueForScript(value, Map.class);
-        // if conversion call is made in a scope-ful context, the caller needs to take care of setting parentScope for Scriptable
-        final Object result = new NativeMap(null, map);
+        final Object result;
+
+        // Unless we have a very specific Map instance, ScriptableFacadeMapConverter should ensure we keep list-like access functionality of
+        // NativeMap
+        result = globalDelegate.convertValueForScript(((NativeMap) value).unwrap(), expectedClass);
 
         return result;
     }
 
     /**
+     *
      * {@inheritDoc}
      */
     @Override
     public int getForJavaConversionConfidence(final Class<?> valueInstanceClass, final Class<?> expectedClass)
     {
-        final int confidence;
-
-        if (NativeMap.class.isAssignableFrom(valueInstanceClass) && expectedClass.isAssignableFrom(Map.class))
-        {
-            confidence = LOW_CONFIDENCE;
-        }
-        else
-        {
-            confidence = LOWEST_CONFIDENCE;
-        }
-
-        return confidence;
+        // can't convert anything
+        return LOWEST_CONFIDENCE;
     }
 
     /**
@@ -133,9 +122,8 @@ public class RepoNativeMapConverter implements ValueInstanceConverter, Initializ
     @Override
     public boolean canConvertValueForJava(final Object value, final ValueConverter globalDelegate, final Class<?> expectedClass)
     {
-        final boolean result = value instanceof NativeMap && expectedClass.isAssignableFrom(Map.class)
-                && globalDelegate.canConvertValueForJava(((NativeMap) value).unwrap(), Map.class);
-        return result;
+        // can't convert anything
+        return false;
     }
 
     /**
@@ -144,15 +132,7 @@ public class RepoNativeMapConverter implements ValueInstanceConverter, Initializ
     @Override
     public Object convertValueForJava(final Object value, final ValueConverter globalDelegate, final Class<?> expectedClass)
     {
-        if (!(value instanceof NativeMap))
-        {
-            throw new IllegalArgumentException("value must be a NativeMap");
-        }
-
-        // the delegate call to convert Map-to-Map is for transparent conversion of keys&values
-        final Object result = globalDelegate.convertValueForJava(((NativeMap) value).unwrap(), Map.class);
-
-        return result;
+        // clients should check canConvertValueForJava first
+        throw new UnsupportedOperationException("This operation is not supported and should not have been called");
     }
-
 }

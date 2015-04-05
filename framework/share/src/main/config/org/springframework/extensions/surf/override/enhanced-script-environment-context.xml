@@ -24,8 +24,6 @@
     
     <bean id="scriptprocessor.rhinoValueConverter.surfNativeMapConverter" class="org.nabucco.alfresco.enhScriptEnv.common.script.converter.rhino.SurfNativeMapConverter" parent="scriptprocessor.rhinoValueConverter.abstractInstanceConverter" />
     
-    <!-- <bean id="scriptprocessor.rhinoValueConverter.stringConverter" class="org.nabucco.alfresco.enhScriptEnv.common.script.converter.rhino.StringConverter" parent="scriptprocessor.rhinoValueConverter.abstractInstanceConverter" /> -->
-    
     <bean id="scriptprocessor.rhinoValueConverter.simpleJSONObjectConverter" class="org.nabucco.alfresco.enhScriptEnv.common.script.converter.rhino.SimpleJSONObjectConverter" parent="scriptprocessor.rhinoValueConverter.abstractInstanceConverter" />
     
     <!-- <bean id="scriptprocessor.rhinoValueConverter.nativeArrayConverter" class="org.nabucco.alfresco.enhScriptEnv.common.script.converter.rhino.NativeArrayConverter" parent="scriptprocessor.rhinoValueConverter.abstractInstanceConverter" /> -->

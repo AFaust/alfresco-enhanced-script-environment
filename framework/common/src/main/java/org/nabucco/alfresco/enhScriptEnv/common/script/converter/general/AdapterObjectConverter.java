@@ -11,21 +11,19 @@
  * either express or implied. See the License for the specific language governing permissions
  * and limitations under the License.
  */
-package org.nabucco.alfresco.enhScriptEnv.common.script.converter.rhino;
+package org.nabucco.alfresco.enhScriptEnv.common.script.converter.general;
 
 import org.alfresco.util.PropertyCheck;
 import org.nabucco.alfresco.enhScriptEnv.common.script.converter.ValueConverter;
 import org.nabucco.alfresco.enhScriptEnv.common.script.converter.ValueInstanceConverterRegistry;
 import org.nabucco.alfresco.enhScriptEnv.common.script.converter.ValueInstanceConverterRegistry.ValueInstanceConverter;
+import org.nabucco.alfresco.enhScriptEnv.common.script.aop.AdapterObject;
 import org.springframework.beans.factory.InitializingBean;
-import org.springframework.extensions.webscripts.NativeMap;
 
 /**
- * This converter is primarily used to remove any instances of {@link NativeMap} - when possible - in favor of AOP-based scriptable maps.
- *
  * @author Axel Faust, <a href="http://www.prodyna.com">PRODYNA AG</a>
  */
-public class SurfNativeMapConverter implements ValueInstanceConverter, InitializingBean
+public class AdapterObjectConverter implements ValueInstanceConverter, InitializingBean
 {
     protected ValueInstanceConverterRegistry registry;
 
@@ -47,7 +45,7 @@ public class SurfNativeMapConverter implements ValueInstanceConverter, Initializ
     {
         PropertyCheck.mandatory(this, "registry", this.registry);
 
-        this.registry.registerValueInstanceConverter(NativeMap.class, this);
+        this.registry.registerValueInstanceConverter(AdapterObject.class, this);
     }
 
     /**
@@ -57,10 +55,46 @@ public class SurfNativeMapConverter implements ValueInstanceConverter, Initializ
     @Override
     public int getForScriptConversionConfidence(final Class<?> valueInstanceClass, final Class<?> expectedClass)
     {
-        final int confidence;
-        if (NativeMap.class.isAssignableFrom(valueInstanceClass) && !NativeMap.class.isAssignableFrom(expectedClass))
+        // supersede any conversion because an AdapterObject is already converted
+        return HIGHEST_CONFIDENCE;
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public boolean canConvertValueForScript(final Object value, final ValueConverter globalDelegate, final Class<?> expectedClass)
+    {
+        // an AdapterObject is already converted, but say yes so we can supersede
+        return value instanceof AdapterObject;
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public Object convertValueForScript(final Object value, final ValueConverter globalDelegate, final Class<?> expectedClass)
+    {
+        if (!(value instanceof AdapterObject))
         {
-            confidence = MEDIUM_CONFIDENCE;
+            throw new IllegalArgumentException("value must be a " + AdapterObject.class);
+        }
+
+        // an AdapterObject is already converted
+        return value;
+    }
+
+    /**
+     *
+     * {@inheritDoc}
+     */
+    @Override
+    public int getForJavaConversionConfidence(final Class<?> valueInstanceClass, final Class<?> expectedClass)
+    {
+        final int confidence;
+        if (AdapterObject.class.isAssignableFrom(valueInstanceClass))
+        {
+            confidence = HIGHEST_CONFIDENCE;
         }
         else
         {
@@ -73,57 +107,11 @@ public class SurfNativeMapConverter implements ValueInstanceConverter, Initializ
      * {@inheritDoc}
      */
     @Override
-    public boolean canConvertValueForScript(final Object value, final ValueConverter globalDelegate, final Class<?> expectedClass)
-    {
-        final boolean canConvert = NativeMap.class.isInstance(value) && !NativeMap.class.isAssignableFrom(expectedClass)
-                && globalDelegate.canConvertValueForScript(((NativeMap) value).unwrap().getClass(), expectedClass);
-        return canConvert;
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public Object convertValueForScript(final Object value, final ValueConverter globalDelegate, final Class<?> expectedClass)
-    {
-        if (!(value instanceof NativeMap))
-        {
-            throw new IllegalArgumentException("value must be a " + NativeMap.class);
-        }
-
-        if (NativeMap.class.isAssignableFrom(expectedClass))
-        {
-            throw new IllegalArgumentException("expected class must be not be assignable to " + NativeMap.class);
-        }
-
-        final Object result;
-
-        // Unless we have a very specific Map instance, ScriptableFacadeMapConverter should ensure we keep list-like access functionality of
-        // NativeMap
-        result = globalDelegate.convertValueForScript(((NativeMap) value).unwrap(), expectedClass);
-
-        return result;
-    }
-
-    /**
-     *
-     * {@inheritDoc}
-     */
-    @Override
-    public int getForJavaConversionConfidence(final Class<?> valueInstanceClass, final Class<?> expectedClass)
-    {
-        // can't convert anything
-        return LOWEST_CONFIDENCE;
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
     public boolean canConvertValueForJava(final Object value, final ValueConverter globalDelegate, final Class<?> expectedClass)
     {
-        // can't convert anything
-        return false;
+        final boolean canConvert = AdapterObject.class.isInstance(value)
+                && expectedClass.isAssignableFrom(((AdapterObject) value).getBackingObject().getClass());
+        return canConvert;
     }
 
     /**
@@ -132,7 +120,14 @@ public class SurfNativeMapConverter implements ValueInstanceConverter, Initializ
     @Override
     public Object convertValueForJava(final Object value, final ValueConverter globalDelegate, final Class<?> expectedClass)
     {
-        // clients should check canConvertValueForJava first
-        throw new UnsupportedOperationException("This operation is not supported and should not have been called");
+        if (!(value instanceof AdapterObject))
+        {
+            throw new IllegalArgumentException("value must be a " + AdapterObject.class);
+        }
+
+        final Object result = ((AdapterObject) value).getBackingObject();
+
+        return result;
     }
+
 }

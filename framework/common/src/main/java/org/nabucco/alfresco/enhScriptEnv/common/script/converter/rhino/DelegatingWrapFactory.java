@@ -26,6 +26,25 @@ public class DelegatingWrapFactory extends WrapFactory
 
     protected final ThreadLocal<Boolean> recursionGuard = new ThreadLocal<Boolean>();
 
+    protected Scriptable scope;
+
+    public DelegatingWrapFactory()
+    {
+        super();
+        // this fixes Java String vs. native JS String handling
+        // but breaks existing scripts that expect Java String
+        // this.setJavaPrimitiveWrap(false);
+    }
+
+    /**
+     * @param scope
+     *            the scope to set
+     */
+    public void setScope(final Scriptable scope)
+    {
+        this.scope = scope;
+    }
+
     /**
      *
      * {@inheritDoc}
@@ -34,21 +53,19 @@ public class DelegatingWrapFactory extends WrapFactory
     @SuppressWarnings("rawtypes")
     public Object wrap(final Context cx, final Scriptable scope, final Object obj, final Class staticType)
     {
-        final Object wrapped = super.wrap(cx, scope, obj, staticType);
+        final Object result;
 
-        final Boolean guardValue = this.recursionGuard.get();
-        this.recursionGuard.set(Boolean.TRUE);
-        try
+        if (obj instanceof Scriptable)
         {
-            final Object result = wrapped instanceof String ? ValueConverter.GLOBAL_CONVERTER.get()
-                    .convertValueForScript(wrapped) : wrapped;
+            // we may need to convert some objects that are already Scriptable
+            result = this.wrapAsJavaObject(cx, scope, obj, staticType);
+        }
+        else
+        {
+            result = super.wrap(cx, scope, obj, staticType);
+        }
 
-            return result;
-        }
-        finally
-        {
-            this.recursionGuard.set(guardValue);
-        }
+        return result;
     }
 
     /**
@@ -56,8 +73,7 @@ public class DelegatingWrapFactory extends WrapFactory
      */
     @Override
     @SuppressWarnings("rawtypes")
-    public Scriptable wrapAsJavaObject(final Context cx, final Scriptable scope, final Object javaObject,
-            final Class staticType)
+    public Scriptable wrapAsJavaObject(final Context cx, final Scriptable scope, final Object javaObject, final Class staticType)
     {
         final Scriptable result;
 
@@ -65,18 +81,27 @@ public class DelegatingWrapFactory extends WrapFactory
         if (Boolean.TRUE.equals(guardValue)
                 || !ValueConverter.GLOBAL_CONVERTER.get().canConvertValueForScript(javaObject, Scriptable.class))
         {
-            result = super.wrapAsJavaObject(cx, scope, javaObject, staticType);
+            if (javaObject instanceof Scriptable)
+            {
+                // either an unconvertable Scriptable or recursive wrap call
+                // this counteracts the override in wrap(Context, Scriptable, Object, Class)
+                result = (Scriptable) javaObject;
+            }
+            else
+            {
+                result = super.wrapAsJavaObject(cx, scope == null ? this.scope : scope, javaObject, staticType);
+            }
         }
         else
         {
             this.recursionGuard.set(Boolean.TRUE);
             try
             {
-                result = (Scriptable) ValueConverter.GLOBAL_CONVERTER.get().convertValueForScript(javaObject,
-                        Scriptable.class);
+                result = (Scriptable) ValueConverter.GLOBAL_CONVERTER.get().convertValueForScript(javaObject, Scriptable.class);
+
                 if (!(javaObject instanceof Scriptable) && result.getParentScope() == null)
                 {
-                    result.setParentScope(scope);
+                    result.setParentScope(scope == null ? this.scope : scope);
                 }
             }
             finally

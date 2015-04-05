@@ -185,7 +185,8 @@ public class EnhancedJSScriptProcessor extends BaseRegisterableScriptProcessor i
         final Context cx = Context.enter();
         try
         {
-            cx.setWrapFactory(new DelegatingWrapFactory());
+            final DelegatingWrapFactory wrapFactory = new DelegatingWrapFactory();
+            cx.setWrapFactory(wrapFactory);
 
             List<ReferenceScript> currentChain = this.activeScriptContentChain.get(cx);
             boolean newChain = false;
@@ -234,6 +235,8 @@ public class EnhancedJSScriptProcessor extends BaseRegisterableScriptProcessor i
                 {
                     realScope = (Scriptable) scope;
                 }
+
+                wrapFactory.setScope(realScope);
 
                 final Object result = this.executeScriptInScopeImpl(script, realScope);
                 return result;
@@ -287,7 +290,8 @@ public class EnhancedJSScriptProcessor extends BaseRegisterableScriptProcessor i
         final Context cx = Context.enter();
         try
         {
-            cx.setWrapFactory(new DelegatingWrapFactory());
+            final DelegatingWrapFactory wrapFactory = new DelegatingWrapFactory();
+            cx.setWrapFactory(wrapFactory);
 
             List<ReferenceScript> currentChain = this.activeScriptContentChain.get(cx);
             boolean newChain = false;
@@ -336,6 +340,8 @@ public class EnhancedJSScriptProcessor extends BaseRegisterableScriptProcessor i
                 {
                     realScope = (Scriptable) scope;
                 }
+
+                wrapFactory.setScope(realScope);
 
                 final Object result = this.executeScriptInScopeImpl(script, realScope);
                 return result;
@@ -950,7 +956,8 @@ public class EnhancedJSScriptProcessor extends BaseRegisterableScriptProcessor i
         final Context cx = Context.enter();
         try
         {
-            cx.setWrapFactory(new DelegatingWrapFactory());
+            final DelegatingWrapFactory wrapFactory = new DelegatingWrapFactory();
+            cx.setWrapFactory(wrapFactory);
 
             final Scriptable scope;
             if (this.shareScopes)
@@ -964,6 +971,8 @@ public class EnhancedJSScriptProcessor extends BaseRegisterableScriptProcessor i
             {
                 scope = this.setupScope(cx, trustworthyScript, false);
             }
+
+            wrapFactory.setScope(scope);
 
             if (model != null)
             {

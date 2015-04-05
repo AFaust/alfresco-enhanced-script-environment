@@ -18,14 +18,15 @@ import org.nabucco.alfresco.enhScriptEnv.common.script.converter.ValueConverter;
 import org.nabucco.alfresco.enhScriptEnv.common.script.converter.ValueInstanceConverterRegistry;
 import org.nabucco.alfresco.enhScriptEnv.common.script.converter.ValueInstanceConverterRegistry.ValueInstanceConverter;
 import org.springframework.beans.factory.InitializingBean;
-import org.springframework.extensions.webscripts.NativeMap;
+import org.springframework.extensions.webscripts.ScriptableLinkedHashMap;
 
 /**
- * This converter is primarily used to remove any instances of {@link NativeMap} - when possible - in favor of AOP-based scriptable maps.
+ * This converter is primarily used to override {@link ScriptableFacadeMapConverter} for {@link ScriptableLinkedHashMap} which shouldn't be
+ * converted due to instances requiring by-reference identity between script API internals and exposed structures.
  *
  * @author Axel Faust, <a href="http://www.prodyna.com">PRODYNA AG</a>
  */
-public class SurfNativeMapConverter implements ValueInstanceConverter, InitializingBean
+public class ScriptableLinkedHashMapConverter implements ValueInstanceConverter, InitializingBean
 {
     protected ValueInstanceConverterRegistry registry;
 
@@ -47,7 +48,7 @@ public class SurfNativeMapConverter implements ValueInstanceConverter, Initializ
     {
         PropertyCheck.mandatory(this, "registry", this.registry);
 
-        this.registry.registerValueInstanceConverter(NativeMap.class, this);
+        this.registry.registerValueInstanceConverter(ScriptableLinkedHashMap.class, this);
     }
 
     /**
@@ -58,9 +59,9 @@ public class SurfNativeMapConverter implements ValueInstanceConverter, Initializ
     public int getForScriptConversionConfidence(final Class<?> valueInstanceClass, final Class<?> expectedClass)
     {
         final int confidence;
-        if (NativeMap.class.isAssignableFrom(valueInstanceClass) && !NativeMap.class.isAssignableFrom(expectedClass))
+        if (ScriptableLinkedHashMap.class.isAssignableFrom(valueInstanceClass) && expectedClass.isAssignableFrom(valueInstanceClass))
         {
-            confidence = MEDIUM_CONFIDENCE;
+            confidence = HIGHEST_CONFIDENCE;
         }
         else
         {
@@ -75,8 +76,8 @@ public class SurfNativeMapConverter implements ValueInstanceConverter, Initializ
     @Override
     public boolean canConvertValueForScript(final Object value, final ValueConverter globalDelegate, final Class<?> expectedClass)
     {
-        final boolean canConvert = NativeMap.class.isInstance(value) && !NativeMap.class.isAssignableFrom(expectedClass)
-                && globalDelegate.canConvertValueForScript(((NativeMap) value).unwrap().getClass(), expectedClass);
+        final boolean canConvert = ScriptableLinkedHashMap.class.isInstance(value)
+                && ScriptableLinkedHashMap.class.isAssignableFrom(expectedClass);
         return canConvert;
     }
 
@@ -86,23 +87,17 @@ public class SurfNativeMapConverter implements ValueInstanceConverter, Initializ
     @Override
     public Object convertValueForScript(final Object value, final ValueConverter globalDelegate, final Class<?> expectedClass)
     {
-        if (!(value instanceof NativeMap))
+        if (!(value instanceof ScriptableLinkedHashMap))
         {
-            throw new IllegalArgumentException("value must be a " + NativeMap.class);
+            throw new IllegalArgumentException("value must be a " + ScriptableLinkedHashMap.class);
         }
 
-        if (NativeMap.class.isAssignableFrom(expectedClass))
+        if (!ScriptableLinkedHashMap.class.isAssignableFrom(expectedClass))
         {
-            throw new IllegalArgumentException("expected class must be not be assignable to " + NativeMap.class);
+            throw new IllegalArgumentException("expected class must be assignable to " + ScriptableLinkedHashMap.class);
         }
 
-        final Object result;
-
-        // Unless we have a very specific Map instance, ScriptableFacadeMapConverter should ensure we keep list-like access functionality of
-        // NativeMap
-        result = globalDelegate.convertValueForScript(((NativeMap) value).unwrap(), expectedClass);
-
-        return result;
+        return value;
     }
 
     /**
