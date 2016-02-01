@@ -77,16 +77,21 @@ import org.springframework.util.FileCopyUtils;
 public class EnhancedRhinoScriptProcessor extends BaseProcessor implements EnhancedScriptProcessor<ScriptLocation>, ScriptProcessor,
         InitializingBean, ApplicationListener<ContextRefreshedEvent>
 {
+
     private static final String NODE_REF_RESOURCE_IMPORT_PATTERN = "<import(\\s*\\n*\\s+)+resource(\\s*\\n*\\s*+)*=(\\s*\\n*\\s+)*\"(([^:]+)://([^/]+)/([^\"]+))\"(\\s*\\n*\\s+)*(/)?>";
+
     private static final String NODE_REF_RESOURCE_IMPORT_REPLACEMENT = "importScript(\"node\", \"$4\", true);";
 
     private static final String LEGACY_NAME_PATH_RESOURCE_IMPORT_PATTERN = "<import(\\s*\\n*\\s+)+resource(\\s*\\n*\\s+)*=(\\s*\\n*\\s+)*\"(/[^\"]+)\"(\\s*\\n*\\s+)*(/)?>";
+
     private static final String LEGACY_NAME_PATH_RESOURCE_IMPORT_REPLACEMENT = "importScript(\"legacyNamePath\", \"$4\", true);";
 
     private static final String CLASSPATH_RESOURCE_IMPORT_PATTERN = "<import(\\s*\\n*\\s+)+resource(\\s*\\n*\\s+)*=(\\s*\\n*\\s+)*\"classpath:(/)?([^\"]+)\"(\\s*\\n*\\s+)*(/)?>";
+
     private static final String CLASSPATH_RESOURCE_IMPORT_REPLACEMENT = "importScript(\"classpath\", \"/$5\", true);";
 
     private static final Logger LOGGER = LoggerFactory.getLogger(EnhancedRhinoScriptProcessor.class);
+
     private static final Logger LEGACY_CALL_LOGGER = LoggerFactory.getLogger(RhinoScriptProcessor.class.getName() + ".calls");
 
     private static final List<ReferencePathType> REAL_PATH_SUCCESSION = Collections.<ReferencePathType> unmodifiableList(Arrays
@@ -97,26 +102,35 @@ public class EnhancedRhinoScriptProcessor extends BaseProcessor implements Enhan
     // used WeakHashMap here before to avoid accidental leaks but measures for proper cleanup have proven themselves
     // during tests
     protected final Map<Context, List<ReferenceScript>> activeScriptLocationChain = new ConcurrentHashMap<Context, List<ReferenceScript>>();
+
     protected final Map<Context, List<List<ReferenceScript>>> recursionScriptLocationChains = new ConcurrentHashMap<Context, List<List<ReferenceScript>>>();
 
     protected boolean shareScopes = true;
 
     protected Scriptable restrictedShareableScope;
+
     protected Scriptable unrestrictedShareableScope;
 
     protected boolean compileScripts = true;
+
     protected volatile boolean debuggerActive = false;
+
     protected boolean failoverToLessOptimization = true;
+
     protected int optimizationLevel = -1;
+
+    protected boolean executeArbitraryScriptStringsAsSecure = false;
 
     protected ValueConverter valueConverter;
 
     protected final Map<String, Script> scriptCache = new LinkedHashMap<String, Script>(256);
+
     protected final ReadWriteLock scriptCacheLock = new ReentrantReadWriteLock(true);
 
     protected final AtomicLong dynamicScriptCounter = new AtomicLong();
 
     protected final Map<String, Script> dynamicScriptCache = new LinkedHashMap<String, Script>();
+
     protected final ReadWriteLock dynamicScriptCacheLock = new ReentrantReadWriteLock(true);
 
     protected int maxScriptCacheSize = DEFAULT_MAX_SCRIPT_CACHE_SIZE;
@@ -249,7 +263,7 @@ public class EnhancedRhinoScriptProcessor extends BaseProcessor implements Enhan
             this.activeScriptLocationChain.get(cx).add(new ReferenceScript.DynamicScript(debugScriptName, source));
             try
             {
-                return this.executeScriptImpl(script, model, false, debugScriptName);
+                return this.executeScriptImpl(script, model, this.executeArbitraryScriptStringsAsSecure, debugScriptName);
             }
             finally
             {
@@ -658,7 +672,7 @@ public class EnhancedRhinoScriptProcessor extends BaseProcessor implements Enhan
      * @param valueConverter
      *            the valueConverter to set
      */
-    public final void setValueConverter(final ValueConverter valueConverter)
+    public void setValueConverter(final ValueConverter valueConverter)
     {
         this.valueConverter = valueConverter;
     }
@@ -667,7 +681,7 @@ public class EnhancedRhinoScriptProcessor extends BaseProcessor implements Enhan
      * @param shareScopes
      *            the shareScopes to set
      */
-    public final void setShareScopes(final boolean shareScopes)
+    public void setShareScopes(final boolean shareScopes)
     {
         this.shareScopes = shareScopes;
     }
@@ -676,7 +690,7 @@ public class EnhancedRhinoScriptProcessor extends BaseProcessor implements Enhan
      * @param compileScripts
      *            the compileScripts to set
      */
-    public final void setCompileScripts(final boolean compileScripts)
+    public void setCompileScripts(final boolean compileScripts)
     {
         this.compileScripts = compileScripts;
     }
@@ -685,7 +699,7 @@ public class EnhancedRhinoScriptProcessor extends BaseProcessor implements Enhan
      * @param optimizationLevel
      *            the optimizaionLevel to set
      */
-    public final void setOptimizationLevel(final int optimizationLevel)
+    public void setOptimizationLevel(final int optimizationLevel)
     {
         if (!Context.isValidOptimizationLevel(optimizationLevel))
         {
@@ -698,9 +712,18 @@ public class EnhancedRhinoScriptProcessor extends BaseProcessor implements Enhan
      * @param failoverToLessOptimization
      *            the failoverToLessOptimization to set
      */
-    public final void setFailoverToLessOptimization(final boolean failoverToLessOptimization)
+    public void setFailoverToLessOptimization(final boolean failoverToLessOptimization)
     {
         this.failoverToLessOptimization = failoverToLessOptimization;
+    }
+
+    /**
+     * @param executeArbitraryScriptStringsAsSecure
+     *            the executeArbitraryScriptStringsAsSecure to set
+     */
+    public void setExecuteArbitraryScriptStringsAsSecure(final boolean executeArbitraryScriptStringsAsSecure)
+    {
+        this.executeArbitraryScriptStringsAsSecure = executeArbitraryScriptStringsAsSecure;
     }
 
     protected ReferenceScript toReferenceScript(final String source)
