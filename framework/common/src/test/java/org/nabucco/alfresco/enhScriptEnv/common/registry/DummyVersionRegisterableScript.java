@@ -5,7 +5,7 @@ import org.nabucco.alfresco.enhScriptEnv.common.script.registry.RegisterableScri
 import org.nabucco.alfresco.enhScriptEnv.common.script.registry.VersionRegisterableScript;
 
 /**
- * @author Axel Faust, <a href="http://www.prodyna.com">PRODYNA AG</a>
+ * @author Axel Faust
  */
 public class DummyVersionRegisterableScript implements VersionRegisterableScript<Object>
 {

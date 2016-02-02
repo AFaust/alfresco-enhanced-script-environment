@@ -1,5 +1,5 @@
 /*
- * Copyright 2015 PRODYNA AG
+ * Copyright 2016 Axel Faust
  *
  * Licensed under the Eclipse Public License (EPL), Version 1.0 (the "License"); you may not use
  * this file except in compliance with the License. You may obtain a copy of the License at
@@ -20,7 +20,7 @@ import org.alfresco.util.ParameterCheck;
 /**
  * The base interface of a registry {@link ValueInstanceConverter} can be registered with to extend the supported conversion scope.
  *
- * @author Axel Faust, <a href="http://www.prodyna.com">PRODYNA AG</a>
+ * @author Axel Faust
  */
 public interface ValueInstanceConverterRegistry
 {
@@ -29,7 +29,7 @@ public interface ValueInstanceConverterRegistry
      * conversion, each converter must provide both a general confidence based on source and expected value types as well as a per-instance
      * convertability check.
      *
-     * @author Axel Faust, <a href="http://www.prodyna.com">PRODYNA AG</a>
+     * @author Axel Faust
      */
     public interface ValueInstanceConverter
     {

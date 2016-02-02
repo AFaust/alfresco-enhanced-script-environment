@@ -1,5 +1,5 @@
 /*
- * Copyright 2015 PRODYNA AG
+ * Copyright 2016 Axel Faust
  *
  * Licensed under the Eclipse Public License (EPL), Version 1.0 (the "License"); you may not use
  * this file except in compliance with the License. You may obtain a copy of the License at
@@ -23,7 +23,7 @@ import org.slf4j.LoggerFactory;
  * A script locator able to import scripts from the classpath of the web application. This implementation is able to resolve relative script
  * locations when supplied with a execution context.
  *
- * @author Axel Faust, <a href="http://www.prodyna.com">PRODYNA AG</a>
+ * @author Axel Faust
  */
 public abstract class AbstractRelativeResolvingScriptLocator<Script extends ReferenceScript> extends AbstractScriptLocator<Script>
 {

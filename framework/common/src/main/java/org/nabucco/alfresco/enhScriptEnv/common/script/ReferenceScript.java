@@ -1,5 +1,5 @@
 /*
- * Copyright 2015 PRODYNA AG
+ * Copyright 2016 Axel Faust
  *
  * Licensed under the Eclipse Public License (EPL), Version 1.0 (the "License"); you may not use
  * this file except in compliance with the License. You may obtain a copy of the License at
@@ -24,14 +24,14 @@ import org.alfresco.util.ParameterCheck;
 
 /**
  *
- * @author Axel Faust, <a href="http://www.prodyna.com">PRODYNA AG</a>
+ * @author Axel Faust
  */
 public interface ReferenceScript
 {
     /**
      * Marker interface for reference path types
      *
-     * @author Axel Faust, <a href="http://www.prodyna.com">PRODYNA AG</a>
+     * @author Axel Faust
      */
     public interface ReferencePathType
     {
@@ -40,7 +40,7 @@ public interface ReferenceScript
 
     /**
      *
-     * @author Axel Faust, <a href="http://www.prodyna.com">PRODYNA AG</a>
+     * @author Axel Faust
      */
     public enum CommonReferencePath implements ReferencePathType
     {
@@ -49,7 +49,7 @@ public interface ReferenceScript
 
     /**
      *
-     * @author Axel Faust, <a href="http://www.prodyna.com">PRODYNA AG</a>
+     * @author Axel Faust
      */
     public class DynamicScript implements ReferenceScript
     {

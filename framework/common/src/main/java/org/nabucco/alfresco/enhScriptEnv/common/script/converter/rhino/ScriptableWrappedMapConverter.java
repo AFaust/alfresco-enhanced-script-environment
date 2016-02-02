@@ -1,5 +1,5 @@
 /*
- * Copyright 2015 PRODYNA AG
+ * Copyright 2016 Axel Faust
  *
  * Licensed under the Eclipse Public License (EPL), Version 1.0 (the "License"); you may not use
  * this file except in compliance with the License. You may obtain a copy of the License at
@@ -28,7 +28,7 @@ import org.springframework.extensions.webscripts.ScriptableWrappedMap;
  * {@link ScriptValueConverter} used by {@link ScriptableWrappedMap}). This can be done safely since we retain the wrapped map and thus keep
  * script API internals relying on by-reference identity intact.
  *
- * @author Axel Faust, <a href="http://www.prodyna.com">PRODYNA AG</a>
+ * @author Axel Faust
  */
 public class ScriptableWrappedMapConverter implements ValueInstanceConverter, InitializingBean
 {

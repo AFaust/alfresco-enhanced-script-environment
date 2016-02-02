@@ -6,7 +6,7 @@ import org.junit.Test;
 import org.nabucco.alfresco.enhScriptEnv.common.script.registry.AppliesForVersionCondition;
 
 /**
- * @author Axel Faust, <a href="http://www.prodyna.com">PRODYNA AG</a>
+ * @author Axel Faust
  */
 public class AppliesForVersionConditionTest
 {

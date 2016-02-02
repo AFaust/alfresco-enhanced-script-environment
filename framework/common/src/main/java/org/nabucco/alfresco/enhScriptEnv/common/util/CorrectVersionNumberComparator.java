@@ -1,5 +1,5 @@
 /*
- * Copyright 2015 PRODYNA AG
+ * Copyright 2016 Axel Faust
  *
  * Licensed under the Eclipse Public License (EPL), Version 1.0 (the "License"); you may not use
  * this file except in compliance with the License. You may obtain a copy of the License at
@@ -21,7 +21,7 @@ import org.alfresco.util.VersionNumber;
  * A custom version number comparator that takes different lengths of version numbers into account, but only considers additional parts that
  * do add information to the overall number (e.g. a 1.2.0 is no different than 1.2, but a 1.2.0.1 is very much different than 1.2).
  * 
- * @author Axel Faust, <a href="http://www.prodyna.com">PRODYNA AG</a>
+ * @author Axel Faust
  */
 public class CorrectVersionNumberComparator implements Comparator<VersionNumber>
 {
