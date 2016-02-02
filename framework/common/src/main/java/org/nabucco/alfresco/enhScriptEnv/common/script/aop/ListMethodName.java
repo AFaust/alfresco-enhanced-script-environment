@@ -15,7 +15,7 @@ package org.nabucco.alfresco.enhScriptEnv.common.script.aop;
 
 /**
  *
- * @author Axel Faust, <a href="http://www.prodyna.com">PRODYNA AG</a>
+ * @author Axel Faust
  */
 public enum ListMethodName
 {
