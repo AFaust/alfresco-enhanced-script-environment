@@ -1,5 +1,5 @@
 /*
- * Copyright 2015 PRODYNA AG
+ * Copyright 2016 Axel Faust
  *
  * Licensed under the Eclipse Public License (EPL), Version 1.0 (the "License"); you may not use
  * this file except in compliance with the License. You may obtain a copy of the License at
@@ -13,15 +13,25 @@
  */
 package org.springframework.aop.framework;
 
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 /**
  * This proxy factory implementation is aware of constructor arguments of potential proxy super classes and can emit proxies for instances
  * of classes that don't provide a default no-argument constructor.
  *
- * @author Axel Faust, <a href="http://www.prodyna.com">PRODYNA AG</a>
+ * @author Axel Faust
  */
 public class ConstructorArgumentAwareProxyFactory extends ProxyFactory
 {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(ConstructorArgumentAwareProxyFactory.class);
+
     private final Object[] ctorArguments;
+
     private final Class[] ctorArgumentTypes;
 
     public ConstructorArgumentAwareProxyFactory(final Object[] ctorArguments, final Class[] ctorArgumentTypes)
@@ -54,10 +64,7 @@ public class ConstructorArgumentAwareProxyFactory extends ProxyFactory
     public Object getProxy()
     {
         final AopProxy aopProxy = this.createAopProxy();
-        if (aopProxy instanceof Cglib2AopProxy && this.ctorArguments != null && this.ctorArgumentTypes != null)
-        {
-            ((Cglib2AopProxy) aopProxy).setConstructorArguments(this.ctorArguments, this.ctorArgumentTypes);
-        }
+        this.injectConstructorArguments(aopProxy);
         final Object proxy = aopProxy.getProxy();
         return proxy;
     }
@@ -69,11 +76,32 @@ public class ConstructorArgumentAwareProxyFactory extends ProxyFactory
     public Object getProxy(final ClassLoader classLoader)
     {
         final AopProxy aopProxy = this.createAopProxy();
-        if (aopProxy instanceof Cglib2AopProxy && this.ctorArguments != null && this.ctorArgumentTypes != null)
-        {
-            ((Cglib2AopProxy) aopProxy).setConstructorArguments(this.ctorArguments, this.ctorArgumentTypes);
-        }
+        this.injectConstructorArguments(aopProxy);
         final Object proxy = aopProxy.getProxy(classLoader);
         return proxy;
+    }
+
+    protected void injectConstructorArguments(final AopProxy aopProxy)
+    {
+        if (this.ctorArguments != null && this.ctorArgumentTypes != null)
+        {
+            try
+            {
+                final Method ctorArgSetter = aopProxy.getClass().getMethod("setConstructorArguments", Object[].class, Class[].class);
+                ctorArgSetter.invoke(aopProxy, this.ctorArguments, this.ctorArgumentTypes);
+            }
+            catch (final NoSuchMethodException nsme)
+            {
+                LOGGER.info("Proxy does not provide setConstructorArguments method - likely Cglib is not available", nsme);
+            }
+            catch (final InvocationTargetException ite)
+            {
+                LOGGER.error("Error setting constructor arguments", ite);
+            }
+            catch (final IllegalAccessException iae)
+            {
+                LOGGER.error("Error setting constructor arguments", iae);
+            }
+        }
     }
 }
