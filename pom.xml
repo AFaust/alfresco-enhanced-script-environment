@@ -11,10 +11,11 @@
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 
         <alfresco.groupId>org.alfresco</alfresco.groupId>
-        <alfresco.version>4.2.f</alfresco.version>
+        <alfresco.version>5.0.d</alfresco.version>
+        <surf.version>5.0.d</surf.version>
         <slf4j.version>1.7.5</slf4j.version>
         <!-- For Alfresco 5.0+, this needs to be "classes" -->
-        <web-framework-commons.classifier></web-framework-commons.classifier>
+        <web-framework-commons.classifier>classes</web-framework-commons.classifier>
         
         <maven.compiler.source>1.6</maven.compiler.source>
         <maven.compiler.target>1.6</maven.compiler.target>
