@@ -1,9 +1,9 @@
-package org.nabucco.alfresco.enhScriptEnv.common.registry;
+package de.axelfaust.alfresco.enhScriptEnv.common.registry;
 
 import org.alfresco.util.VersionNumber;
 import org.junit.Assert;
 import org.junit.Test;
-import org.nabucco.alfresco.enhScriptEnv.common.script.registry.AppliesForVersionCondition;
+import de.axelfaust.alfresco.enhScriptEnv.common.script.registry.AppliesForVersionCondition;
 
 /**
  * @author Axel Faust

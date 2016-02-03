@@ -1,12 +1,12 @@
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
     <parent>
-        <groupId>org.nabucco.alfresco</groupId>
-        <artifactId>org.nabucco.alfresco.enhScriptEnv-framework</artifactId>
+        <groupId>de.axelfaust.alfresco</groupId>
+        <artifactId>de.axelfaust.alfresco.enhScriptEnv-framework</artifactId>
         <version>0.0.2.0-SNAPSHOT</version>
     </parent>
 
-    <artifactId>org.nabucco.alfresco.enhScriptEnv.repo</artifactId>
+    <artifactId>de.axelfaust.alfresco.enhScriptEnv.repo</artifactId>
     <name>Alfresco Enhanced Script Environment - Framework Repository Module</name>
 
     <properties>
@@ -14,6 +14,7 @@
         <messageBundle.rootPath>enhScriptEnv</messageBundle.rootPath>
         <!-- The same as the path is already legal -->
         <messageBundle.rootId>${messageBundle.rootPath}</messageBundle.rootId>
+        <commonPackage>de.axelfaust.alfresco.enhScriptEnv.common</commonPackage>
         <basePackage>${project.artifactId}</basePackage>
 
     </properties>
@@ -28,8 +29,8 @@
         </dependency>
 
         <dependency>
-            <groupId>org.nabucco.alfresco</groupId>
-            <artifactId>org.nabucco.alfresco.enhScriptEnv.common</artifactId>
+            <groupId>de.axelfaust.alfresco</groupId>
+            <artifactId>de.axelfaust.alfresco.enhScriptEnv.common</artifactId>
             <version>0.0.2.0-SNAPSHOT</version>
             <scope>compile</scope>
         </dependency>

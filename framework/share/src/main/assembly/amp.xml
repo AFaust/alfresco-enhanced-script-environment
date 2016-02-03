@@ -106,7 +106,7 @@
         <dependencySet>
             <outputDirectory>lib</outputDirectory>
             <includes>
-                <include>org.nabucco.alfresco:org.nabucco.alfresco.enhScriptEnv.common:*</include>
+                <include>de.axelfaust.alfresco:de.axelfaust.alfresco.enhScriptEnv.common:*</include>
                 <include>org.eclipse.wst:org.eclipse.wst.jsdt.debug*:*</include>
             </includes>
             <useProjectArtifact>false</useProjectArtifact>

@@ -1,8 +1,8 @@
-package org.nabucco.alfresco.enhScriptEnv.common.registry;
+package de.axelfaust.alfresco.enhScriptEnv.common.registry;
 
 import org.alfresco.util.VersionNumber;
-import org.nabucco.alfresco.enhScriptEnv.common.script.registry.RegisterableScript;
-import org.nabucco.alfresco.enhScriptEnv.common.script.registry.VersionRegisterableScript;
+import de.axelfaust.alfresco.enhScriptEnv.common.script.registry.RegisterableScript;
+import de.axelfaust.alfresco.enhScriptEnv.common.script.registry.VersionRegisterableScript;
 
 /**
  * @author Axel Faust

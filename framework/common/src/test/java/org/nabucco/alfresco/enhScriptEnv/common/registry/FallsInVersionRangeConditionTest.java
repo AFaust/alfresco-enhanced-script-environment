@@ -11,12 +11,12 @@
  * either express or implied. See the License for the specific language governing permissions
  * and limitations under the License.
  */
-package org.nabucco.alfresco.enhScriptEnv.common.registry;
+package de.axelfaust.alfresco.enhScriptEnv.common.registry;
 
 import org.alfresco.util.VersionNumber;
 import org.junit.Assert;
 import org.junit.Test;
-import org.nabucco.alfresco.enhScriptEnv.common.script.registry.FallsInVersionRangeCondition;
+import de.axelfaust.alfresco.enhScriptEnv.common.script.registry.FallsInVersionRangeCondition;
 
 /**
  * @author Axel Faust
