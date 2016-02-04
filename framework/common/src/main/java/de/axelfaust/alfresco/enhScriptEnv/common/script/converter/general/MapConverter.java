@@ -18,10 +18,12 @@ import java.util.HashSet;
 import java.util.Map;
 
 import org.alfresco.util.PropertyCheck;
+import org.mozilla.javascript.NativeObject;
+import org.springframework.beans.factory.InitializingBean;
+
 import de.axelfaust.alfresco.enhScriptEnv.common.script.converter.ValueConverter;
 import de.axelfaust.alfresco.enhScriptEnv.common.script.converter.ValueInstanceConverterRegistry;
 import de.axelfaust.alfresco.enhScriptEnv.common.script.converter.ValueInstanceConverterRegistry.ValueInstanceConverter;
-import org.springframework.beans.factory.InitializingBean;
 
 /**
  * A simple convert to handle Map-to-Map conversion where the original Map instance is retained but keys and values are recursively put
@@ -63,7 +65,7 @@ public class MapConverter implements ValueInstanceConverter, InitializingBean
     public int getForJavaConversionConfidence(final Class<?> valueInstanceClass, final Class<?> expectedClass)
     {
         final int confidence;
-        if (Map.class.isAssignableFrom(valueInstanceClass)
+        if (Map.class.isAssignableFrom(valueInstanceClass) && !NativeObject.class.isAssignableFrom(valueInstanceClass)
                 && (expectedClass.isAssignableFrom(Map.class) || expectedClass.equals(valueInstanceClass)))
         {
             confidence = LOW_CONFIDENCE;
@@ -81,7 +83,8 @@ public class MapConverter implements ValueInstanceConverter, InitializingBean
     @Override
     public boolean canConvertValueForJava(final Object value, final ValueConverter globalDelegate, final Class<?> expectedClass)
     {
-        boolean canConvert = value instanceof Map<?, ?>
+        // in Rhino 1.7, NativeObject implements Map which makes things difficult
+        boolean canConvert = value instanceof Map<?, ?> && !(value instanceof NativeObject)
                 && (expectedClass.isAssignableFrom(Map.class) || expectedClass.equals(value.getClass()));
 
         final Map<?, ?> map = (Map<?, ?>) value;
@@ -102,7 +105,7 @@ public class MapConverter implements ValueInstanceConverter, InitializingBean
     @Override
     public Object convertValueForJava(final Object value, final ValueConverter globalDelegate, final Class<?> expectedClass)
     {
-        if (!(value instanceof Map<?, ?>))
+        if (!(value instanceof Map<?, ?>) || value instanceof NativeObject)
         {
             throw new IllegalArgumentException("value must be a Map");
         }

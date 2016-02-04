@@ -179,7 +179,18 @@ public class NativeArrayConverter implements ValueInstanceConverter, Initializin
             throw new IllegalArgumentException("value must be either collection or array");
         }
 
-        return new NativeArray(arr);
+        final Object result;
+        final Context cx = Context.enter();
+        try
+        {
+            result = cx.newArray(DUMMY_SCOPE, arr);
+        }
+        finally
+        {
+            Context.exit();
+        }
+
+        return result;
     }
 
     /**

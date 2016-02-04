@@ -14,13 +14,13 @@
 package de.axelfaust.alfresco.enhScriptEnv.common.script.converter.rhino;
 
 import org.alfresco.util.PropertyCheck;
+import org.springframework.beans.factory.InitializingBean;
+import org.springframework.extensions.webscripts.ScriptValueConverter;
+import org.springframework.extensions.webscripts.ScriptableWrappedMap;
+
 import de.axelfaust.alfresco.enhScriptEnv.common.script.converter.ValueConverter;
 import de.axelfaust.alfresco.enhScriptEnv.common.script.converter.ValueInstanceConverterRegistry;
 import de.axelfaust.alfresco.enhScriptEnv.common.script.converter.ValueInstanceConverterRegistry.ValueInstanceConverter;
-import org.springframework.beans.factory.InitializingBean;
-import org.springframework.extensions.webscripts.NativeMap;
-import org.springframework.extensions.webscripts.ScriptValueConverter;
-import org.springframework.extensions.webscripts.ScriptableWrappedMap;
 
 /**
  * This converter is primarily used to remove any instances of {@link ScriptableWrappedMap} - when possible - in favor of AOP-based
@@ -32,6 +32,7 @@ import org.springframework.extensions.webscripts.ScriptableWrappedMap;
  */
 public class ScriptableWrappedMapConverter implements ValueInstanceConverter, InitializingBean
 {
+
     protected ValueInstanceConverterRegistry registry;
 
     /**
@@ -82,7 +83,7 @@ public class ScriptableWrappedMapConverter implements ValueInstanceConverter, In
     {
         final boolean canConvert = ScriptableWrappedMap.class.isInstance(value)
                 && !ScriptableWrappedMap.class.isAssignableFrom(expectedClass)
-                && globalDelegate.canConvertValueForScript(((NativeMap) value).unwrap().getClass(), expectedClass);
+                && globalDelegate.canConvertValueForScript(((ScriptableWrappedMap) value).unwrap().getClass(), expectedClass);
         return canConvert;
     }
 

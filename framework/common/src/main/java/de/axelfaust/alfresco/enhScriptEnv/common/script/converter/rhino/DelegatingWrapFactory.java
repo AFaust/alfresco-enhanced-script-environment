@@ -58,11 +58,11 @@ public class DelegatingWrapFactory extends WrapFactory
         if (obj instanceof Scriptable)
         {
             // we may need to convert some objects that are already Scriptable
-            result = this.wrapAsJavaObject(cx, scope, obj, staticType);
+            result = this.wrapAsJavaObject(cx, scope == null ? this.scope : scope, obj, staticType);
         }
         else
         {
-            result = super.wrap(cx, scope, obj, staticType);
+            result = super.wrap(cx, scope == null ? this.scope : scope, obj, staticType);
         }
 
         return result;

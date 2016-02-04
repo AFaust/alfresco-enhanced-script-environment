@@ -24,13 +24,21 @@
     
     <bean id="scriptprocessor.rhinoValueConverter.surfNativeMapConverter" class="${commonPackage}.script.converter.rhino.SurfNativeMapConverter" parent="scriptprocessor.rhinoValueConverter.abstractInstanceConverter" />
     
+    <bean id="scriptprocessor.rhinoValueConverter.scriptableFacadeMapConverter" class="${commonPackage}.script.converter.rhino.ScriptableFacadeMapConverter" parent="scriptprocessor.rhinoValueConverter.abstractInstanceConverter" />
+    
+    <bean id="scriptprocessor.rhinoValueConverter.scriptableLinkedHashMapConverter" class="${commonPackage}.script.converter.rhino.ScriptableLinkedHashMapConverter" parent="scriptprocessor.rhinoValueConverter.abstractInstanceConverter" />
+    
+    <bean id="scriptprocessor.rhinoValueConverter.scriptableWrappedMapConverter" class="${commonPackage}.script.converter.rhino.ScriptableWrappedMapConverter" parent="scriptprocessor.rhinoValueConverter.abstractInstanceConverter" />
+    
     <bean id="scriptprocessor.rhinoValueConverter.simpleJSONObjectConverter" class="${commonPackage}.script.converter.rhino.SimpleJSONObjectConverter" parent="scriptprocessor.rhinoValueConverter.abstractInstanceConverter" />
     
-    <!-- <bean id="scriptprocessor.rhinoValueConverter.nativeArrayConverter" class="${commonPackage}.script.converter.rhino.NativeArrayConverter" parent="scriptprocessor.rhinoValueConverter.abstractInstanceConverter" /> -->
+    <bean id="scriptprocessor.rhinoValueConverter.nativeArrayConverter" class="${commonPackage}.script.converter.rhino.NativeArrayConverter" parent="scriptprocessor.rhinoValueConverter.abstractInstanceConverter" />
     
     <bean id="scriptprocessor.rhinoValueConverter.scriptableObjectConverterConverter" class="${commonPackage}.script.converter.rhino.ScriptableObjectConverter" parent="scriptprocessor.rhinoValueConverter.abstractInstanceConverter" />
     
     <bean id="scriptprocessor.rhinoValueConverter.dateConverter" class="${commonPackage}.script.converter.rhino.DateConverter" parent="scriptprocessor.rhinoValueConverter.abstractInstanceConverter" />
+    
+    <bean id="scriptprocessor.rhinoValueConverter.consStringConverter" class="${commonPackage}.script.converter.rhino.ConsStringConverter" parent="scriptprocessor.rhinoValueConverter.abstractInstanceConverter" />
     
     <bean id="scriptprocessor.rhinoValueConverter.mapConverter" class="${commonPackage}.script.converter.general.MapConverter" parent="scriptprocessor.rhinoValueConverter.abstractInstanceConverter" />
     

@@ -991,6 +991,17 @@ public class EnhancedJSScriptProcessor extends BaseRegisterableScriptProcessor i
             // execute the script and return the result
             final Object scriptResult = this.executeScriptInScopeImpl(script, scope);
 
+            if (model != null)
+            {
+                // convert/wrap each object to Java compatible (in case script objects leaked into model objects)
+                for (final String key : model.keySet())
+                {
+                    final Object obj = model.get(key);
+                    final Object javaObject = this.valueConverter.convertValueForJava(obj);
+                    model.put(key, javaObject);
+                }
+            }
+
             return scriptResult;
         }
         catch (final WrappedException w)

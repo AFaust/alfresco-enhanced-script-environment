@@ -18,10 +18,6 @@
 
     <bean id="javaScriptProcessor.rhinoValueConverter.adapterObjectConverter" class="${commonPackage}.script.converter.general.AdapterObjectConverter" parent="javaScriptProcessor.rhinoValueConverter.abstractInstanceConverter" />
 
-    <bean id="javaScriptProcessor.rhinoValueConverter.numberConverter" class="${commonPackage}.script.converter.general.NumberConverter" parent="javaScriptProcessor.rhinoValueConverter.abstractInstanceConverter" />
-
-    <bean id="javaScriptProcessor.rhinoValueConverter.arrayConverter" class="${commonPackage}.script.converter.general.ArrayConverter" parent="javaScriptProcessor.rhinoValueConverter.abstractInstanceConverter" />
-
     <bean id="javaScriptProcessor.rhinoValueConverter.wrapFactoryConverter" class="${commonPackage}.script.converter.rhino.WrapFactoryConverter" parent="javaScriptProcessor.rhinoValueConverter.abstractInstanceConverter" />
 
     <bean id="javaScriptProcessor.rhinoValueConverter.surfNativeMapConverter" class="${commonPackage}.script.converter.rhino.SurfNativeMapConverter" parent="javaScriptProcessor.rhinoValueConverter.abstractInstanceConverter" />
@@ -39,8 +35,14 @@
     <bean id="javaScriptProcessor.rhinoValueConverter.scriptableObjectConverterConverter" class="${commonPackage}.script.converter.rhino.ScriptableObjectConverter" parent="javaScriptProcessor.rhinoValueConverter.abstractInstanceConverter" />
 
     <bean id="javaScriptProcessor.rhinoValueConverter.dateConverter" class="${commonPackage}.script.converter.rhino.DateConverter" parent="javaScriptProcessor.rhinoValueConverter.abstractInstanceConverter" />
-
+    
+    <bean id="javaScriptProcessor.rhinoValueConverter.consStringConverter" class="${commonPackage}.script.converter.rhino.ConsStringConverter" parent="javaScriptProcessor.rhinoValueConverter.abstractInstanceConverter" />
+    
     <bean id="javaScriptProcessor.rhinoValueConverter.mapConverter" class="${commonPackage}.script.converter.general.MapConverter" parent="javaScriptProcessor.rhinoValueConverter.abstractInstanceConverter" />
+
+    <bean id="javaScriptProcessor.rhinoValueConverter.numberConverter" class="${commonPackage}.script.converter.general.NumberConverter" parent="javaScriptProcessor.rhinoValueConverter.abstractInstanceConverter" />
+
+    <bean id="javaScriptProcessor.rhinoValueConverter.arrayConverter" class="${commonPackage}.script.converter.general.ArrayConverter" parent="javaScriptProcessor.rhinoValueConverter.abstractInstanceConverter" />
 
     <bean id="javaScriptProcessor.rhinoValueConverter.repoNativeMapConverter" class="${basePackage}.script.converter.rhino.RepoNativeMapConverter" parent="javaScriptProcessor.rhinoValueConverter.abstractInstanceConverter" />
 

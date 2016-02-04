@@ -54,6 +54,7 @@ import org.mozilla.javascript.Script;
 import org.mozilla.javascript.Scriptable;
 import org.mozilla.javascript.ScriptableObject;
 import org.mozilla.javascript.WrappedException;
+
 import de.axelfaust.alfresco.enhScriptEnv.common.script.EnhancedScriptProcessor;
 import de.axelfaust.alfresco.enhScriptEnv.common.script.ReferenceScript;
 import de.axelfaust.alfresco.enhScriptEnv.common.script.ReferenceScript.CommonReferencePath;
@@ -63,6 +64,7 @@ import de.axelfaust.alfresco.enhScriptEnv.common.script.ScopeContributor;
 import de.axelfaust.alfresco.enhScriptEnv.common.script.converter.ValueConverter;
 import de.axelfaust.alfresco.enhScriptEnv.common.script.converter.rhino.DelegatingWrapFactory;
 import de.axelfaust.alfresco.enhScriptEnv.common.webscripts.processor.SurfReferencePath;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.InitializingBean;
@@ -1047,33 +1049,47 @@ public class EnhancedRhinoScriptProcessor extends BaseProcessor implements Enhan
 
             wrapFactory.setScope(scope);
 
-            // insert supplied object model into root of the default scope
-            for (final String key : model.keySet())
+            if (model != null)
             {
-                final Object obj = model.get(key);
-
-                // set the root scope on appropriate objects
-                // this is used to allow native JS object creation etc.
-                if (obj instanceof Scopeable)
+                // insert supplied object model into root of the default scope
+                for (final String key : model.keySet())
                 {
-                    ((Scopeable) obj).setScope(scope);
+                    final Object obj = model.get(key);
+
+                    // set the root scope on appropriate objects
+                    // this is used to allow native JS object creation etc.
+                    if (obj instanceof Scopeable)
+                    {
+                        ((Scopeable) obj).setScope(scope);
+                    }
+
+                    // convert/wrap each object to JavaScript compatible
+                    final Object jsObject = this.valueConverter.convertValueForScript(obj);
+
+                    // repeat on resulting object (may have been converted into Scopeable)
+                    if (jsObject instanceof Scopeable)
+                    {
+                        ((Scopeable) jsObject).setScope(scope);
+                    }
+
+                    // insert into the root scope ready for access by the script
+                    ScriptableObject.putProperty(scope, key, jsObject);
                 }
-
-                // convert/wrap each object to JavaScript compatible
-                final Object jsObject = this.valueConverter.convertValueForScript(obj);
-
-                // repeat on resulting object (may have been converted into Scopeable)
-                if (jsObject instanceof Scopeable)
-                {
-                    ((Scopeable) jsObject).setScope(scope);
-                }
-
-                // insert into the root scope ready for access by the script
-                ScriptableObject.putProperty(scope, key, jsObject);
             }
 
             // execute the script and return the result
             final Object scriptResult = this.executeScriptInScopeImpl(script, scope);
+
+            if (model != null)
+            {
+                // convert/wrap each object to Java compatible (in case script objects leaked into model objects)
+                for (final String key : model.keySet())
+                {
+                    final Object obj = model.get(key);
+                    final Object javaObject = this.valueConverter.convertValueForJava(obj);
+                    model.put(key, javaObject);
+                }
+            }
 
             return scriptResult;
         }

@@ -109,7 +109,7 @@ public class ScriptableFacadeMapConverter implements ValueInstanceConverter, Ini
         final int confidence;
         if (Map.class.isAssignableFrom(valueInstanceClass) && expectedClass.isAssignableFrom(Scriptable.class))
         {
-            confidence = LOW_CONFIDENCE;
+            confidence = MEDIUM_CONFIDENCE;
         }
         else
         {
