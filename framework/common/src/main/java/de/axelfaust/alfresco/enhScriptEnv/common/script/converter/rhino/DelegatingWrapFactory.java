@@ -14,8 +14,10 @@
 package de.axelfaust.alfresco.enhScriptEnv.common.script.converter.rhino;
 
 import org.mozilla.javascript.Context;
+import org.mozilla.javascript.ScriptRuntime;
 import org.mozilla.javascript.Scriptable;
 import org.mozilla.javascript.WrapFactory;
+
 import de.axelfaust.alfresco.enhScriptEnv.common.script.converter.ValueConverter;
 
 /**
@@ -86,6 +88,10 @@ public class DelegatingWrapFactory extends WrapFactory
                 // either an unconvertable Scriptable or recursive wrap call
                 // this counteracts the override in wrap(Context, Scriptable, Object, Class)
                 result = (Scriptable) javaObject;
+            }
+            else if (javaObject instanceof CharSequence || javaObject instanceof Number || javaObject instanceof Boolean)
+            {
+                result = ScriptRuntime.toObject(cx, scope, javaObject);
             }
             else
             {

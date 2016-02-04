@@ -19,9 +19,11 @@ import java.util.Map;
 import org.alfresco.util.PropertyCheck;
 import org.mozilla.javascript.Scriptable;
 import org.mozilla.javascript.Undefined;
+
 import de.axelfaust.alfresco.enhScriptEnv.common.script.aop.AdapterObject;
 import de.axelfaust.alfresco.enhScriptEnv.common.script.aop.AdapterObjectInterceptor;
 import de.axelfaust.alfresco.enhScriptEnv.common.script.aop.MapLengthFacadeInterceptor;
+import de.axelfaust.alfresco.enhScriptEnv.common.script.aop.NativeJavaObjectMemberAccessInterceptor;
 import de.axelfaust.alfresco.enhScriptEnv.common.script.aop.ScriptableBaseAdapterInterceptor;
 import de.axelfaust.alfresco.enhScriptEnv.common.script.aop.ScriptableListLikeMapAdapterInterceptor;
 import de.axelfaust.alfresco.enhScriptEnv.common.script.aop.ScriptableMapListAdapterInterceptor;
@@ -30,6 +32,7 @@ import de.axelfaust.alfresco.enhScriptEnv.common.script.converter.ValueConverter
 import de.axelfaust.alfresco.enhScriptEnv.common.script.converter.ValueInstanceConverterRegistry;
 import de.axelfaust.alfresco.enhScriptEnv.common.script.converter.ValueInstanceConverterRegistry.ValueInstanceConverter;
 import de.axelfaust.alfresco.enhScriptEnv.common.util.ClassUtils;
+
 import org.springframework.aop.framework.ProxyFactory;
 import org.springframework.beans.factory.InitializingBean;
 import org.springframework.extensions.webscripts.NativeMap;
@@ -145,6 +148,7 @@ public class ScriptableFacadeMapConverter implements ValueInstanceConverter, Ini
 
         proxyFactory.addAdvice(new AdapterObjectInterceptor());
         proxyFactory.addAdvice(new ScriptableBaseAdapterInterceptor());
+        proxyFactory.addAdvice(NativeJavaObjectMemberAccessInterceptor.getInstance());
         proxyFactory.addAdvice(new ScriptableListLikeMapAdapterInterceptor());
         proxyFactory.addAdvice(new ScriptableMapListAdapterInterceptor());
         proxyFactory.addAdvice(new MapLengthFacadeInterceptor(Undefined.instance, false));

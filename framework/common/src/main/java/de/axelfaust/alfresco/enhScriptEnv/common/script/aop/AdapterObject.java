@@ -13,15 +13,17 @@
  */
 package de.axelfaust.alfresco.enhScriptEnv.common.script.aop;
 
+import org.springframework.aop.RawTargetAccess;
+
 /**
  * @author Axel Faust
  */
-public interface AdapterObject
+public interface AdapterObject extends RawTargetAccess
 {
 
     /**
      * Gets the backing object of this adapter.
-     * 
+     *
      * @return the backing object.
      */
     Object getBackingObject();

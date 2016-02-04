@@ -22,6 +22,8 @@
 
     <bean id="javaScriptProcessor.rhinoValueConverter.surfNativeMapConverter" class="${commonPackage}.script.converter.rhino.SurfNativeMapConverter" parent="javaScriptProcessor.rhinoValueConverter.abstractInstanceConverter" />
 
+    <!-- TODO add scriptableFacadeListConverter -->
+
     <bean id="javaScriptProcessor.rhinoValueConverter.scriptableFacadeMapConverter" class="${commonPackage}.script.converter.rhino.ScriptableFacadeMapConverter" parent="javaScriptProcessor.rhinoValueConverter.abstractInstanceConverter" />
 
     <bean id="javaScriptProcessor.rhinoValueConverter.scriptableLinkedHashMapConverter" class="${commonPackage}.script.converter.rhino.ScriptableLinkedHashMapConverter" parent="javaScriptProcessor.rhinoValueConverter.abstractInstanceConverter" />
@@ -31,6 +33,8 @@
     <bean id="javaScriptProcessor.rhinoValueConverter.simpleJSONObjectConverter" class="${commonPackage}.script.converter.rhino.SimpleJSONObjectConverter" parent="javaScriptProcessor.rhinoValueConverter.abstractInstanceConverter" />
 
     <bean id="javaScriptProcessor.rhinoValueConverter.nativeArrayConverter" class="${commonPackage}.script.converter.rhino.NativeArrayConverter" parent="javaScriptProcessor.rhinoValueConverter.abstractInstanceConverter" />
+    
+    <!-- TODO Add Undefined converter -->
 
     <bean id="javaScriptProcessor.rhinoValueConverter.scriptableObjectConverterConverter" class="${commonPackage}.script.converter.rhino.ScriptableObjectConverter" parent="javaScriptProcessor.rhinoValueConverter.abstractInstanceConverter" />
 
@@ -39,6 +43,8 @@
     <bean id="javaScriptProcessor.rhinoValueConverter.consStringConverter" class="${commonPackage}.script.converter.rhino.ConsStringConverter" parent="javaScriptProcessor.rhinoValueConverter.abstractInstanceConverter" />
     
     <bean id="javaScriptProcessor.rhinoValueConverter.mapConverter" class="${commonPackage}.script.converter.general.MapConverter" parent="javaScriptProcessor.rhinoValueConverter.abstractInstanceConverter" />
+    
+    <bean id="javaScriptProcessor.rhinoValueConverter.listConverter" class="${commonPackage}.script.converter.general.ListConverter" parent="javaScriptProcessor.rhinoValueConverter.abstractInstanceConverter" />
 
     <bean id="javaScriptProcessor.rhinoValueConverter.numberConverter" class="${commonPackage}.script.converter.general.NumberConverter" parent="javaScriptProcessor.rhinoValueConverter.abstractInstanceConverter" />
 
