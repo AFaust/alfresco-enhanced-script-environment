@@ -331,7 +331,7 @@ public class EnhancedRhinoScriptProcessor extends BaseProcessor implements Enhan
                     }
                     else
                     {
-                        realScope = this.setupScope(cx, false, false);
+                        realScope = this.setupScope(cx, this.executeArbitraryScriptStringsAsSecure, false);
                     }
                 }
                 else if (!(scope instanceof Scriptable))
@@ -344,7 +344,7 @@ public class EnhancedRhinoScriptProcessor extends BaseProcessor implements Enhan
                     }
                     else
                     {
-                        final Scriptable baseScope = this.setupScope(cx, false, false);
+                        final Scriptable baseScope = this.setupScope(cx, this.executeArbitraryScriptStringsAsSecure, false);
                         realScope.setPrototype(baseScope);
                     }
                 }
