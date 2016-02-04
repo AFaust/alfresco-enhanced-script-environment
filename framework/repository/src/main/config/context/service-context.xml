@@ -11,6 +11,7 @@
         <property name="extension" value="js" />
         <property name="compileScripts" value="true" />
         <property name="shareScopes" value="true" />
+        <property name="executeArbitraryScriptStringsAsSecure" value="${script.processor.executeArbitraryScriptStringsAsSecure}" />
 
         <property name="scriptService" ref="scriptService" />
 

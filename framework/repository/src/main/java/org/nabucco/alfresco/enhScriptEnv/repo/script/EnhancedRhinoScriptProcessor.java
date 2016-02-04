@@ -138,6 +138,8 @@ public class EnhancedRhinoScriptProcessor extends BaseProcessor implements Enhan
     protected volatile boolean debuggerActive = false;
     protected boolean failoverToLessOptimization = true;
     protected int optimizationLevel = -1;
+    
+    protected boolean executeArbitraryScriptStringsAsSecure = false;
 
     protected final ValueConverter valueConverter = new ValueConverter();
 
@@ -301,7 +303,7 @@ public class EnhancedRhinoScriptProcessor extends BaseProcessor implements Enhan
             this.activeScriptLocationChain.get(cx).add(new ReferenceScript.DynamicScript(debugScriptName));
             try
             {
-                return this.executeScriptImpl(script, model, false, debugScriptName);
+                return this.executeScriptImpl(script, model, this.executeArbitraryScriptStringsAsSecure, debugScriptName);
             }
             catch (final Throwable err)
             {
@@ -397,7 +399,7 @@ public class EnhancedRhinoScriptProcessor extends BaseProcessor implements Enhan
                     }
                     else
                     {
-                        realScope = this.setupScope(cx, false, false);
+                        realScope = this.setupScope(cx, this.executeArbitraryScriptStringsAsSecure, false);
                     }
                 }
                 else if (!(scope instanceof Scriptable))
@@ -410,7 +412,7 @@ public class EnhancedRhinoScriptProcessor extends BaseProcessor implements Enhan
                     }
                     else
                     {
-                        final Scriptable baseScope = this.setupScope(cx, false, false);
+                        final Scriptable baseScope = this.setupScope(cx, this.executeArbitraryScriptStringsAsSecure, false);
                         realScope.setPrototype(baseScope);
                     }
                 }
@@ -758,6 +760,15 @@ public class EnhancedRhinoScriptProcessor extends BaseProcessor implements Enhan
     public final void setFailoverToLessOptimization(final boolean failoverToLessOptimization)
     {
         this.failoverToLessOptimization = failoverToLessOptimization;
+    }
+    
+    /**
+     * @param executeArbitraryScriptStringsAsSecure
+     *            the executeArbitraryScriptStringsAsSecure to set
+     */
+    public void setExecuteArbitraryScriptStringsAsSecure(final boolean executeArbitraryScriptStringsAsSecure)
+    {
+        this.executeArbitraryScriptStringsAsSecure = executeArbitraryScriptStringsAsSecure;
     }
 
     protected void updateLocationChainsBeforeExceution(final Context currentContext)
