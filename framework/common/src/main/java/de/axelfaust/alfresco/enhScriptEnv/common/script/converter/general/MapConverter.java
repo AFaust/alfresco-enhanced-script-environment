@@ -65,6 +65,7 @@ public class MapConverter implements ValueInstanceConverter, InitializingBean
     public int getForJavaConversionConfidence(final Class<?> valueInstanceClass, final Class<?> expectedClass)
     {
         final int confidence;
+        // in Rhino 1.7, NativeObject implements Map which makes things difficult
         if (Map.class.isAssignableFrom(valueInstanceClass) && !NativeObject.class.isAssignableFrom(valueInstanceClass)
                 && (expectedClass.isAssignableFrom(Map.class) || expectedClass.equals(valueInstanceClass)))
         {
@@ -105,6 +106,7 @@ public class MapConverter implements ValueInstanceConverter, InitializingBean
     @Override
     public Object convertValueForJava(final Object value, final ValueConverter globalDelegate, final Class<?> expectedClass)
     {
+        // in Rhino 1.7, NativeObject implements Map which makes things difficult
         if (!(value instanceof Map<?, ?>) || value instanceof NativeObject)
         {
             throw new IllegalArgumentException("value must be a Map");

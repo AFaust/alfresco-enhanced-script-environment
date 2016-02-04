@@ -13,8 +13,6 @@
  */
 package de.axelfaust.alfresco.enhScriptEnv.common.script.converter.rhino;
 
-import java.util.Date;
-
 import org.alfresco.util.PropertyCheck;
 import org.mozilla.javascript.Context;
 import org.mozilla.javascript.IdScriptableObject;
@@ -76,7 +74,7 @@ public class ConsStringConverter implements ValueInstanceConverter, Initializing
     public int getForJavaConversionConfidence(final Class<?> valueInstanceClass, final Class<?> expectedClass)
     {
         final int confidence;
-        if (IdScriptableObject.class.isAssignableFrom(valueInstanceClass) && expectedClass.isAssignableFrom(Date.class))
+        if (IdScriptableObject.class.isAssignableFrom(valueInstanceClass) && expectedClass.isAssignableFrom(String.class))
         {
             confidence = MEDIUM_CONFIDENCE;
         }
