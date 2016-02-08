@@ -44,7 +44,7 @@
     
     <bean id="scriptprocessor.rhinoValueConverter.dateConverter" class="${commonPackage}.script.converter.rhino.DateConverter" parent="scriptprocessor.rhinoValueConverter.abstractInstanceConverter" />
     
-    <bean id="scriptprocessor.rhinoValueConverter.consStringConverter" class="${commonPackage}.script.converter.rhino.ConsStringConverter" parent="scriptprocessor.rhinoValueConverter.abstractInstanceConverter" />
+    <bean id="scriptprocessor.rhinoValueConverter.stringConverter" class="${commonPackage}.script.converter.rhino.NativeAndConsStringConverter" parent="scriptprocessor.rhinoValueConverter.abstractInstanceConverter" />
     
     <bean id="scriptprocessor.rhinoValueConverter.mapConverter" class="${commonPackage}.script.converter.general.MapConverter" parent="scriptprocessor.rhinoValueConverter.abstractInstanceConverter" />
     

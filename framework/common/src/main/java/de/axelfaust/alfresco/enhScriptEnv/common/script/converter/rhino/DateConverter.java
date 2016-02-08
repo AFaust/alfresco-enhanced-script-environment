@@ -33,6 +33,7 @@ public class DateConverter implements ValueInstanceConverter, InitializingBean
 {
 
     private static final String TYPE_DATE = "Date";
+
     private static final Scriptable DUMMY_SCOPE;
     static
     {
@@ -158,7 +159,7 @@ public class DateConverter implements ValueInstanceConverter, InitializingBean
         Context.enter();
         try
         {
-         // Note: Context.javaToJS actually does not handle Date in a way that would make them "native Dates"
+            // Note: Context.javaToJS actually does not handle Date in a way that would make them "native Dates"
             final Object result = ScriptRuntime.newObject(Context.getCurrentContext(), DUMMY_SCOPE, TYPE_DATE,
                     new Object[] { Long.valueOf(((Date) value).getTime()) });
             return result;

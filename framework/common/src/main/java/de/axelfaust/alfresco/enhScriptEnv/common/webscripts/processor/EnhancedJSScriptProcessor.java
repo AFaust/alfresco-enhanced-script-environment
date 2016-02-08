@@ -87,22 +87,6 @@ public class EnhancedJSScriptProcessor extends BaseRegisterableScriptProcessor i
 
     private static final int DEFAULT_MAX_SCRIPT_CACHE_SIZE = 200;
 
-    private static final boolean ASM_AVAILABLE;
-    static
-    {
-        boolean asmAvailable = false;
-        try
-        {
-            final Class<?> classReaderCls = Class.forName("org.objectweb.asm.ClassReader");
-            asmAvailable = classReaderCls != null;
-        }
-        catch (final ClassNotFoundException clsNotFoundEx)
-        {
-            // NO-OP
-        }
-        ASM_AVAILABLE = asmAvailable;
-    }
-
     // used WeakHashMap here before to avoid accidental leaks but measures for proper cleanup have proven themselves during tests
     protected final Map<Context, List<ReferenceScript>> activeScriptContentChain = new ConcurrentHashMap<Context, List<ReferenceScript>>();
     protected final Map<Context, List<List<ReferenceScript>>> recursionScriptContentChains = new ConcurrentHashMap<Context, List<List<ReferenceScript>>>();

@@ -89,7 +89,8 @@ public class DelegatingWrapFactory extends WrapFactory
                 // this counteracts the override in wrap(Context, Scriptable, Object, Class)
                 result = (Scriptable) javaObject;
             }
-            else if (javaObject instanceof CharSequence || javaObject instanceof Number || javaObject instanceof Boolean)
+            else if (!this.isJavaPrimitiveWrap()
+                    && (javaObject instanceof CharSequence || javaObject instanceof Number || javaObject instanceof Boolean))
             {
                 result = ScriptRuntime.toObject(cx, scope, javaObject);
             }

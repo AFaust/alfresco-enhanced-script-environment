@@ -78,7 +78,6 @@ public class ScriptableFacadeMapConverter implements ValueInstanceConverter, Ini
     {
         // we won't convert to Java - relying entirely on AdapterObjectConverter
         final int confidence = LOWEST_CONFIDENCE;
-        ;
         return confidence;
     }
 

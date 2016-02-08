@@ -16,6 +16,8 @@ package de.axelfaust.alfresco.enhScriptEnv.common.script.converter.rhino;
 import org.alfresco.util.PropertyCheck;
 import org.mozilla.javascript.Context;
 import org.mozilla.javascript.IdScriptableObject;
+import org.mozilla.javascript.Scriptable;
+import org.mozilla.javascript.ScriptableObject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.InitializingBean;
@@ -27,10 +29,28 @@ import de.axelfaust.alfresco.enhScriptEnv.common.script.converter.ValueInstanceC
 /**
  * @author Axel Faust
  */
-public class ConsStringConverter implements ValueInstanceConverter, InitializingBean
+public class NativeAndConsStringConverter implements ValueInstanceConverter, InitializingBean
 {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger(ConsStringConverter.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(NativeAndConsStringConverter.class);
+
+    private static final Scriptable DUMMY_SCOPE;
+    static
+    {
+        final Context cx = Context.enter();
+        try
+        {
+            DUMMY_SCOPE = cx.initStandardObjects(null, true);
+            DUMMY_SCOPE.delete("Packages");
+            DUMMY_SCOPE.delete("getClass");
+            DUMMY_SCOPE.delete("java");
+            ((ScriptableObject) DUMMY_SCOPE).sealObject();
+        }
+        finally
+        {
+            Context.exit();
+        }
+    }
 
     protected ValueInstanceConverterRegistry registry;
 
@@ -64,6 +84,8 @@ public class ConsStringConverter implements ValueInstanceConverter, Initializing
             LOGGER.info("Rhino ConsString class is not available - this is normal for an Alfresco release that does not include Rhino 1.7",
                     cnfe);
         }
+
+        this.registry.registerValueInstanceConverter(IdScriptableObject.class, this);
     }
 
     /**
@@ -74,9 +96,10 @@ public class ConsStringConverter implements ValueInstanceConverter, Initializing
     public int getForJavaConversionConfidence(final Class<?> valueInstanceClass, final Class<?> expectedClass)
     {
         final int confidence;
-        if (IdScriptableObject.class.isAssignableFrom(valueInstanceClass) && expectedClass.isAssignableFrom(String.class))
+        if ((IdScriptableObject.class.isAssignableFrom(valueInstanceClass) || (this.consStringClass != null && this.consStringClass
+                .isAssignableFrom(valueInstanceClass))) && expectedClass.isAssignableFrom(String.class))
         {
-            confidence = MEDIUM_CONFIDENCE;
+            confidence = HIGHEST_CONFIDENCE;
         }
         else
         {
@@ -91,7 +114,8 @@ public class ConsStringConverter implements ValueInstanceConverter, Initializing
     @Override
     public boolean canConvertValueForJava(final Object value, final ValueConverter globalDelegate, final Class<?> expectedClass)
     {
-        final boolean canConvert = this.consStringClass.isInstance(value) && expectedClass.isAssignableFrom(String.class);
+        final boolean canConvert = (((value instanceof IdScriptableObject && "String".equals(((IdScriptableObject) value).getClassName())) || (this.consStringClass != null && this.consStringClass
+                .isInstance(value)))) && expectedClass.isAssignableFrom(String.class);
         return canConvert;
     }
 
@@ -101,6 +125,12 @@ public class ConsStringConverter implements ValueInstanceConverter, Initializing
     @Override
     public Object convertValueForJava(final Object value, final ValueConverter globalDelegate, final Class<?> expectedClass)
     {
+        if (!((value instanceof IdScriptableObject && "String".equals(((IdScriptableObject) value).getClassName())) || (this.consStringClass != null && this.consStringClass
+                .isInstance(value))))
+        {
+            throw new IllegalArgumentException("value must be a ConsString/NativeString");
+        }
+
         final Object result = Context.jsToJava(value, String.class);
         return result;
     }
@@ -112,8 +142,9 @@ public class ConsStringConverter implements ValueInstanceConverter, Initializing
     @Override
     public int getForScriptConversionConfidence(final Class<?> valueInstanceClass, final Class<?> expectedClass)
     {
-        // can't convert anything
-        return LOWEST_CONFIDENCE;
+        // we won't convert to JavaScript - relying entirely on DelegatingWrapFactory for handling Java String
+        final int confidence = LOWEST_CONFIDENCE;
+        return confidence;
     }
 
     /**
@@ -122,7 +153,7 @@ public class ConsStringConverter implements ValueInstanceConverter, Initializing
     @Override
     public boolean canConvertValueForScript(final Object value, final ValueConverter globalDelegate, final Class<?> expectedClass)
     {
-        // can't convert anything
+        // we won't convert to JavaScript - relying entirely on DelegatingWrapFactory for handling Java String
         return false;
     }
 
