@@ -23,6 +23,7 @@ import org.mozilla.javascript.Context;
 import org.mozilla.javascript.NativeJavaObject;
 import org.mozilla.javascript.Scriptable;
 import org.mozilla.javascript.ScriptableObject;
+import org.mozilla.javascript.Undefined;
 import org.springframework.aop.ProxyMethodInvocation;
 
 /**
@@ -100,6 +101,12 @@ public class NativeJavaObjectMemberAccessInterceptor implements MethodIntercepto
                         else if (arguments[0] instanceof Integer)
                         {
                             result = nativeObject.get(((Integer) arguments[0]).intValue(), (Scriptable) arguments[1]);
+                        }
+
+                        // checking to avoid unnecessary "undefined" as result (callers of native Java objects only expect null)
+                        if (result == Undefined.instance || result == Scriptable.NOT_FOUND)
+                        {
+                            result = null;
                         }
                     }
                     break;

@@ -152,8 +152,7 @@ public class ScriptableFacadeMapConverter implements ValueInstanceConverter, Ini
         proxyFactory.addAdvice(new ScriptableMapListAdapterInterceptor());
         proxyFactory.addAdvice(new MapLengthFacadeInterceptor(Undefined.instance, false));
         // proxyFactory.addAdvice(new ListLikeMapAdapterInterceptor());
-        // some existing scripts in Alfresco expect Map-contained strings not to be converted
-        proxyFactory.addAdvice(new ValueConvertingMapInterceptor(globalDelegate, true));
+        proxyFactory.addAdvice(new ValueConvertingMapInterceptor(globalDelegate));
 
         // this somehow worked in Java 8 Nashorn PoC, but return types of remove(Object) differ between Map and List
         // proxyFactory.setInterfaces(ClassUtils.collectInterfaces(value, Arrays.<Class<?>> asList(Scriptable.class, List.class, AdapterObject.class)));

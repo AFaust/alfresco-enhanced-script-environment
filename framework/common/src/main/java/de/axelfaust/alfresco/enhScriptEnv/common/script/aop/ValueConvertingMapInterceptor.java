@@ -29,20 +29,10 @@ public class ValueConvertingMapInterceptor implements MethodInterceptor
 
     protected final ValueConverter valueConverter;
 
-    protected final boolean ignoreJavaPrimitives;
-
     public ValueConvertingMapInterceptor(final ValueConverter valueConverter)
     {
         ParameterCheck.mandatory("valueConverter", valueConverter);
         this.valueConverter = valueConverter;
-        this.ignoreJavaPrimitives = false;
-    }
-
-    public ValueConvertingMapInterceptor(final ValueConverter valueConverter, final boolean ignoreJavaPrimitive)
-    {
-        ParameterCheck.mandatory("valueConverter", valueConverter);
-        this.valueConverter = valueConverter;
-        this.ignoreJavaPrimitives = ignoreJavaPrimitive;
     }
 
     /**
@@ -64,23 +54,23 @@ public class ValueConvertingMapInterceptor implements MethodInterceptor
             // String-switch not supported in Java < 8
             switch (MapMethodName.methodLiteralOf(method.getName()))
             {
-            case GET: // fallthrough
-            case REMOVE:
-                convertResult = true;
-                argIdxToConvert = new int[] { 0 };
-                break;
-            case PUT:
-                convertResult = true;
-                argIdxToConvert = new int[] { 0, 1 };
-                break;
-            case CONTAINSKEY: // fallthrough
-            case CONTAINSVALUE:
-                convertResult = false;
-                argIdxToConvert = new int[] { 0 };
-                break;
-            // TODO We may need to support keySet and values (potentially JS for-/for-each-loops)
-            // TODO Do we need to support putAll?
-            default: // NO-OP
+                case GET: // fallthrough
+                case REMOVE:
+                    convertResult = true;
+                    argIdxToConvert = new int[] { 0 };
+                    break;
+                case PUT:
+                    convertResult = true;
+                    argIdxToConvert = new int[] { 0, 1 };
+                    break;
+                case CONTAINSKEY: // fallthrough
+                case CONTAINSVALUE:
+                    convertResult = false;
+                    argIdxToConvert = new int[] { 0 };
+                    break;
+                // TODO We may need to support keySet and values (potentially JS for-/for-each-loops)
+                // TODO Do we need to support putAll?
+                default: // NO-OP
             }
 
             final Object[] arguments = invocation.getArguments();
@@ -92,8 +82,7 @@ public class ValueConvertingMapInterceptor implements MethodInterceptor
 
             final Object actualResult = invocation.proceed();
 
-            if (convertResult
-                    && !(this.ignoreJavaPrimitives && (actualResult instanceof String || actualResult instanceof Number || actualResult instanceof Boolean)))
+            if (convertResult && actualResult != null)
             {
                 final Class<?> expectedClass = method.getReturnType();
                 result = this.valueConverter.convertValueForScript(actualResult, expectedClass);
