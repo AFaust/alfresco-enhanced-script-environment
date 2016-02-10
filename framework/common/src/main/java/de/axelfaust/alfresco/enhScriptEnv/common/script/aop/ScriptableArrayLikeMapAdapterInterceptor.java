@@ -27,6 +27,13 @@ import org.springframework.aop.ProxyMethodInvocation;
 public class ScriptableArrayLikeMapAdapterInterceptor implements MethodInterceptor
 {
 
+    private static final ScriptableArrayLikeMapAdapterInterceptor INSTANCE = new ScriptableArrayLikeMapAdapterInterceptor();
+
+    public static ScriptableArrayLikeMapAdapterInterceptor getInstance()
+    {
+        return INSTANCE;
+    }
+
     /**
      * {@inheritDoc}
      */

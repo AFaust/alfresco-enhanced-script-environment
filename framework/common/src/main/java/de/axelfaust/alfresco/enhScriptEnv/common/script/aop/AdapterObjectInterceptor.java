@@ -26,6 +26,13 @@ import org.aopalliance.intercept.MethodInvocation;
 public class AdapterObjectInterceptor implements MethodInterceptor
 {
 
+    private static final AdapterObjectInterceptor INSTANCE = new AdapterObjectInterceptor();
+
+    public static AdapterObjectInterceptor getInstance()
+    {
+        return INSTANCE;
+    }
+
     /**
      * {@inheritDoc}
      */

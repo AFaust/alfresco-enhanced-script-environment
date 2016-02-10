@@ -28,6 +28,13 @@ import org.springframework.aop.ProxyMethodInvocation;
 public class ScriptableArrayLikeListAdapterInterceptor implements MethodInterceptor
 {
 
+    private static final ScriptableArrayLikeListAdapterInterceptor INSTANCE = new ScriptableArrayLikeListAdapterInterceptor();
+
+    public static ScriptableArrayLikeListAdapterInterceptor getInstance()
+    {
+        return INSTANCE;
+    }
+
     /**
      * {@inheritDoc}
      */

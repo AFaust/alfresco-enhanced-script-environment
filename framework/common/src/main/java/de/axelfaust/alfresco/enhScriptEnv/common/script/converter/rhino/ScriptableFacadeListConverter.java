@@ -143,12 +143,12 @@ public class ScriptableFacadeListConverter implements ValueInstanceConverter, In
 
         final ProxyFactory proxyFactory = new ProxyFactory();
 
-        proxyFactory.addAdvice(new AdapterObjectInterceptor());
+        proxyFactory.addAdvice(AdapterObjectInterceptor.getInstance());
         proxyFactory.addAdvice(new ScriptableBaseAdapterInterceptor());
         proxyFactory.addAdvice(NativeJavaObjectFallbackInterceptor.getInstance());
         proxyFactory.addAdvice(new LengthFacadeInterceptor(Undefined.instance, false));
         // TODO getIds
-        proxyFactory.addAdvice(new ScriptableArrayLikeListAdapterInterceptor());
+        proxyFactory.addAdvice(ScriptableArrayLikeListAdapterInterceptor.getInstance());
         // MAYBE we could also provide transparent array functions like push?
         proxyFactory.addAdvice(new ValueConvertingListInterceptor(globalDelegate));
 

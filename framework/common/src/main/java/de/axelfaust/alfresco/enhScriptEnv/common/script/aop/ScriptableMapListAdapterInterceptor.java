@@ -28,6 +28,13 @@ import org.springframework.aop.ProxyMethodInvocation;
 public class ScriptableMapListAdapterInterceptor implements MethodInterceptor
 {
 
+    private static final ScriptableMapListAdapterInterceptor INSTANCE = new ScriptableMapListAdapterInterceptor();
+
+    public static ScriptableMapListAdapterInterceptor getInstance()
+    {
+        return INSTANCE;
+    }
+
     /**
      * {@inheritDoc}
      */

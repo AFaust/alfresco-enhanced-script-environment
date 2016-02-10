@@ -46,11 +46,11 @@ public final class ClassUtils
                 && ((expectedClass.equals(int.class) && Integer.class.isInstance(value))
                         || (expectedClass.equals(long.class) && Long.class.isInstance(value))
                         || (expectedClass.equals(float.class) && Float.class.isInstance(value))
-                        || (expectedClass.equals(double.class) && Double.class.isInstance(value)) || (expectedClass
-                                .equals(short.class) && Short.class.isInstance(value))
-                        || (expectedClass.equals(byte.class) && Byte.class.isInstance(value)) || (expectedClass
-                                .equals(boolean.class) && Boolean.class.isInstance(value)) || (expectedClass
-                        .equals(char.class) && Character.class.isInstance(value))))
+                        || (expectedClass.equals(double.class) && Double.class.isInstance(value))
+                        || (expectedClass.equals(short.class) && Short.class.isInstance(value))
+                        || (expectedClass.equals(byte.class) && Byte.class.isInstance(value))
+                        || (expectedClass.equals(boolean.class) && Boolean.class.isInstance(value)) || (expectedClass.equals(char.class) && Character.class
+                        .isInstance(value))))
         {
             result = true;
         }
@@ -65,10 +65,17 @@ public final class ClassUtils
     public static Class<?>[] collectInterfaces(final Object source, final Collection<Class<?>> predefinedInterfaces)
     {
         ParameterCheck.mandatory("source", source);
+
+        return collectInterfaces(source.getClass(), predefinedInterfaces);
+    }
+
+    public static Class<?>[] collectInterfaces(final Class<?> baseType, final Collection<Class<?>> predefinedInterfaces)
+    {
+        ParameterCheck.mandatory("baseType", baseType);
         ParameterCheck.mandatoryCollection("predefinedInterfaces", predefinedInterfaces);
 
         final Set<Class<?>> interfaces = new HashSet<Class<?>>(predefinedInterfaces);
-        Class<?> implClass = source.getClass();
+        Class<?> implClass = baseType;
         while (!Object.class.equals(implClass))
         {
             interfaces.addAll(Arrays.asList(implClass.getInterfaces()));

@@ -14,17 +14,23 @@
 package de.axelfaust.alfresco.enhScriptEnv.common.script.aop;
 
 import java.lang.reflect.Method;
+import java.util.Arrays;
 import java.util.Map;
 import java.util.WeakHashMap;
 
 import org.aopalliance.intercept.MethodInterceptor;
 import org.aopalliance.intercept.MethodInvocation;
 import org.mozilla.javascript.Context;
+import org.mozilla.javascript.Function;
+import org.mozilla.javascript.NativeJavaMethod;
 import org.mozilla.javascript.NativeJavaObject;
 import org.mozilla.javascript.Scriptable;
 import org.mozilla.javascript.ScriptableObject;
 import org.mozilla.javascript.Undefined;
 import org.springframework.aop.ProxyMethodInvocation;
+import org.springframework.aop.framework.ProxyFactory;
+
+import de.axelfaust.alfresco.enhScriptEnv.common.util.ClassUtils;
 
 /**
  * This interceptor is meant to provide a facade the ability to fallback access operations ({@link Scriptable#get(String, Scriptable) get}
@@ -54,9 +60,11 @@ public class NativeJavaObjectFallbackInterceptor implements MethodInterceptor
         }
     }
 
+    protected static final Map<Object, NativeJavaObject> NATIVE_OBJECT_CACHE = new WeakHashMap<Object, NativeJavaObject>();
+
     private static final NativeJavaObjectFallbackInterceptor INSTANCE = new NativeJavaObjectFallbackInterceptor();
 
-    protected static final Map<Object, NativeJavaObject> NATIVE_OBJECT_CACHE = new WeakHashMap<Object, NativeJavaObject>();
+    protected ProxyFactory nativeJavaMethodProxyFactory;
 
     public static NativeJavaObjectFallbackInterceptor getInstance()
     {
@@ -107,7 +115,30 @@ public class NativeJavaObjectFallbackInterceptor implements MethodInterceptor
                         {
                             result = null;
                         }
-                        // TODO Need to bind any NativeJavaMethod to correct "this"
+                        else if (result instanceof NativeJavaMethod)
+                        {
+                            if (this.nativeJavaMethodProxyFactory == null)
+                            {
+                                synchronized (this)
+                                {
+                                    if (this.nativeJavaMethodProxyFactory == null)
+                                    {
+                                        this.nativeJavaMethodProxyFactory = new ProxyFactory();
+                                        this.nativeJavaMethodProxyFactory.addAdvice(AdapterObjectInterceptor.getInstance());
+                                        this.nativeJavaMethodProxyFactory.addAdvice(new NativeJavaMethodArgumentCorrectingInterceptor(
+                                                NATIVE_OBJECT_CACHE));
+                                        this.nativeJavaMethodProxyFactory.setInterfaces(ClassUtils.collectInterfaces(
+                                                NativeJavaMethod.class, Arrays.<Class<?>> asList(Function.class)));
+                                    }
+                                }
+                            }
+                            // encapsulate any NativeJavaMethod via AOP to correct arguments, most importantly "this"
+                            synchronized (this.nativeJavaMethodProxyFactory)
+                            {
+                                this.nativeJavaMethodProxyFactory.setTarget(result);
+                                result = this.nativeJavaMethodProxyFactory.getProxy();
+                            }
+                        }
                     }
                     break;
                 case HAS:

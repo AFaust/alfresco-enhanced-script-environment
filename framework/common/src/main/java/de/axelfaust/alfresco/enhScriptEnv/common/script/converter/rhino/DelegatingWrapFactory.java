@@ -33,9 +33,6 @@ public class DelegatingWrapFactory extends WrapFactory
     public DelegatingWrapFactory()
     {
         super();
-        // this fixes Java String vs. native JS String handling
-        // but breaks existing scripts that expect Java String
-        // this.setJavaPrimitiveWrap(false);
     }
 
     /**

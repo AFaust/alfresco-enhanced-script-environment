@@ -145,18 +145,19 @@ public class ScriptableFacadeMapConverter implements ValueInstanceConverter, Ini
 
         final ProxyFactory proxyFactory = new ProxyFactory();
 
-        proxyFactory.addAdvice(new AdapterObjectInterceptor());
+        proxyFactory.addAdvice(AdapterObjectInterceptor.getInstance());
         proxyFactory.addAdvice(new ScriptableBaseAdapterInterceptor());
         proxyFactory.addAdvice(NativeJavaObjectFallbackInterceptor.getInstance());
         proxyFactory.addAdvice(new LengthFacadeInterceptor(Undefined.instance, false));
         // TODO getIds
-        proxyFactory.addAdvice(new ScriptableArrayLikeMapAdapterInterceptor());
-        proxyFactory.addAdvice(new ScriptableMapListAdapterInterceptor());
+        proxyFactory.addAdvice(ScriptableArrayLikeMapAdapterInterceptor.getInstance());
+        proxyFactory.addAdvice(ScriptableMapListAdapterInterceptor.getInstance());
         // proxyFactory.addAdvice(new ListLikeMapAdapterInterceptor());
         proxyFactory.addAdvice(new ValueConvertingMapInterceptor(globalDelegate));
 
         // this somehow worked in Java 8 Nashorn PoC, but return types of remove(Object) differ between Map and List
-        // proxyFactory.setInterfaces(ClassUtils.collectInterfaces(value, Arrays.<Class<?>> asList(Scriptable.class, List.class, AdapterObject.class)));
+        // proxyFactory.setInterfaces(ClassUtils.collectInterfaces(value, Arrays.<Class<?>> asList(Scriptable.class, List.class,
+        // AdapterObject.class)));
         proxyFactory.setInterfaces(ClassUtils.collectInterfaces(value, Arrays.<Class<?>> asList(Scriptable.class, AdapterObject.class)));
 
         proxyFactory.setTarget(value);
