@@ -74,7 +74,7 @@ public class NativeArrayConverter implements ValueInstanceConverter, Initializin
     {
         PropertyCheck.mandatory(this, "registry", this.registry);
 
-        this.registry.registerValueInstanceConverter(Collection.class, this);
+        // Collection registered previously but now handled by ScriptableFacadeListConverter
         this.registry.registerValueInstanceConverter(Object[].class, this);
         this.registry.registerValueInstanceConverter(byte[].class, this);
         this.registry.registerValueInstanceConverter(short[].class, this);

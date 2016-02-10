@@ -22,9 +22,9 @@
 
     <bean id="javaScriptProcessor.rhinoValueConverter.surfNativeMapConverter" class="${commonPackage}.script.converter.rhino.SurfNativeMapConverter" parent="javaScriptProcessor.rhinoValueConverter.abstractInstanceConverter" />
 
-    <!-- TODO add scriptableFacadeListConverter -->
-
     <bean id="javaScriptProcessor.rhinoValueConverter.scriptableFacadeMapConverter" class="${commonPackage}.script.converter.rhino.ScriptableFacadeMapConverter" parent="javaScriptProcessor.rhinoValueConverter.abstractInstanceConverter" />
+    
+    <bean id="javaScriptProcessor.rhinoValueConverter.scriptableFacadeListConverter" class="${commonPackage}.script.converter.rhino.ScriptableFacadeListConverter" parent="javaScriptProcessor.rhinoValueConverter.abstractInstanceConverter" />
 
     <bean id="javaScriptProcessor.rhinoValueConverter.scriptableLinkedHashMapConverter" class="${commonPackage}.script.converter.rhino.ScriptableLinkedHashMapConverter" parent="javaScriptProcessor.rhinoValueConverter.abstractInstanceConverter" />
 

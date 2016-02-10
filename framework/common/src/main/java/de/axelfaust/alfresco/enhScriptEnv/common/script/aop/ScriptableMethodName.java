@@ -19,7 +19,7 @@ package de.axelfaust.alfresco.enhScriptEnv.common.script.aop;
  */
 public enum ScriptableMethodName
 {
-    GET, HAS, PUT, DELETE, GETPROTOTYPE, SETPROTOTYPE, GETPARENTSCOPE, SETPARENTSCOPE, GETIDS, GETDEFAULVALUE, HASINSTANCE, UNKNOWN;
+    GET, HAS, PUT, DELETE, GETPROTOTYPE, SETPROTOTYPE, GETPARENTSCOPE, SETPARENTSCOPE, GETIDS, GETDEFAULTVALUE, HASINSTANCE, UNKNOWN;
 
     protected static ScriptableMethodName methodLiteralOf(final String methodName)
     {

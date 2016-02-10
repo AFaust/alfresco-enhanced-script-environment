@@ -33,7 +33,7 @@ import org.springframework.aop.ProxyMethodInvocation;
  *
  * @author Axel Faust
  */
-public class NativeJavaObjectMemberAccessInterceptor implements MethodInterceptor
+public class NativeJavaObjectFallbackInterceptor implements MethodInterceptor
 {
 
     private static final Scriptable DUMMY_SCOPE;
@@ -54,11 +54,11 @@ public class NativeJavaObjectMemberAccessInterceptor implements MethodIntercepto
         }
     }
 
-    private static final NativeJavaObjectMemberAccessInterceptor INSTANCE = new NativeJavaObjectMemberAccessInterceptor();
+    private static final NativeJavaObjectFallbackInterceptor INSTANCE = new NativeJavaObjectFallbackInterceptor();
 
     protected static final Map<Object, NativeJavaObject> NATIVE_OBJECT_CACHE = new WeakHashMap<Object, NativeJavaObject>();
 
-    public static NativeJavaObjectMemberAccessInterceptor getInstance()
+    public static NativeJavaObjectFallbackInterceptor getInstance()
     {
         return INSTANCE;
     }
@@ -74,7 +74,6 @@ public class NativeJavaObjectMemberAccessInterceptor implements MethodIntercepto
         final Class<?> declaringClass = method.getDeclaringClass();
         if (Scriptable.class.equals(declaringClass) && invocation instanceof ProxyMethodInvocation)
         {
-            final ProxyMethodInvocation pInvocation = (ProxyMethodInvocation) invocation;
             final Object _this = invocation.getThis();
             NativeJavaObject nativeObject = NATIVE_OBJECT_CACHE.get(_this);
 
@@ -108,6 +107,7 @@ public class NativeJavaObjectMemberAccessInterceptor implements MethodIntercepto
                         {
                             result = null;
                         }
+                        // TODO Need to bind any NativeJavaMethod to correct "this"
                     }
                     break;
                 case HAS:
@@ -129,6 +129,19 @@ public class NativeJavaObjectMemberAccessInterceptor implements MethodIntercepto
                             result = Boolean.valueOf(nativeObject.has(((Integer) arguments[0]).intValue(), (Scriptable) arguments[1]));
                         }
                     }
+                    break;
+                case GETDEFAULTVALUE:
+                case GETPARENTSCOPE:
+                case GETPROTOTYPE:
+                case HASINSTANCE:
+                case SETPARENTSCOPE:
+                case SETPROTOTYPE:
+                    if (nativeObject == null)
+                    {
+                        nativeObject = new NativeJavaObject(DUMMY_SCOPE, _this, _this.getClass());
+                        NATIVE_OBJECT_CACHE.put(_this, nativeObject);
+                    }
+                    result = method.invoke(nativeObject, arguments);
                     break;
                 default:
                     result = invocation.proceed();

@@ -24,7 +24,7 @@ import org.springframework.aop.ProxyMethodInvocation;
 /**
  * @author Axel Faust
  */
-public class ScriptableListLikeMapAdapterInterceptor implements MethodInterceptor
+public class ScriptableArrayLikeMapAdapterInterceptor implements MethodInterceptor
 {
 
     /**

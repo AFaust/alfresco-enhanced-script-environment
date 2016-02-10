@@ -14,36 +14,34 @@
 package de.axelfaust.alfresco.enhScriptEnv.common.script.converter.rhino;
 
 import java.util.Arrays;
-import java.util.Map;
+import java.util.List;
 
 import org.alfresco.util.PropertyCheck;
+import org.mozilla.javascript.NativeArray;
 import org.mozilla.javascript.Scriptable;
 import org.mozilla.javascript.Undefined;
+import org.springframework.aop.framework.ProxyFactory;
+import org.springframework.beans.factory.InitializingBean;
 
 import de.axelfaust.alfresco.enhScriptEnv.common.script.aop.AdapterObject;
 import de.axelfaust.alfresco.enhScriptEnv.common.script.aop.AdapterObjectInterceptor;
 import de.axelfaust.alfresco.enhScriptEnv.common.script.aop.LengthFacadeInterceptor;
 import de.axelfaust.alfresco.enhScriptEnv.common.script.aop.NativeJavaObjectFallbackInterceptor;
+import de.axelfaust.alfresco.enhScriptEnv.common.script.aop.ScriptableArrayLikeListAdapterInterceptor;
 import de.axelfaust.alfresco.enhScriptEnv.common.script.aop.ScriptableBaseAdapterInterceptor;
-import de.axelfaust.alfresco.enhScriptEnv.common.script.aop.ScriptableArrayLikeMapAdapterInterceptor;
-import de.axelfaust.alfresco.enhScriptEnv.common.script.aop.ScriptableMapListAdapterInterceptor;
-import de.axelfaust.alfresco.enhScriptEnv.common.script.aop.ValueConvertingMapInterceptor;
+import de.axelfaust.alfresco.enhScriptEnv.common.script.aop.ValueConvertingListInterceptor;
 import de.axelfaust.alfresco.enhScriptEnv.common.script.converter.ValueConverter;
 import de.axelfaust.alfresco.enhScriptEnv.common.script.converter.ValueInstanceConverterRegistry;
 import de.axelfaust.alfresco.enhScriptEnv.common.script.converter.ValueInstanceConverterRegistry.ValueInstanceConverter;
 import de.axelfaust.alfresco.enhScriptEnv.common.util.ClassUtils;
 
-import org.springframework.aop.framework.ProxyFactory;
-import org.springframework.beans.factory.InitializingBean;
-import org.springframework.extensions.webscripts.NativeMap;
-
 /**
- * A converter to handle conversion for {@link Map maps} that should be exposed via the {@link Scriptable} interface much like the
- * {@link NativeMap Surf native map} wrapper does.
+ * A converter to handle conversion for {@link List lists} that should be exposed via the {@link Scriptable} interface much like a
+ * {@link NativeArray native array}.
  *
  * @author Axel Faust
  */
-public class ScriptableFacadeMapConverter implements ValueInstanceConverter, InitializingBean
+public class ScriptableFacadeListConverter implements ValueInstanceConverter, InitializingBean
 {
 
     protected ValueInstanceConverterRegistry registry;
@@ -66,7 +64,7 @@ public class ScriptableFacadeMapConverter implements ValueInstanceConverter, Ini
     {
         PropertyCheck.mandatory(this, "registry", this.registry);
 
-        this.registry.registerValueInstanceConverter(Map.class, this);
+        this.registry.registerValueInstanceConverter(List.class, this);
     }
 
     /**
@@ -109,7 +107,7 @@ public class ScriptableFacadeMapConverter implements ValueInstanceConverter, Ini
     public int getForScriptConversionConfidence(final Class<?> valueInstanceClass, final Class<?> expectedClass)
     {
         final int confidence;
-        if (Map.class.isAssignableFrom(valueInstanceClass) && expectedClass.isAssignableFrom(Scriptable.class))
+        if (List.class.isAssignableFrom(valueInstanceClass) && expectedClass.isAssignableFrom(Scriptable.class))
         {
             confidence = MEDIUM_CONFIDENCE;
         }
@@ -126,7 +124,7 @@ public class ScriptableFacadeMapConverter implements ValueInstanceConverter, Ini
     @Override
     public boolean canConvertValueForScript(final Object value, final ValueConverter globalDelegate, final Class<?> expectedClass)
     {
-        final boolean canConvert = value instanceof Map<?, ?> && expectedClass.isAssignableFrom(Scriptable.class);
+        final boolean canConvert = value instanceof List<?> && expectedClass.isAssignableFrom(Scriptable.class);
         return canConvert;
     }
 
@@ -136,9 +134,9 @@ public class ScriptableFacadeMapConverter implements ValueInstanceConverter, Ini
     @Override
     public Object convertValueForScript(final Object value, final ValueConverter globalDelegate, final Class<?> expectedClass)
     {
-        if (!(value instanceof Map<?, ?>))
+        if (!(value instanceof List<?>))
         {
-            throw new IllegalArgumentException("value must be a Map");
+            throw new IllegalArgumentException("value must be a List");
         }
 
         final Object result;
@@ -150,13 +148,10 @@ public class ScriptableFacadeMapConverter implements ValueInstanceConverter, Ini
         proxyFactory.addAdvice(NativeJavaObjectFallbackInterceptor.getInstance());
         proxyFactory.addAdvice(new LengthFacadeInterceptor(Undefined.instance, false));
         // TODO getIds
-        proxyFactory.addAdvice(new ScriptableArrayLikeMapAdapterInterceptor());
-        proxyFactory.addAdvice(new ScriptableMapListAdapterInterceptor());
-        // proxyFactory.addAdvice(new ListLikeMapAdapterInterceptor());
-        proxyFactory.addAdvice(new ValueConvertingMapInterceptor(globalDelegate));
+        proxyFactory.addAdvice(new ScriptableArrayLikeListAdapterInterceptor());
+        // MAYBE we could also provide transparent array functions like push?
+        proxyFactory.addAdvice(new ValueConvertingListInterceptor(globalDelegate));
 
-        // this somehow worked in Java 8 Nashorn PoC, but return types of remove(Object) differ between Map and List
-        // proxyFactory.setInterfaces(ClassUtils.collectInterfaces(value, Arrays.<Class<?>> asList(Scriptable.class, List.class, AdapterObject.class)));
         proxyFactory.setInterfaces(ClassUtils.collectInterfaces(value, Arrays.<Class<?>> asList(Scriptable.class, AdapterObject.class)));
 
         proxyFactory.setTarget(value);

@@ -79,7 +79,7 @@ public class ScriptableBaseAdapterInterceptor implements MethodInterceptor
                 // proxies can never be used for hasInstance checks
                 result = Boolean.FALSE;
                 break;
-            case GETDEFAULVALUE:
+            case GETDEFAULTVALUE:
                 if (arguments.length > 0)
                 {
                     if (arguments[0] == null || ScriptRuntime.StringClass == arguments[0])
