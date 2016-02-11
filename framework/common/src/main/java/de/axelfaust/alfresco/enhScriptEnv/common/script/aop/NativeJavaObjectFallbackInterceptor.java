@@ -64,8 +64,6 @@ public class NativeJavaObjectFallbackInterceptor implements MethodInterceptor
 
     private static final NativeJavaObjectFallbackInterceptor INSTANCE = new NativeJavaObjectFallbackInterceptor();
 
-    protected ProxyFactory nativeJavaMethodProxyFactory;
-
     public static NativeJavaObjectFallbackInterceptor getInstance()
     {
         return INSTANCE;
@@ -115,29 +113,16 @@ public class NativeJavaObjectFallbackInterceptor implements MethodInterceptor
                         {
                             result = null;
                         }
+                        // encapsulate any NativeJavaMethod via AOP to correct arguments, most importantly "this"
                         else if (result instanceof NativeJavaMethod)
                         {
-                            if (this.nativeJavaMethodProxyFactory == null)
-                            {
-                                synchronized (this)
-                                {
-                                    if (this.nativeJavaMethodProxyFactory == null)
-                                    {
-                                        this.nativeJavaMethodProxyFactory = new ProxyFactory();
-                                        this.nativeJavaMethodProxyFactory.addAdvice(AdapterObjectInterceptor.getInstance());
-                                        this.nativeJavaMethodProxyFactory.addAdvice(new NativeJavaMethodArgumentCorrectingInterceptor(
-                                                NATIVE_OBJECT_CACHE));
-                                        this.nativeJavaMethodProxyFactory.setInterfaces(ClassUtils.collectInterfaces(
-                                                NativeJavaMethod.class, Arrays.<Class<?>> asList(Function.class)));
-                                    }
-                                }
-                            }
-                            // encapsulate any NativeJavaMethod via AOP to correct arguments, most importantly "this"
-                            synchronized (this.nativeJavaMethodProxyFactory)
-                            {
-                                this.nativeJavaMethodProxyFactory.setTarget(result);
-                                result = this.nativeJavaMethodProxyFactory.getProxy();
-                            }
+                            final ProxyFactory proxyFactory = new ProxyFactory();
+                            proxyFactory.addAdvice(AdapterObjectInterceptor.getInstance());
+                            proxyFactory.addAdvice(new NativeJavaMethodArgumentCorrectingInterceptor(NATIVE_OBJECT_CACHE));
+                            proxyFactory.setInterfaces(ClassUtils.collectInterfaces(NativeJavaMethod.class,
+                                    Arrays.<Class<?>> asList(Function.class, AdapterObject.class)));
+                            proxyFactory.setTarget(result);
+                            result = proxyFactory.getProxy();
                         }
                     }
                     break;

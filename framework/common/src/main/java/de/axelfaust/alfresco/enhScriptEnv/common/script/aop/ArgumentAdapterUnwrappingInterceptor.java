@@ -13,22 +13,20 @@
  */
 package de.axelfaust.alfresco.enhScriptEnv.common.script.aop;
 
-import java.util.Map;
 import org.aopalliance.intercept.MethodInterceptor;
 import org.aopalliance.intercept.MethodInvocation;
-import org.mozilla.javascript.NativeJavaObject;
 
 /**
  * @author Axel Faust
  */
-public class NativeJavaMethodArgumentCorrectingInterceptor implements MethodInterceptor
+public class ArgumentAdapterUnwrappingInterceptor implements MethodInterceptor
 {
 
-    protected final Map<Object, NativeJavaObject> nativeObjectCache;
+    private static final ArgumentAdapterUnwrappingInterceptor INSTANCE = new ArgumentAdapterUnwrappingInterceptor();
 
-    public NativeJavaMethodArgumentCorrectingInterceptor(final Map<Object, NativeJavaObject> nativeObjectCache)
+    public static ArgumentAdapterUnwrappingInterceptor getInstance()
     {
-        this.nativeObjectCache = nativeObjectCache;
+        return INSTANCE;
     }
 
     /**
@@ -37,24 +35,18 @@ public class NativeJavaMethodArgumentCorrectingInterceptor implements MethodInte
     @Override
     public Object invoke(final MethodInvocation invocation) throws Throwable
     {
-        Object result;
-
+        // process parameters, replacing adapter objects with backing objects (i.e. this as proxy to this as NativeJavaObject
         final Object[] arguments = invocation.getArguments();
         for (int idx = 0; idx < arguments.length; idx++)
         {
             if (arguments[idx] instanceof AdapterObject)
             {
                 final Object baseObject = ((AdapterObject) arguments[idx]).getBackingObject();
-                final NativeJavaObject nativeObject = this.nativeObjectCache.get(baseObject);
-                if (nativeObject != null)
-                {
-                    arguments[idx] = nativeObject;
-                }
+                arguments[idx] = baseObject;
             }
         }
 
-        result = invocation.proceed();
-
+        final Object result = invocation.proceed();
         return result;
     }
 

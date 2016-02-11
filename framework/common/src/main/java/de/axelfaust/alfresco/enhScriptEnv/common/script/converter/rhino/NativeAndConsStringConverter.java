@@ -13,18 +13,26 @@
  */
 package de.axelfaust.alfresco.enhScriptEnv.common.script.converter.rhino;
 
+import java.util.Arrays;
+
 import org.alfresco.util.PropertyCheck;
 import org.mozilla.javascript.Context;
 import org.mozilla.javascript.IdScriptableObject;
+import org.mozilla.javascript.NativeJavaObject;
 import org.mozilla.javascript.Scriptable;
 import org.mozilla.javascript.ScriptableObject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.aop.framework.ProxyFactory;
 import org.springframework.beans.factory.InitializingBean;
 
+import de.axelfaust.alfresco.enhScriptEnv.common.script.aop.AdapterObject;
+import de.axelfaust.alfresco.enhScriptEnv.common.script.aop.AdapterObjectInterceptor;
+import de.axelfaust.alfresco.enhScriptEnv.common.script.aop.NativeStringEmulatingInterceptor;
 import de.axelfaust.alfresco.enhScriptEnv.common.script.converter.ValueConverter;
 import de.axelfaust.alfresco.enhScriptEnv.common.script.converter.ValueInstanceConverterRegistry;
 import de.axelfaust.alfresco.enhScriptEnv.common.script.converter.ValueInstanceConverterRegistry.ValueInstanceConverter;
+import de.axelfaust.alfresco.enhScriptEnv.common.util.ClassUtils;
 
 /**
  * @author Axel Faust
@@ -86,6 +94,7 @@ public class NativeAndConsStringConverter implements ValueInstanceConverter, Ini
         }
 
         this.registry.registerValueInstanceConverter(IdScriptableObject.class, this);
+        this.registry.registerValueInstanceConverter(CharSequence.class, this);
     }
 
     /**
@@ -142,8 +151,17 @@ public class NativeAndConsStringConverter implements ValueInstanceConverter, Ini
     @Override
     public int getForScriptConversionConfidence(final Class<?> valueInstanceClass, final Class<?> expectedClass)
     {
-        // we won't convert to JavaScript - relying entirely on DelegatingWrapFactory for handling Java String
-        final int confidence = LOWEST_CONFIDENCE;
+        final int confidence;
+
+        if (CharSequence.class.isAssignableFrom(valueInstanceClass) && expectedClass.isAssignableFrom(Scriptable.class))
+        {
+            confidence = MEDIUM_CONFIDENCE;
+        }
+        else
+        {
+            confidence = LOWEST_CONFIDENCE;
+        }
+
         return confidence;
     }
 
@@ -153,8 +171,18 @@ public class NativeAndConsStringConverter implements ValueInstanceConverter, Ini
     @Override
     public boolean canConvertValueForScript(final Object value, final ValueConverter globalDelegate, final Class<?> expectedClass)
     {
-        // we won't convert to JavaScript - relying entirely on DelegatingWrapFactory for handling Java String
-        return false;
+        final boolean canConvert;
+
+        if (value instanceof CharSequence && expectedClass.isAssignableFrom(Scriptable.class))
+        {
+            canConvert = true;
+        }
+        else
+        {
+            canConvert = false;
+        }
+
+        return canConvert;
     }
 
     /**
@@ -163,7 +191,21 @@ public class NativeAndConsStringConverter implements ValueInstanceConverter, Ini
     @Override
     public Object convertValueForScript(final Object value, final ValueConverter globalDelegate, final Class<?> expectedClass)
     {
-        // clients should check canConvertValueForScript first
-        throw new UnsupportedOperationException("This operation is not supported and should not have been called");
+        if (!(value instanceof CharSequence))
+        {
+            throw new IllegalArgumentException("value must be a CharSequence");
+        }
+
+        final NativeJavaObject nativeJavaObject = new NativeJavaObject(DUMMY_SCOPE, value, value.getClass());
+
+        final ProxyFactory proxyFactory = new ProxyFactory();
+
+        proxyFactory.addAdvice(AdapterObjectInterceptor.getInstance());
+        proxyFactory.addAdvice(NativeStringEmulatingInterceptor.getInstance());
+        proxyFactory.setInterfaces(ClassUtils.collectInterfaces(nativeJavaObject, Arrays.<Class<?>> asList(AdapterObject.class)));
+        proxyFactory.setTarget(nativeJavaObject);
+
+        final Object result = proxyFactory.getProxy();
+        return result;
     }
 }
