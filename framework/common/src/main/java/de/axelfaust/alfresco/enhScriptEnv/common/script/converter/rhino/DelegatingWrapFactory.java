@@ -13,12 +13,20 @@
  */
 package de.axelfaust.alfresco.enhScriptEnv.common.script.converter.rhino;
 
+import java.util.Arrays;
+
 import org.mozilla.javascript.Context;
+import org.mozilla.javascript.NativeJavaObject;
 import org.mozilla.javascript.ScriptRuntime;
 import org.mozilla.javascript.Scriptable;
 import org.mozilla.javascript.WrapFactory;
+import org.springframework.aop.framework.ProxyFactory;
 
+import de.axelfaust.alfresco.enhScriptEnv.common.script.aop.AdapterObject;
+import de.axelfaust.alfresco.enhScriptEnv.common.script.aop.AdapterObjectInterceptor;
+import de.axelfaust.alfresco.enhScriptEnv.common.script.aop.NativeJavaMethodWrappingInterceptor;
 import de.axelfaust.alfresco.enhScriptEnv.common.script.converter.ValueConverter;
+import de.axelfaust.alfresco.enhScriptEnv.common.util.ClassUtils;
 
 /**
  * @author Axel Faust
@@ -74,7 +82,7 @@ public class DelegatingWrapFactory extends WrapFactory
     @SuppressWarnings("rawtypes")
     public Scriptable wrapAsJavaObject(final Context cx, final Scriptable scope, final Object javaObject, final Class staticType)
     {
-        final Scriptable result;
+        Scriptable result;
 
         final Boolean guardValue = this.recursionGuard.get();
         if (Boolean.TRUE.equals(guardValue)
@@ -93,7 +101,19 @@ public class DelegatingWrapFactory extends WrapFactory
             }
             else
             {
+                // default
                 result = super.wrapAsJavaObject(cx, scope == null ? this.scope : scope, javaObject, staticType);
+
+                if (result instanceof NativeJavaObject)
+                {
+                    final ProxyFactory proxyFactory = new ProxyFactory();
+                    proxyFactory.addAdvice(AdapterObjectInterceptor.getInstance());
+                    proxyFactory.addAdvice(NativeJavaMethodWrappingInterceptor.getInstance());
+                    proxyFactory.setInterfaces(ClassUtils.collectInterfaces(NativeJavaObject.class,
+                            Arrays.<Class<?>> asList(AdapterObject.class)));
+                    proxyFactory.setTarget(result);
+                    result = (Scriptable) proxyFactory.getProxy();
+                }
             }
         }
         else

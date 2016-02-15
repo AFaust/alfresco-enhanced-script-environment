@@ -14,6 +14,7 @@
 package de.axelfaust.alfresco.enhScriptEnv.common.script.aop;
 
 import java.util.Map;
+
 import org.aopalliance.intercept.MethodInterceptor;
 import org.aopalliance.intercept.MethodInvocation;
 import org.mozilla.javascript.NativeJavaObject;
@@ -24,7 +25,19 @@ import org.mozilla.javascript.NativeJavaObject;
 public class NativeJavaMethodArgumentCorrectingInterceptor implements MethodInterceptor
 {
 
+    private static final NativeJavaMethodArgumentCorrectingInterceptor DEFAULT_INSTANCE = new NativeJavaMethodArgumentCorrectingInterceptor();
+
+    public static NativeJavaMethodArgumentCorrectingInterceptor getDefaultInstance()
+    {
+        return DEFAULT_INSTANCE;
+    }
+
     protected final Map<Object, NativeJavaObject> nativeObjectCache;
+
+    public NativeJavaMethodArgumentCorrectingInterceptor()
+    {
+        this.nativeObjectCache = null;
+    }
 
     public NativeJavaMethodArgumentCorrectingInterceptor(final Map<Object, NativeJavaObject> nativeObjectCache)
     {
@@ -44,16 +57,47 @@ public class NativeJavaMethodArgumentCorrectingInterceptor implements MethodInte
         {
             if (arguments[idx] instanceof AdapterObject)
             {
-                final Object baseObject = ((AdapterObject) arguments[idx]).getBackingObject();
-                final NativeJavaObject nativeObject = this.nativeObjectCache.get(baseObject);
-                if (nativeObject != null)
+                arguments[idx] = this.convertForNativeJavaMethod((AdapterObject) arguments[idx]);
+            }
+            else if (arguments[idx] instanceof Object[])
+            {
+                final Object[] sourceArray = (Object[]) arguments[idx];
+                final Object[] targetArray = new Object[sourceArray.length];
+
+                for (int jdx = 0; jdx < sourceArray.length; jdx++)
                 {
-                    arguments[idx] = nativeObject;
+                    if (sourceArray[jdx] instanceof AdapterObject)
+                    {
+                        targetArray[jdx] = this.convertForNativeJavaMethod((AdapterObject) sourceArray[jdx]);
+                    }
+                    else
+                    {
+                        targetArray[jdx] = sourceArray[jdx];
+                    }
                 }
+
+                arguments[idx] = targetArray;
             }
         }
 
         result = invocation.proceed();
+
+        return result;
+    }
+
+    protected Object convertForNativeJavaMethod(final AdapterObject object)
+    {
+        final Object result;
+        final Object baseObject = object.getBackingObject();
+        if (this.nativeObjectCache != null && this.nativeObjectCache.containsKey(baseObject))
+        {
+            final NativeJavaObject nativeObject = this.nativeObjectCache.get(baseObject);
+            result = nativeObject;
+        }
+        else
+        {
+            result = baseObject;
+        }
 
         return result;
     }

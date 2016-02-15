@@ -21,7 +21,6 @@ import java.util.WeakHashMap;
 import org.aopalliance.intercept.MethodInterceptor;
 import org.aopalliance.intercept.MethodInvocation;
 import org.mozilla.javascript.Context;
-import org.mozilla.javascript.Function;
 import org.mozilla.javascript.NativeJavaMethod;
 import org.mozilla.javascript.NativeJavaObject;
 import org.mozilla.javascript.Scriptable;
@@ -114,13 +113,14 @@ public class NativeJavaObjectFallbackInterceptor implements MethodInterceptor
                             result = null;
                         }
                         // encapsulate any NativeJavaMethod via AOP to correct arguments, most importantly "this"
+                        // can't use NativeJavaMethodWrappingInterceptor due to requirement to handle external-to-internal object cache
                         else if (result instanceof NativeJavaMethod)
                         {
                             final ProxyFactory proxyFactory = new ProxyFactory();
                             proxyFactory.addAdvice(AdapterObjectInterceptor.getInstance());
                             proxyFactory.addAdvice(new NativeJavaMethodArgumentCorrectingInterceptor(NATIVE_OBJECT_CACHE));
                             proxyFactory.setInterfaces(ClassUtils.collectInterfaces(NativeJavaMethod.class,
-                                    Arrays.<Class<?>> asList(Function.class, AdapterObject.class)));
+                                    Arrays.<Class<?>> asList(AdapterObject.class)));
                             proxyFactory.setTarget(result);
                             result = proxyFactory.getProxy();
                         }
