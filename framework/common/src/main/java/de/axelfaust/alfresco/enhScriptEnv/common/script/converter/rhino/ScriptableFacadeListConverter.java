@@ -26,6 +26,7 @@ import org.springframework.beans.factory.InitializingBean;
 import de.axelfaust.alfresco.enhScriptEnv.common.script.aop.AdapterObject;
 import de.axelfaust.alfresco.enhScriptEnv.common.script.aop.AdapterObjectInterceptor;
 import de.axelfaust.alfresco.enhScriptEnv.common.script.aop.LengthFacadeInterceptor;
+import de.axelfaust.alfresco.enhScriptEnv.common.script.aop.NativeArrayFunctionSimulatingInterceptor;
 import de.axelfaust.alfresco.enhScriptEnv.common.script.aop.NativeJavaObjectFallbackInterceptor;
 import de.axelfaust.alfresco.enhScriptEnv.common.script.aop.ScriptableArrayLikeListAdapterInterceptor;
 import de.axelfaust.alfresco.enhScriptEnv.common.script.aop.ScriptableBaseAdapterInterceptor;
@@ -147,6 +148,7 @@ public class ScriptableFacadeListConverter implements ValueInstanceConverter, In
         proxyFactory.addAdvice(new ScriptableBaseAdapterInterceptor());
         proxyFactory.addAdvice(NativeJavaObjectFallbackInterceptor.getInstance());
         proxyFactory.addAdvice(new LengthFacadeInterceptor(Undefined.instance, false));
+        proxyFactory.addAdvice(NativeArrayFunctionSimulatingInterceptor.getInstance());
         // TODO getIds
         proxyFactory.addAdvice(ScriptableArrayLikeListAdapterInterceptor.getInstance());
         // MAYBE we could also provide transparent array functions like push?

@@ -89,7 +89,11 @@ public class ValueConvertingListInterceptor implements MethodInterceptor
                 break;
             case INDEXOF: // fallthrough
             case LASTINDEXOF: // fallthrough
-            case CONTAINS:
+            case CONTAINS: // fallthrough
+            case CONTAINSALL: // fallthrough
+            case RETAINALL: // fallthrough
+            case ADDALL: // fallthrough
+            case REMOVEALL:
                 argIdxToConvert = new int[] { 0 };
                 break;
             case TOARRAY:
@@ -97,7 +101,6 @@ public class ValueConvertingListInterceptor implements MethodInterceptor
                 convertResult = true;
                 break;
             // TODO We may need to support listIterator (potentially JS for-each-loop)
-            // TODO Do we need to support containsAll / addAll / removeAll / retainAll?
             default: // NO-OP
             }
 

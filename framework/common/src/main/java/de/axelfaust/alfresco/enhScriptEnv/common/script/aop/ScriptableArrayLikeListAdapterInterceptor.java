@@ -70,7 +70,6 @@ public class ScriptableArrayLikeListAdapterInterceptor implements MethodIntercep
                         }
                         else
                         {
-                            // TODO Simulate native array functions (push/splice...)
                             result = null;
                         }
                     }
