@@ -40,7 +40,7 @@ public class ListLikeMapAdapterInterceptor implements MethodInterceptor
         final Method method = invocation.getMethod();
         final Class<?> declaringClass = method.getDeclaringClass();
         final Object this1 = invocation.getThis();
-        if ((List.class.equals(declaringClass) || Collection.class.equals(declaringClass)) && !(this1 instanceof List<?>))
+        if ((List.class.isAssignableFrom(declaringClass) || Collection.class.isAssignableFrom(declaringClass)) && !(this1 instanceof List<?>))
         {
             if (invocation instanceof ProxyMethodInvocation && ((ProxyMethodInvocation) invocation).getProxy() instanceof Map<?, ?>)
             {

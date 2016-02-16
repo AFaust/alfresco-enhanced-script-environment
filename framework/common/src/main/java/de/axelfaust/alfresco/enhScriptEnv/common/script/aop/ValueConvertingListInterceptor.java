@@ -46,7 +46,7 @@ public class ValueConvertingListInterceptor implements MethodInterceptor
         final Method method = invocation.getMethod();
         final Class<?> declaringClass = method.getDeclaringClass();
 
-        if (List.class.equals(declaringClass))
+        if (List.class.isAssignableFrom(declaringClass))
         {
             boolean convertResult = false;
             int[] argIdxToConvert = new int[] {};

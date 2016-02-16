@@ -48,6 +48,7 @@ public class NativeJavaMethodWrappingInterceptor implements MethodInterceptor
             final ProxyFactory proxyFactory = new ProxyFactory();
             proxyFactory.addAdvice(AdapterObjectInterceptor.getInstance());
             proxyFactory.addAdvice(NativeJavaMethodArgumentCorrectingInterceptor.getDefaultInstance());
+            proxyFactory.addAdvice(NativeJavaMethodWrapFactoryInterceptor.getInstance());
             proxyFactory.setInterfaces(ClassUtils.collectInterfaces(NativeJavaMethod.class,
                     Arrays.<Class<?>> asList(AdapterObject.class)));
             proxyFactory.setTarget(result);

@@ -46,7 +46,7 @@ public class ValueConvertingMapInterceptor implements MethodInterceptor
         final Method method = invocation.getMethod();
         final Class<?> declaringClass = method.getDeclaringClass();
 
-        if (Map.class.equals(declaringClass))
+        if (Map.class.isAssignableFrom(declaringClass))
         {
             boolean convertResult = false;
             int[] argIdxToConvert = new int[] {};

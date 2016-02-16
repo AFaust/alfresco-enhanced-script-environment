@@ -20,6 +20,7 @@ import org.mozilla.javascript.NativeJavaObject;
 import org.mozilla.javascript.ScriptRuntime;
 import org.mozilla.javascript.Scriptable;
 import org.mozilla.javascript.WrapFactory;
+import org.springframework.aop.framework.ConstructorArgumentAwareProxyFactory;
 import org.springframework.aop.framework.ProxyFactory;
 
 import de.axelfaust.alfresco.enhScriptEnv.common.script.aop.AdapterObject;
@@ -36,6 +37,8 @@ public class DelegatingWrapFactory extends WrapFactory
 
     protected final ThreadLocal<Boolean> recursionGuard = new ThreadLocal<Boolean>();
 
+    protected final ThreadLocal<Boolean> wrapDisabled = new ThreadLocal<Boolean>();
+
     protected Scriptable scope;
 
     public DelegatingWrapFactory()
@@ -50,6 +53,16 @@ public class DelegatingWrapFactory extends WrapFactory
     public void setScope(final Scriptable scope)
     {
         this.scope = scope;
+    }
+
+    public void disableWrap()
+    {
+        this.wrapDisabled.set(Boolean.TRUE);
+    }
+
+    public void enableWrap()
+    {
+        this.wrapDisabled.set(Boolean.FALSE);
     }
 
     /**
@@ -84,57 +97,66 @@ public class DelegatingWrapFactory extends WrapFactory
     {
         Scriptable result;
 
-        final Boolean guardValue = this.recursionGuard.get();
-        if (Boolean.TRUE.equals(guardValue)
-                || !ValueConverter.GLOBAL_CONVERTER.get().canConvertValueForScript(javaObject, Scriptable.class))
+        if (Boolean.TRUE.equals(this.wrapDisabled.get()))
         {
-            if (javaObject instanceof Scriptable)
-            {
-                // either an unconvertable Scriptable or recursive wrap call
-                // this counteracts the override in wrap(Context, Scriptable, Object, Class)
-                result = (Scriptable) javaObject;
-            }
-            else if (!this.isJavaPrimitiveWrap()
-                    && (javaObject instanceof CharSequence || javaObject instanceof Number || javaObject instanceof Boolean))
-            {
-                result = ScriptRuntime.toObject(cx, scope, javaObject);
-            }
-            else
-            {
-                // default
-                result = super.wrapAsJavaObject(cx, scope == null ? this.scope : scope, javaObject, staticType);
-
-                if (result instanceof NativeJavaObject)
-                {
-                    final ProxyFactory proxyFactory = new ProxyFactory();
-                    proxyFactory.addAdvice(AdapterObjectInterceptor.getInstance());
-                    proxyFactory.addAdvice(NativeJavaMethodWrappingInterceptor.getInstance());
-                    proxyFactory.setInterfaces(ClassUtils.collectInterfaces(NativeJavaObject.class,
-                            Arrays.<Class<?>> asList(AdapterObject.class)));
-                    proxyFactory.setTarget(result);
-                    result = (Scriptable) proxyFactory.getProxy();
-                }
-            }
+            result = super.wrapAsJavaObject(cx, scope, javaObject, staticType);
         }
         else
         {
-            this.recursionGuard.set(Boolean.TRUE);
-            try
+            final Boolean guardValue = this.recursionGuard.get();
+            if (Boolean.TRUE.equals(guardValue)
+                    || !ValueConverter.GLOBAL_CONVERTER.get().canConvertValueForScript(javaObject, Scriptable.class))
             {
-                result = (Scriptable) ValueConverter.GLOBAL_CONVERTER.get().convertValueForScript(javaObject, Scriptable.class);
-
-                if (!(javaObject instanceof Scriptable) && result.getParentScope() == null)
+                if (javaObject instanceof Scriptable)
                 {
-                    result.setParentScope(scope == null ? this.scope : scope);
+                    // either an unconvertable Scriptable or recursive wrap call
+                    // this counteracts the override in wrap(Context, Scriptable, Object, Class)
+                    result = (Scriptable) javaObject;
+                }
+                else if (!this.isJavaPrimitiveWrap()
+                        && (javaObject instanceof CharSequence || javaObject instanceof Number || javaObject instanceof Boolean))
+                {
+                    result = ScriptRuntime.toObject(cx, scope, javaObject);
+                }
+                else
+                {
+                    // default
+                    result = super.wrapAsJavaObject(cx, scope == null ? this.scope : scope, javaObject, staticType);
+
+                    if (result instanceof NativeJavaObject)
+                    {
+                        final ProxyFactory proxyFactory = new ConstructorArgumentAwareProxyFactory(new Object[] {
+                                scope == null ? this.scope : scope, javaObject, staticType }, new Class<?>[] { Scriptable.class,
+                                Object.class, Class.class });
+                        proxyFactory.addAdvice(AdapterObjectInterceptor.getInstance());
+                        proxyFactory.addAdvice(NativeJavaMethodWrappingInterceptor.getInstance());
+                        proxyFactory.setInterfaces(ClassUtils.collectInterfaces(NativeJavaObject.class,
+                                Arrays.<Class<?>> asList(AdapterObject.class)));
+                        proxyFactory.setTarget(result);
+                        proxyFactory.setProxyTargetClass(true);
+                        result = (Scriptable) proxyFactory.getProxy();
+                    }
                 }
             }
-            finally
+            else
             {
-                this.recursionGuard.set(guardValue);
+                this.recursionGuard.set(Boolean.TRUE);
+                try
+                {
+                    result = (Scriptable) ValueConverter.GLOBAL_CONVERTER.get().convertValueForScript(javaObject, Scriptable.class);
+
+                    if (!(javaObject instanceof Scriptable) && result.getParentScope() == null)
+                    {
+                        result.setParentScope(scope == null ? this.scope : scope);
+                    }
+                }
+                finally
+                {
+                    this.recursionGuard.set(guardValue);
+                }
             }
         }
 
         return result;
     }
-
 }

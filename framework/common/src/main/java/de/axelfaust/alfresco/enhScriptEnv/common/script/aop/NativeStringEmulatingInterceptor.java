@@ -14,6 +14,7 @@
 package de.axelfaust.alfresco.enhScriptEnv.common.script.aop;
 
 import java.lang.reflect.Method;
+import java.util.Arrays;
 
 import org.aopalliance.intercept.MethodInterceptor;
 import org.aopalliance.intercept.MethodInvocation;
@@ -24,7 +25,10 @@ import org.mozilla.javascript.NativeJavaObject;
 import org.mozilla.javascript.ScriptRuntime;
 import org.mozilla.javascript.Scriptable;
 import org.mozilla.javascript.ScriptableObject;
+import org.mozilla.javascript.Undefined;
 import org.springframework.aop.framework.ProxyFactory;
+
+import de.axelfaust.alfresco.enhScriptEnv.common.util.ClassUtils;
 
 /**
  * @author Axel Faust
@@ -64,11 +68,11 @@ public class NativeStringEmulatingInterceptor implements MethodInterceptor
         final Object[] arguments = invocation.getArguments();
 
         // CharSequence support is to make ScriptRuntime.shallowEq handle === properly
-        if (backingString != null && CharSequence.class.equals(declaringClass))
+        if (backingString != null && CharSequence.class.isAssignableFrom(declaringClass))
         {
             result = method.invoke(backingString, arguments);
         }
-        else if (backingString != null && Scriptable.class.equals(declaringClass))
+        else if (backingString != null && Scriptable.class.isAssignableFrom(declaringClass))
         {
             result = invocation.proceed();
 
@@ -76,30 +80,47 @@ public class NativeStringEmulatingInterceptor implements MethodInterceptor
             {
                 final Object propertyKey = arguments[0];
 
-                if (result instanceof NativeJavaMethod)
+                final Scriptable nativeString = ScriptRuntime.toObject(Context.getCurrentContext(), (Scriptable) arguments[1],
+                        backingString);
+                final Object nativeProperty;
+                if (propertyKey instanceof String)
+                {
+                    nativeProperty = ScriptableObject.getProperty(nativeString, (String) propertyKey);
+                }
+                else
+                {
+                    nativeProperty = null;
+                }
+
+                if ((nativeProperty == null || nativeProperty == Undefined.instance || nativeProperty == Scriptable.NOT_FOUND || nativeProperty instanceof Function)
+                        && result instanceof NativeJavaMethod)
                 {
                     final ProxyFactory proxyFactory = new ProxyFactory();
                     proxyFactory.addAdvice(AdapterObjectInterceptor.getInstance());
                     proxyFactory.addAdvice(ArgumentAdapterUnwrappingInterceptor.getInstance());
                     proxyFactory.addAdvice(NativeStringMethodSwitchInterceptor.getInstance());
+                    proxyFactory.addAdvice(NativeJavaMethodWrapFactoryInterceptor.getInstance());
                     proxyFactory.setInterfaces(Function.class, AdapterObject.class);
                     proxyFactory.setTarget(result);
                     result = proxyFactory.getProxy();
                 }
-                // Handle native-only String functions
-                else if (Scriptable.NOT_FOUND.equals(result) && propertyKey instanceof String)
+                // prefer non-function, defined native property over a Java method handle (i.e. length vs length())
+                else if (result instanceof NativeJavaMethod
+                        && (nativeProperty != null && nativeProperty != Undefined.instance && nativeProperty != Scriptable.NOT_FOUND))
                 {
-                    final Scriptable nativeString = ScriptRuntime.toObject(Context.getCurrentContext(), (Scriptable) arguments[1],
-                            backingString);
-                    final Object nativeProperty = ScriptableObject.getProperty(nativeString, (String) propertyKey);
-
+                    result = nativeProperty;
+                }
+                // Handle native-only String functions
+                else if ((result == null || Undefined.instance == result || Scriptable.NOT_FOUND == result))
+                {
                     if (nativeProperty instanceof Function)
                     {
                         final ProxyFactory proxyFactory = new ProxyFactory();
                         proxyFactory.addAdvice(AdapterObjectInterceptor.getInstance());
                         proxyFactory.addAdvice(ArgumentAdapterUnwrappingInterceptor.getInstance());
                         proxyFactory.addAdvice(NativeStringConvertingInterceptor.getInstance());
-                        proxyFactory.setInterfaces(Function.class, AdapterObject.class);
+                        proxyFactory.setInterfaces(ClassUtils.collectInterfaces(nativeProperty,
+                                Arrays.<Class<?>> asList(AdapterObject.class)));
                         proxyFactory.setTarget(nativeProperty);
                         result = proxyFactory.getProxy();
                     }

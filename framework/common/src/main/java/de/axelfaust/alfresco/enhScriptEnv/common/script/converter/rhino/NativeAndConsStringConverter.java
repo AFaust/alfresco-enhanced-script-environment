@@ -23,6 +23,7 @@ import org.mozilla.javascript.Scriptable;
 import org.mozilla.javascript.ScriptableObject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.aop.framework.ConstructorArgumentAwareProxyFactory;
 import org.springframework.aop.framework.ProxyFactory;
 import org.springframework.beans.factory.InitializingBean;
 
@@ -198,12 +199,13 @@ public class NativeAndConsStringConverter implements ValueInstanceConverter, Ini
 
         final NativeJavaObject nativeJavaObject = new NativeJavaObject(DUMMY_SCOPE, value, value.getClass());
 
-        final ProxyFactory proxyFactory = new ProxyFactory();
-
+        final ProxyFactory proxyFactory = new ConstructorArgumentAwareProxyFactory(new Object[] { DUMMY_SCOPE, value, value.getClass() },
+                new Class<?>[] { Scriptable.class, Object.class, Class.class });
         proxyFactory.addAdvice(AdapterObjectInterceptor.getInstance());
         proxyFactory.addAdvice(NativeStringEmulatingInterceptor.getInstance());
         proxyFactory.setInterfaces(ClassUtils.collectInterfaces(nativeJavaObject, Arrays.<Class<?>> asList(AdapterObject.class)));
         proxyFactory.setTarget(nativeJavaObject);
+        proxyFactory.setProxyTargetClass(true);
 
         final Object result = proxyFactory.getProxy();
         return result;

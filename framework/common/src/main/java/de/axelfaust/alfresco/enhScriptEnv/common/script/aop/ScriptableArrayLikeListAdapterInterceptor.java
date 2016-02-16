@@ -44,7 +44,7 @@ public class ScriptableArrayLikeListAdapterInterceptor implements MethodIntercep
         final Object result;
         final Method method = invocation.getMethod();
         final Class<?> declaringClass = method.getDeclaringClass();
-        if (Scriptable.class.equals(declaringClass) && invocation instanceof ProxyMethodInvocation)
+        if (Scriptable.class.isAssignableFrom(declaringClass) && invocation instanceof ProxyMethodInvocation)
         {
             final ProxyMethodInvocation pInvocation = (ProxyMethodInvocation) invocation;
             final Object proxy = pInvocation.getProxy();

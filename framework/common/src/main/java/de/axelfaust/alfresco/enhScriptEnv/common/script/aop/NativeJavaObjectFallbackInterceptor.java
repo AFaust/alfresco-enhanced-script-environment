@@ -77,7 +77,7 @@ public class NativeJavaObjectFallbackInterceptor implements MethodInterceptor
         Object result;
         final Method method = invocation.getMethod();
         final Class<?> declaringClass = method.getDeclaringClass();
-        if (Scriptable.class.equals(declaringClass) && invocation instanceof ProxyMethodInvocation)
+        if (Scriptable.class.isAssignableFrom(declaringClass) && invocation instanceof ProxyMethodInvocation)
         {
             final Object _this = invocation.getThis();
             NativeJavaObject nativeObject = NATIVE_OBJECT_CACHE.get(_this);
@@ -119,6 +119,7 @@ public class NativeJavaObjectFallbackInterceptor implements MethodInterceptor
                             final ProxyFactory proxyFactory = new ProxyFactory();
                             proxyFactory.addAdvice(AdapterObjectInterceptor.getInstance());
                             proxyFactory.addAdvice(new NativeJavaMethodArgumentCorrectingInterceptor(NATIVE_OBJECT_CACHE));
+                            proxyFactory.addAdvice(NativeJavaMethodWrapFactoryInterceptor.getInstance());
                             proxyFactory.setInterfaces(ClassUtils.collectInterfaces(NativeJavaMethod.class,
                                     Arrays.<Class<?>> asList(AdapterObject.class)));
                             proxyFactory.setTarget(result);
