@@ -14,16 +14,21 @@
 package de.axelfaust.alfresco.enhScriptEnv.common.script.converter.rhino;
 
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.IdentityHashMap;
 import java.util.List;
+import java.util.Map;
 
 import org.alfresco.util.PropertyCheck;
 import org.mozilla.javascript.Context;
 import org.mozilla.javascript.Scriptable;
 import org.mozilla.javascript.WrapFactory;
 import org.mozilla.javascript.Wrapper;
+
 import de.axelfaust.alfresco.enhScriptEnv.common.script.converter.ValueConverter;
 import de.axelfaust.alfresco.enhScriptEnv.common.script.converter.ValueInstanceConverterRegistry;
 import de.axelfaust.alfresco.enhScriptEnv.common.script.converter.ValueInstanceConverterRegistry.ValueInstanceConverter;
+
 import org.springframework.beans.factory.InitializingBean;
 
 /**
@@ -33,6 +38,23 @@ import org.springframework.beans.factory.InitializingBean;
  */
 public class WrapFactoryConverter implements ValueInstanceConverter, InitializingBean
 {
+
+    private static final Map<Class<?>, Class<?>> WRAPPER_TO_PRIMITIVE;
+
+    static
+    {
+        // core classes are never redefined, so safe to reference in static map
+        final Map<Class<?>, Class<?>> wrapperToPrimitve = new IdentityHashMap<Class<?>, Class<?>>();
+        wrapperToPrimitve.put(Boolean.class, Boolean.TYPE);
+        wrapperToPrimitve.put(Short.class, Short.TYPE);
+        wrapperToPrimitve.put(Integer.class, Integer.TYPE);
+        wrapperToPrimitve.put(Long.class, Long.TYPE);
+        wrapperToPrimitve.put(Float.class, Float.TYPE);
+        wrapperToPrimitve.put(Double.class, Double.TYPE);
+        wrapperToPrimitve.put(Character.class, Character.TYPE);
+        wrapperToPrimitve.put(Byte.class, Byte.TYPE);
+        WRAPPER_TO_PRIMITIVE = Collections.unmodifiableMap(wrapperToPrimitve);
+    }
 
     protected ValueInstanceConverterRegistry registry;
 
@@ -109,8 +131,13 @@ public class WrapFactoryConverter implements ValueInstanceConverter, Initializin
         this.currentConversions.get().add(value);
         try
         {
+            Class<?> staticType = value.getClass();
+            if (WRAPPER_TO_PRIMITIVE.containsKey(staticType))
+            {
+                staticType = WRAPPER_TO_PRIMITIVE.get(staticType);
+            }
             // if conversion call is made in a scope-ful context, the caller needs to take care of setting parentScope for Scriptable
-            result = factory.wrap(currentContext, null, value, null);
+            result = factory.wrap(currentContext, null, value, staticType);
         }
         finally
         {

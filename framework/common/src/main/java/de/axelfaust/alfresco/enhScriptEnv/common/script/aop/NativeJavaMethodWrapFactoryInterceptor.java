@@ -13,6 +13,10 @@
  */
 package de.axelfaust.alfresco.enhScriptEnv.common.script.aop;
 
+import java.util.Collections;
+import java.util.IdentityHashMap;
+import java.util.Map;
+
 import org.aopalliance.intercept.MethodInterceptor;
 import org.aopalliance.intercept.MethodInvocation;
 import org.mozilla.javascript.Context;
@@ -28,6 +32,8 @@ import de.axelfaust.alfresco.enhScriptEnv.common.script.converter.rhino.Delegati
  */
 public class NativeJavaMethodWrapFactoryInterceptor implements MethodInterceptor
 {
+
+    private static final Map<Class<?>, Class<?>> WRAPPER_TO_PRIMITIVE;
 
     private static final Scriptable DUMMY_SCOPE;
     static
@@ -45,6 +51,18 @@ public class NativeJavaMethodWrapFactoryInterceptor implements MethodInterceptor
         {
             Context.exit();
         }
+
+        // core classes are never redefined, so safe to reference in static map
+        final Map<Class<?>, Class<?>> wrapperToPrimitve = new IdentityHashMap<Class<?>, Class<?>>();
+        wrapperToPrimitve.put(Boolean.class, Boolean.TYPE);
+        wrapperToPrimitve.put(Short.class, Short.TYPE);
+        wrapperToPrimitve.put(Integer.class, Integer.TYPE);
+        wrapperToPrimitve.put(Long.class, Long.TYPE);
+        wrapperToPrimitve.put(Float.class, Float.TYPE);
+        wrapperToPrimitve.put(Double.class, Double.TYPE);
+        wrapperToPrimitve.put(Character.class, Character.TYPE);
+        wrapperToPrimitve.put(Byte.class, Byte.TYPE);
+        WRAPPER_TO_PRIMITIVE = Collections.unmodifiableMap(wrapperToPrimitve);
     }
 
     private static final NativeJavaMethodWrapFactoryInterceptor INSTANCE = new NativeJavaMethodWrapFactoryInterceptor();
@@ -97,7 +115,15 @@ public class NativeJavaMethodWrapFactoryInterceptor implements MethodInterceptor
         if (result != null && Undefined.instance != result && Scriptable.NOT_FOUND != result)
         {
             result = Context.jsToJava(result, Object.class);
-            result = wrapFactory.wrap(cx, scope != null ? scope : DUMMY_SCOPE, result, result.getClass());
+
+            // even if signature may not use primitve, we prefer them (this also avoids wrapping them)
+            Class<?> staticType = result.getClass();
+            if (WRAPPER_TO_PRIMITIVE.containsKey(staticType))
+            {
+                staticType = WRAPPER_TO_PRIMITIVE.get(staticType);
+            }
+
+            result = wrapFactory.wrap(cx, scope != null ? scope : DUMMY_SCOPE, result, staticType);
         }
         return result;
     }
