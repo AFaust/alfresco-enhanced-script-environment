@@ -28,6 +28,7 @@ import org.mozilla.javascript.ScriptableObject;
 import org.mozilla.javascript.Undefined;
 import org.springframework.aop.framework.ProxyFactory;
 
+import de.axelfaust.alfresco.enhScriptEnv.common.script.functions.simulated.HybridValueFunction;
 import de.axelfaust.alfresco.enhScriptEnv.common.util.ClassUtils;
 
 /**
@@ -80,8 +81,8 @@ public class NativeStringEmulatingInterceptor implements MethodInterceptor
             {
                 final Object propertyKey = arguments[0];
 
-                final Scriptable nativeString = ScriptRuntime.toObject(Context.getCurrentContext(), (Scriptable) arguments[1],
-                        backingString);
+                final Scriptable scope = (Scriptable) arguments[1];
+                final Scriptable nativeString = ScriptRuntime.toObject(Context.getCurrentContext(), scope, backingString);
                 final Object nativeProperty;
                 if (propertyKey instanceof String)
                 {
@@ -108,7 +109,8 @@ public class NativeStringEmulatingInterceptor implements MethodInterceptor
                 else if (result instanceof NativeJavaMethod
                         && (nativeProperty != null && nativeProperty != Undefined.instance && nativeProperty != Scriptable.NOT_FOUND))
                 {
-                    result = nativeProperty;
+                    final Object value = Context.jsToJava(nativeProperty, Object.class);
+                    result = new HybridValueFunction(scope, value, Object.class, (Function) result);
                 }
                 // Handle native-only String functions
                 else if ((result == null || Undefined.instance == result || Scriptable.NOT_FOUND == result))
